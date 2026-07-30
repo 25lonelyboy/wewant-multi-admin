@@ -1,0 +1,5 @@
+packages:
+  # 匹配packages下所有一级子目录
+  - 'packages/*'
+allowBuilds:
+  unrs-resolver: set this to true or false

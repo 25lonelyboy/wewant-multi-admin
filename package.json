@@ -1,0 +1,32 @@
+{
+  "name": "multi-admin",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "dev": "pnpm -r run dev",
+    "dev:web": "pnpm --filter web-vue run dev",
+    "dev:serve": "pnpm --filter server-nestjs run dev",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "checktype": "pnpm -r run checktype"
+  },
+  "keywords": [],
+  "author": "wewant-rocky",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.18.0",
+      "onFail": "download"
+    }
+  },
+  "type": "module",
+  "engines":{
+    "node": ">=25.9.0"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.31.1",
+    "typescript": "^7.0.2"
+  }
+}
