@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "dev": "pnpm -r run dev",
+    "dev": "pnpm -r --parallel run dev",
     "dev:web": "pnpm --filter web-vue run dev",
     "dev:serve": "pnpm --filter server-nestjs run dev",
     "build": "pnpm -r run build",
