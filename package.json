@@ -5,8 +5,9 @@
   "description": "",
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
-    "dev:web": "pnpm --filter web-vue run dev",
-    "dev:serve": "pnpm --filter server-nestjs run dev",
+    "dev:web": "pnpm --filter @multi-admin/vben-web run dev",
+    "dev:serve": "pnpm --filter @multi-admin/nestjs-server run dev",
+    "dev:mobile": "pnpm --filter @multi-admin/uni-mobile run dev:h5",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
     "checktype": "pnpm -r run checktype"

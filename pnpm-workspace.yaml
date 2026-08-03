@@ -1,5 +1,9 @@
 packages:
   # 匹配packages下所有一级子目录
   - 'packages/*'
+  - 'apps/*'
 allowBuilds:
+  core-js: true
+  core-js-pure: true
+  esbuild: true
   unrs-resolver: set this to true or false
