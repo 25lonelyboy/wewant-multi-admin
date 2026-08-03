@@ -6,4 +6,7 @@ allowBuilds:
   core-js: true
   core-js-pure: true
   esbuild: true
-  unrs-resolver: set this to true or false
+catalog:
+  '@vue/tsconfig': ^0.7.0
+  typescript: ^5.8.3
+  vue-tsc: ^2.2.12

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
     "dev:web": "pnpm --filter @multi-admin/vben-web run dev",
-    "dev:serve": "pnpm --filter @multi-admin/nestjs-server run dev",
+    "dev:server": "pnpm --filter @multi-admin/nestjs-server run dev",
     "dev:mobile": "pnpm --filter @multi-admin/uni-mobile run dev:h5",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
@@ -15,6 +15,7 @@
   "keywords": [],
   "author": "wewant-rocky",
   "license": "ISC",
+  "type": "module",
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
@@ -22,12 +23,13 @@
       "onFail": "download"
     }
   },
-  "type": "module",
+  "packageManager": "pnpm@11.18.0",
   "engines": {
-    "node": ">=25.9.0"
+    "node": ">=24.18.1",
+    "pnpm": ">=11.18.0"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
-    "typescript": "^7.0.2"
+    "typescript": "catalog:"
   }
 }
