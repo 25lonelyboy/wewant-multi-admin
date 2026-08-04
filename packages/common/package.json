@@ -1,10 +1,10 @@
 {
   "name": "@multi-admin/common",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "多端管理系统 - 共享基础包（类型定义 / 工具函数 / 常量）",
   "main": "./dist/index.js",
-  "modules": "./dist/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports":{
     ".": {
@@ -17,10 +17,13 @@
   "scripts": {
     "dev":"tsc -w",
     "build":"tsc",
-    "checktype": "tsc --noEmit"
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "@multi-admin/tsconfig": "workspace:*"
+  }
 }
