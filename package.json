@@ -9,6 +9,7 @@
     "dev:mobile": "pnpm --filter @multi-admin/uni-mobile run dev:h5",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
+    "format": "prettier --write .",
     "typecheck": "pnpm -r run typecheck"
   },
   "keywords": [],
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@changesets/cli": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "prettier": "catalog:"
   }
 }

@@ -1,0 +1,30 @@
+{
+  "name": "@multi-admin/eslint-config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "多端管理系统 - ESLint 共享配置（base / typescript / node / vue）",
+  "type": "module",
+  "exports":{
+    "./base": "./base.mjs",
+    "./typescript": "./typescript.mjs",
+    "./node": "./node.mjs",
+    "./vue": "./vue.mjs"
+  },
+  "files": [
+    "base.mjs",
+    "typescript.mjs",
+    "node.mjs",
+    "vue.mjs"
+  ],
+  "dependencies": {
+    "@eslint/js": "catalog:",
+    "eslint-config-prettier": "catalog:",
+    "eslint-plugin-vue": "catalog:",
+    "globals": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vue-eslint-parser": "catalog:"
+  },
+  "peerDependencies": {
+    "eslint": "catalog:"
+  }
+}
