@@ -1,3 +1,3 @@
-const TEST = "TEST" as const;
+const TEST = 'TEST' as const;
 
 export default TEST;

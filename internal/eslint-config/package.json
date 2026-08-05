@@ -4,7 +4,7 @@
   "private": true,
   "description": "多端管理系统 - ESLint 共享配置（base / typescript / node / vue）",
   "type": "module",
-  "exports":{
+  "exports": {
     "./base": "./base.mjs",
     "./typescript": "./typescript.mjs",
     "./node": "./node.mjs",

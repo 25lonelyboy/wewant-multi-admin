@@ -1,14 +1,14 @@
 {
-    "$schema": "https://www.schemastore.org/tsconfig",
-    "display": "Web Config",
-    "extends": "./base.json",
-    "compilerOptions": {
-        "target": "ESNext",
-        "module": "ESNext",
-        "moduleResolution": "bundler",
-        "lib": ["ESNext", "DOM", "DOM.Iterable"],
-        "jsx": "preserve",
-        "resolveJsonModule": true,
-        "esModuleInterop": true
-    }
+  "$schema": "https://www.schemastore.org/tsconfig",
+  "display": "Web Config",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "jsx": "preserve",
+    "resolveJsonModule": true,
+    "esModuleInterop": true
+  }
 }

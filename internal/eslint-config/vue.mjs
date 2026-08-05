@@ -14,10 +14,10 @@ export const vueConfig = [
       parserOptions: {
         parser: tseslint.parser,
         extraFileExtensions: ['.vue'],
-        sourceType: 'module',
-      },
-    },
-  },
+        sourceType: 'module'
+      }
+    }
+  }
 ];
 
 export default vueConfig;

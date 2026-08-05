@@ -1,14 +1,14 @@
 {
-    "$schema": "https://www.schemastore.org/tsconfig",
-    "display": "Node Server Config",
-    "extends": "./base.json",
-    "compilerOptions": {
-        "target": "ES2023",
-        "module": "NodeNext",
-        "moduleResolution": "nodenext",
-        "experimentalDecorators": true,
-        "emitDecoratorMetadata": true,
-        "esModuleInterop": true,
-        "types": ["node"]
-    }
+  "$schema": "https://www.schemastore.org/tsconfig",
+  "display": "Node Server Config",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
+    "types": ["node"]
+  }
 }
