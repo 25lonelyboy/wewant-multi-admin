@@ -1,0 +1,14 @@
+# 顶层配置，作用于全部文件
+root = true
+
+[*]
+charset = utf-8        # 文件编码
+indent_style = space   # 空格缩进，tab则填tab
+indent_size = 2        # 缩进宽度
+end_of_line = crlf       # 换行符 lf/windows用crlf
+insert_final_newline = false # 文件末尾空一行
+trim_trailing_whitespace = true # 保存删除行尾空格
+
+# 单独配置指定后缀
+[*.{js,ts,tsx,vue}]
+indent_size = 2

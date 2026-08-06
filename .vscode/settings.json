@@ -1,0 +1,64 @@
+{
+  // ==================== 通用 ====================
+  // 换行符与 .editorconfig 的 end_of_line = crlf 保持一致
+  "files.eol": "\r\n",
+  // 文件编码与 .editorconfig 的 charset = utf-8 一致
+  "files.encoding": "utf8",
+
+  // ==================== 编辑器 ====================
+  // 缩进 2 空格，与 .editorconfig / Prettier 默认一致
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  // 保存时自动格式化（交给 Prettier）
+  "editor.formatOnSave": true,
+  // 全局默认格式化工具指定为 Prettier
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  // 保存时自动修复 ESLint 可修复的问题（explicit = 显式保存时触发，避免后台频繁执行）
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+
+  // ==================== Prettier ====================
+  // 必须存在配置文件（.prettierrc.js）才格式化，防止在无配置目录下误格式化
+  "prettier.requireConfig": true,
+
+  // ==================== ESLint ====================
+  // 对这三类文件启用 ESLint 校验
+  "eslint.validate": ["javascript", "typescript", "vue"],
+  // monorepo 关键配置：auto 模式让每个子包使用离自己最近的 eslint.config.mjs 作为工作目录
+  "eslint.workingDirectories": [{ "mode": "auto" }],
+  // 格式化职责完全交给 Prettier（工程里已用 eslint-config-prettier 关闭格式类规则）
+  "eslint.format.enable": false,
+  // 注：vscode-eslint 3.x 已自动识别 flat config，无需再配 eslint.useFlatConfig
+
+  // ==================== TypeScript ====================
+  // 使用工作区安装的 TS 版本（catalog 统一为 ^5.8.3），避免与编辑器内置版本不一致
+  "typescript.tsdk": "node_modules/typescript/lib",
+  // 允许状态栏提示切换到工作区 TS 版本
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+
+  // ==================== 包管理 ====================
+  // VS Code 内置的 npm 脚本面板等操作统一使用 pnpm
+  "npm.packageManager": "pnpm",
+
+  // ==================== 性能与搜索排除 ====================
+  // .npmrc 中自定义了 store-dir=.pnpm-store，连同 node_modules/dist 一起排除文件监听，降低 IO
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.pnpm-store/**": true,
+    "**/dist/**": true
+  },
+  // 全局搜索时排除依赖目录、产物、store 和 lock 文件
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.pnpm-store": true,
+    "**/dist": true,
+    "**/pnpm-lock.yaml": true
+  },
+
+  // ==================== 语言级格式化 ====================
+  // 显式为 Vue / JSON 文件指定 Prettier，防止被其他插件（如 Volar）抢占格式化器
+  "[vue]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[json]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[jsonc]": { "editor.defaultFormatter": "esbenp.prettier-vscode" }
+}

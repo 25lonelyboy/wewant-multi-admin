@@ -1,0 +1,22 @@
+{
+  "recommendations": [
+    // ESLint 实时检查：支持 ESLint 10 flat config，能识别各子包的 eslint.config.mjs
+    "dbaeumer.vscode-eslint",
+    // Prettier 格式化：自动读取根目录 .prettierrc.js（单引号、无尾逗号等）
+    "esbenp.prettier-vscode",
+    // EditorConfig 支持：应用 .editorconfig 的编码/缩进/换行符（VS Code 已内置基础支持，此插件为兼容保险）
+    "editorconfig.editorconfig",
+    // Vue 官方语言服务（原 Volar）：uni-mobile 的 SFC 高亮、类型检查（配合 vue-tsc）
+    "Vue.volar",
+    // uni-app 组件标签、属性补全与文档提示
+    "uni-helper.uni-helper-vscode",
+    // 校验 uni-app 的 manifest.json / pages.json 结构
+    "uni-helper.uni-app-schemas-vscode",
+    // Jest 测试支持：nestjs-server 使用 Jest 30，可内联运行/调试测试
+    "Orta.vscode-jest"
+  ],
+  "unwantedRecommendations": [
+    // Vue 2 时代的插件，会与 Volar 冲突，明确提示不要安装
+    "octref.vetur"
+  ]
+}

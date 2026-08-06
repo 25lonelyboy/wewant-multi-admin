@@ -1,3 +1,1 @@
-const TEST = 'TEST' as const;
-
-export default TEST;
+export const TEST = 'TEST' as const;

@@ -10,7 +10,8 @@
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
     "format": "prettier --write .",
-    "typecheck": "pnpm -r run typecheck"
+    "typecheck": "pnpm -r run typecheck",
+    "clean:cache": "node ./scripts/clean.mjs --del-lock && pnpm install"
   },
   "keywords": [],
   "author": "wewant-rocky",
