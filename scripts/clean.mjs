@@ -44,7 +44,7 @@ async function processItem(currentDir, item, targets, _depth) {
       console.error(`❌ Permission denied: ${item} in ${currentDir}`);
     } else {
       console.error(
-        `❌ Error handling item ${item} in ${currentDir}: ${error.message}`,
+        `❌ Error handling item ${item} in ${currentDir}: ${error.message}`
       );
     }
     return false;
@@ -78,7 +78,7 @@ async function cleanTargetsRecursively(currentDir, targets, depth = 0) {
   for (let i = 0; i < dirents.length; i += CONCURRENCY_LIMIT) {
     const batch = dirents.slice(i, i + CONCURRENCY_LIMIT);
 
-    const tasks = batch.map(async (dirent) => {
+    const tasks = batch.map(async dirent => {
       const item = dirent.name;
       const shouldRecurse = await processItem(currentDir, item, targets, depth);
 
@@ -95,12 +95,10 @@ async function cleanTargetsRecursively(currentDir, targets, depth = 0) {
     const results = await Promise.allSettled(tasks);
 
     // 检查是否有失败的任务（可选：用于调试）
-    const failedTasks = results.filter(
-      (result) => result.status === 'rejected',
-    );
+    const failedTasks = results.filter(result => result.status === 'rejected');
     if (failedTasks.length > 0) {
       console.warn(
-        `${failedTasks.length} tasks failed in batch starting at index ${i} in directory: ${currentDir}`,
+        `${failedTasks.length} tasks failed in batch starting at index ${i} in directory: ${currentDir}`
       );
     }
   }
@@ -117,7 +115,7 @@ async function cleanTargetsRecursively(currentDir, targets, depth = 0) {
   }
 
   console.log(
-    `🚀 Starting cleanup of targets: ${cleanupTargets.join(', ')} from root: ${rootDir}`,
+    `🚀 Starting cleanup of targets: ${cleanupTargets.join(', ')} from root: ${rootDir}`
   );
 
   const startTime = Date.now();
@@ -132,7 +130,7 @@ async function cleanTargetsRecursively(currentDir, targets, depth = 0) {
     const duration = (endTime - startTime) / 1000;
 
     console.log(
-      `✨ Cleanup process completed successfully in ${duration.toFixed(2)}s`,
+      `✨ Cleanup process completed successfully in ${duration.toFixed(2)}s`
     );
   } catch (error) {
     console.error(`💥 Unexpected error during cleanup: ${error.message}`);

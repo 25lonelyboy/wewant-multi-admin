@@ -13,7 +13,21 @@
     // 校验 uni-app 的 manifest.json / pages.json 结构
     "uni-helper.uni-app-schemas-vscode",
     // Jest 测试支持：nestjs-server 使用 Jest 30，可内联运行/调试测试
-    "Orta.vscode-jest"
+    "Orta.vscode-jest",
+    // YAML 语言支持：为 docker-compose.yml、CI/CD 等配置文件提供语法高亮与校验
+    "redhat.vscode-yaml",
+    // PostCSS 支持：提供 PostCSS 语法高亮与错误检查，辅助处理 CSS 转换
+    "csstools.postcss",
+    // DotEnv 支持：为 .env 环境变量文件提供语法高亮与键名补全
+    "mikestead.dotenv",
+    // Markdown 校验：实时检查 README.md 等文档的格式与书写规范
+    "davidanson.vscode-markdownlint",
+    // Docker 支持：提供 Dockerfile 语法高亮、指令补全及本地容器管理
+    "ms-azuretools.vscode-docker",
+    // Stylelint 实时检查：校验 CSS/SCSS/Vue 样式代码，确保样式规范统一
+    "stylelint.vscode-stylelint",
+    // Tailwind CSS 支持：提供 Tailwind 原子类名自动补全、悬浮预览与语法高亮
+    "bradlc.vscode-tailwindcss"
   ],
   "unwantedRecommendations": [
     // Vue 2 时代的插件，会与 Volar 冲突，明确提示不要安装

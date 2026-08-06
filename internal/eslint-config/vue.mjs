@@ -9,7 +9,7 @@ export const vueConfig = [
   ...tseslint.configs.recommended,
   ...pluginVue.configs['flat/recommended'],
   {
-    languageOptions:{
+    languageOptions: {
       globals: {
         ...globals.browser
       }
