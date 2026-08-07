@@ -1,6 +1,7 @@
 {
   "name": "@multi-admin/uni-mobile",
   "version": "0.1.0",
+  "private": true,
   "scripts": {
     "dev": "uni",
     "dev:custom": "uni -p",

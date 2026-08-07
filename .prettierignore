@@ -1,4 +1,7 @@
+.pnpm-store
 pnpm-lock.yaml
 **/node_modules
 **/dist
-.pnpm-store
+**/unpackage
+**/target
+**/tests/**/coverage
