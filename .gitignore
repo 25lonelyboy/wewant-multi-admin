@@ -1,9 +1,46 @@
+.pnpm-store
+.eslintcache
+
+# compiled output
 node_modules
 **/node_modules
-
 dist
 **/dist
-
+unpackage
+**/unpackage
+target
+**/target
 **/*.tsbuildinfo
+*.local
 
-.pnpm-store
+# Tests
+**/tests/**/coverage/
+
+# OS
+.DS_Store
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# dotenv environment variable files
+.env*
+!.env.example
+
+# logs
+**/logs
+**/*.log
+**/*.log*
+
+# temp directory
+.temp
+.tmp
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock

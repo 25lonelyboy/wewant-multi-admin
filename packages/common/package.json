@@ -3,22 +3,28 @@
   "version": "0.1.0",
   "private": true,
   "description": "多端管理系统 - 共享基础包（类型定义 / 工具函数 / 常量）",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "dev": "tsc -w",
-    "build": "tsc",
+    "dev": "tsdown --watch",
+    "build": "tsdown",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],
@@ -26,6 +32,7 @@
   "license": "ISC",
   "type": "module",
   "devDependencies": {
-    "@multi-admin/tsconfig": "workspace:*"
+    "@multi-admin/tsconfig": "workspace:*",
+    "tsdown": "catalog:"
   }
 }

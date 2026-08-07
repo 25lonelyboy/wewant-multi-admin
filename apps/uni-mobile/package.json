@@ -71,7 +71,7 @@
     "eslint": "catalog:",
     "prettier": "catalog:",
     "typescript": "catalog:",
-    "vite": "5.2.8",
+    "vite": "catalog:uni-app",
     "vue-tsc": "catalog:"
   }
 }

@@ -2,7 +2,6 @@
   "extends": "@multi-admin/tsconfig/node.json",
   "compilerOptions": {
     "resolvePackageJsonExports": true,
-    "declaration": true,
     "removeComments": true,
     "allowSyntheticDefaultImports": true,
     "sourceMap": true,

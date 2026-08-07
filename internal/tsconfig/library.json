@@ -8,7 +8,7 @@
     "moduleResolution": "bundler",
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true,
-    "composite": true
+    "sourceMap": true
+    // "composite": true
   }
 }

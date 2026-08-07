@@ -3,7 +3,6 @@
 
   // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
-    "outDir": "./dist",
     "rootDir": "./src"
   },
   "include": ["src"],
