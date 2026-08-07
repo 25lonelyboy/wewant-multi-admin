@@ -44,3 +44,6 @@ pids
 *.pid
 *.seed
 *.pid.lock
+
+# husky auto-generated runtime dir (hook files themselves are committed)
+.husky/_

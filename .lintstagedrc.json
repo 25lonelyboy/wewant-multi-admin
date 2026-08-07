@@ -1,0 +1,4 @@
+{
+  "apps/**/*.{ts,js,mjs,vue}": ["pnpm exec eslint --fix"],
+  "**/*": ["pnpm exec prettier --write --ignore-unknown"]
+}

@@ -11,7 +11,8 @@
     "lint": "pnpm -r run lint",
     "format": "prettier --write .",
     "typecheck": "pnpm -r run typecheck",
-    "clean:cache": "node ./scripts/clean.mjs --del-lock && pnpm install"
+    "clean:cache": "node ./scripts/clean.mjs --del-lock && pnpm install",
+    "prepare": "husky"
   },
   "keywords": [],
   "author": "wewant-rocky",
@@ -24,6 +25,11 @@
   },
   "devDependencies": {
     "@changesets/cli": "catalog:",
+    "@commitlint/cli": "catalog:",
+    "@commitlint/config-conventional": "catalog:",
+    "eslint": "catalog:",
+    "husky": "catalog:",
+    "lint-staged": "catalog:",
     "typescript": "catalog:",
     "prettier": "catalog:"
   }

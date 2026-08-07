@@ -10,6 +10,8 @@ allowBuilds:
   unrs-resolver: true
 catalog:
   '@changesets/cli': '^2.31.1'
+  '@commitlint/cli': '^21.2.1'
+  '@commitlint/config-conventional': '^21.2.0'
   '@dcloudio/types': '^3.4.8'
   '@dcloudio/uni-app': '3.0.0-5010520260709002'
   '@dcloudio/uni-app-harmony': '3.0.0-5010520260709002'
@@ -48,7 +50,9 @@ catalog:
   'eslint-plugin-vue': '^10.9.2'
   'eslint-config-prettier': '^10.1.8'
   'globals': '^17.0.0'
+  'husky': '^9.1.7'
   'jest': '30.4.1'
+  'lint-staged': '^17.3.0'
   'prettier': '^3.9.5'
   'reflect-metadata': '^0.2.2'
   'rxjs': '^7.8.1'
