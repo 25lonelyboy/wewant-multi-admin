@@ -60,5 +60,7 @@
   // 显式为 Vue / JSON 文件指定 Prettier，防止被其他插件（如 Volar）抢占格式化器
   "[vue]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
   "[json]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
-  "[jsonc]": { "editor.defaultFormatter": "esbenp.prettier-vscode" }
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
 }

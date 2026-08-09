@@ -7,6 +7,7 @@
     "dev": "pnpm -r --parallel run dev",
     "dev:server": "pnpm --filter @multi-admin/nestjs-server run dev",
     "dev:mobile": "pnpm --filter @multi-admin/uni-mobile run dev:h5",
+    "dev:web": "pnpm --filter @multi-admin/pure-web run dev",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
     "format": "prettier --write .",

@@ -4,10 +4,15 @@ packages:
   - 'packages/*'
   - 'apps/*'
 allowBuilds:
+  '@logicflow/core': true
+  '@parcel/watcher': true
   core-js: true
   core-js-pure: true
+  es5-ext: true
   esbuild: true
+  typeit: true
   unrs-resolver: true
+  vue-demi: true
 catalog:
   '@changesets/cli': '^2.31.1'
   '@commitlint/cli': '^21.2.1'
