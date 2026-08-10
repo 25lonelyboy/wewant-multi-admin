@@ -30,20 +30,6 @@
     "vite",
     "esm"
   ],
-  "homepage": "https://github.com/pure-admin/vue-pure-admin",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/pure-admin/vue-pure-admin.git"
-  },
-  "bugs": {
-    "url": "https://github.com/pure-admin/vue-pure-admin/issues"
-  },
-  "license": "MIT",
-  "author": {
-    "name": "xiaoxian521",
-    "email": "pureadmin@163.com",
-    "url": "https://github.com/xiaoxian521"
-  },
   "dependencies": {
     "@howdyjs/mouse-menu": "^2.1.7",
     "@pureadmin/descriptions": "^1.2.1",
@@ -79,8 +65,8 @@
     "typeit": "^8.8.7",
     "v-contextmenu": "^3.2.0",
     "version-rocket": "^1.7.4",
-    "vue": "^3.5.40",
-    "vue-i18n": "^11.4.6",
+    "vue": "catalog:",
+    "vue-i18n": "catalog:",
     "vue-json-pretty": "^2.6.0",
     "vue-pdf-embed": "^2.1.5",
     "vue-router": "^5.2.0",
@@ -94,7 +80,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
+    "@eslint/js": "catalog:",
     "@faker-js/faker": "^10.5.0",
     "@iconify/json": "^2.2.502",
     "@iconify/vue": "4.2.0",
@@ -102,7 +88,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@types/dagre": "^0.7.54",
     "@types/js-cookie": "^3.0.6",
-    "@types/node": "^20.19.43",
+    "@types/node": "catalog:",
     "@types/nprogress": "^0.2.3",
     "@types/path-browserify": "^1.0.3",
     "@types/qrcode": "^1.5.6",
@@ -116,16 +102,17 @@
     "cross-env": "^10.1.0",
     "cssnano": "^8.0.2",
     "dagre": "^0.8.5",
-    "eslint": "^10.7.0",
-    "eslint-config-prettier": "^10.1.8",
+    "eslint": "catalog:",
+    "eslint-config-prettier": "catalog:",
     "eslint-plugin-better-tailwindcss": "^4.7.0",
     "eslint-plugin-prettier": "^5.5.6",
-    "eslint-plugin-vue": "^10.9.2",
+    "eslint-plugin-vue": "catalog:",
     "gradient-string": "^3.0.0",
     "postcss": "^8.5.20",
     "postcss-html": "^1.8.1",
     "postcss-load-config": "^6.0.1",
     "postcss-scss": "^4.0.9",
+    "prettier": "catalog:",
     "rimraf": "^6.1.3",
     "rollup-plugin-visualizer": "^7.0.1",
     "sass": "^1.101.0",
@@ -140,21 +127,21 @@
     "stylelint-scss": "^7.2.0",
     "svgo": "^4.0.2",
     "tailwindcss": "^4.3.3",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.64.0",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
     "unplugin-icons": "^23.0.1",
-    "vite": "^8.1.5",
+    "vite": "catalog:",
     "vite-plugin-cdn-import": "^1.0.1",
     "vite-plugin-compression": "^0.5.1",
     "vite-plugin-fake-server": "^2.2.4",
     "vite-plugin-remove-console": "^2.2.0",
     "vite-plugin-router-warn": "^2.0.0",
     "vite-svg-loader": "^5.1.1",
-    "vue-eslint-parser": "^10.4.1",
-    "vue-tsc": "^3.3.7"
+    "vue-eslint-parser": "catalog:",
+    "vue-tsc": "catalog:"
   },
   "engines": {
-    "node": ">=22.22.1",
+    "node": ">=24",
     "pnpm": ">=11"
   }
 }
