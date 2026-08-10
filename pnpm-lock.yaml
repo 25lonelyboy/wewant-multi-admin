@@ -553,6 +553,9 @@ importers:
       stylelint:
         specifier: ^17.14.1
         version: 17.14.1(supports-color@10.2.2)(typescript@6.0.3)
+      stylelint-config-html:
+        specifier: ^2.0.0
+        version: 2.0.0(postcss-html@1.8.1)(stylelint@17.14.1(supports-color@10.2.2)(typescript@6.0.3))
       stylelint-config-recess-order:
         specifier: ^7.7.0
         version: 7.7.0(stylelint-order@8.1.1(stylelint@17.14.1(supports-color@10.2.2)(typescript@6.0.3)))(stylelint@17.14.1(supports-color@10.2.2)(typescript@6.0.3))
@@ -565,9 +568,15 @@ importers:
       stylelint-config-standard-scss:
         specifier: ^17.0.0
         version: 17.0.0(postcss@8.5.26)(stylelint@17.14.1(supports-color@10.2.2)(typescript@6.0.3))
+      stylelint-order:
+        specifier: ^8.1.1
+        version: 8.1.1(stylelint@17.14.1(supports-color@10.2.2)(typescript@6.0.3))
       stylelint-prettier:
         specifier: ^5.0.3
         version: 5.0.3(prettier@3.9.6)(stylelint@17.14.1(supports-color@10.2.2)(typescript@6.0.3))
+      stylelint-scss:
+        specifier: ^7.2.0
+        version: 7.2.0(stylelint@17.14.1(supports-color@10.2.2)(typescript@6.0.3))
       svgo:
         specifier: ^4.0.2
         version: 4.0.2
