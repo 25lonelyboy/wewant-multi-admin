@@ -29,11 +29,12 @@
     "@changesets/cli": "catalog:",
     "@commitlint/cli": "catalog:",
     "@commitlint/config-conventional": "catalog:",
+    "@commitlint/types": "catalog:",
     "eslint": "catalog:",
     "husky": "catalog:",
     "lint-staged": "catalog:",
+    "prettier": "catalog:",
     "stylelint": "catalog:",
-    "typescript": "catalog:",
-    "prettier": "catalog:"
+    "typescript": "catalog:"
   }
 }

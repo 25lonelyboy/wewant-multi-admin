@@ -17,6 +17,7 @@ catalog:
   '@changesets/cli': '^2.31.1'
   '@commitlint/cli': '^21.2.1'
   '@commitlint/config-conventional': '^21.2.0'
+  '@commitlint/types': '^21.2.0'
   '@dcloudio/types': '^3.4.8'
   '@dcloudio/uni-app': '3.0.0-5010520260709002'
   '@dcloudio/uni-app-harmony': '3.0.0-5010520260709002'
