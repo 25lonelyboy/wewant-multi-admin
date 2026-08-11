@@ -38,7 +38,8 @@
     "build:quickapp-webview-huawei": "uni build -p quickapp-webview-huawei",
     "build:quickapp-webview-union": "uni build -p quickapp-webview-union",
     "typecheck": "vue-tsc --noEmit",
-    "lint": "eslint \"{src,test}/**/*.{ts,vue}\" --fix"
+    "lint": "eslint \"{src,test}/**/*.{ts,vue}\" --fix",
+    "stylelint": "stylelint \"src/**/*.{vue,scss,css}\""
   },
   "dependencies": {
     "@dcloudio/uni-app": "catalog:",
@@ -62,6 +63,7 @@
   },
   "devDependencies": {
     "@multi-admin/eslint-config": "workspace:*",
+    "@multi-admin/stylelint-config": "workspace:*",
     "@dcloudio/types": "catalog:",
     "@dcloudio/uni-automator": "catalog:",
     "@dcloudio/uni-cli-shared": "catalog:",
@@ -71,6 +73,7 @@
     "@vue/runtime-core": "catalog:",
     "eslint": "catalog:",
     "prettier": "catalog:",
+    "stylelint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:uni-app",
     "vue-tsc": "catalog:"
