@@ -8,17 +8,20 @@
     "./base": "./base.mjs",
     "./typescript": "./typescript.mjs",
     "./node": "./node.mjs",
-    "./vue": "./vue.mjs"
+    "./vue": "./vue.mjs",
+    "./tailwind": "./tailwind.mjs"
   },
   "files": [
     "base.mjs",
     "typescript.mjs",
     "node.mjs",
-    "vue.mjs"
+    "vue.mjs",
+    "tailwind.mjs"
   ],
   "dependencies": {
     "@eslint/js": "catalog:",
     "eslint-config-prettier": "catalog:",
+    "eslint-plugin-better-tailwindcss": "catalog:",
     "eslint-plugin-vue": "catalog:",
     "globals": "catalog:",
     "typescript-eslint": "catalog:",
