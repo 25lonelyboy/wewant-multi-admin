@@ -162,6 +162,12 @@ catalogs:
     pinia:
       specifier: ^4.0.2
       version: 4.0.2
+    postcss-html:
+      specifier: ^1.8.1
+      version: 1.8.1
+    postcss-scss:
+      specifier: ^4.0.9
+      version: 4.0.9
     prettier:
       specifier: ^3.9.5
       version: 3.9.6
@@ -174,6 +180,30 @@ catalogs:
     source-map-support:
       specifier: ^0.5.21
       version: 0.5.21
+    stylelint:
+      specifier: ^17.14.1
+      version: 17.14.1
+    stylelint-config-html:
+      specifier: ^2.0.0
+      version: 2.0.0
+    stylelint-config-recess-order:
+      specifier: ^7.7.0
+      version: 7.7.0
+    stylelint-config-recommended-vue:
+      specifier: ^1.6.1
+      version: 1.6.1
+    stylelint-config-standard:
+      specifier: ^40.0.0
+      version: 40.0.0
+    stylelint-config-standard-scss:
+      specifier: ^17.0.0
+      version: 17.0.0
+    stylelint-order:
+      specifier: ^8.1.1
+      version: 8.1.1
+    stylelint-scss:
+      specifier: ^7.2.0
+      version: 7.2.0
     supertest:
       specifier: ^7.0.0
       version: 7.2.2
@@ -260,6 +290,9 @@ importers:
       prettier:
         specifier: 'catalog:'
         version: 3.9.6
+      stylelint:
+        specifier: 'catalog:'
+        version: 17.14.1(supports-color@10.2.2)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -484,9 +517,6 @@ importers:
         specifier: ^0.18.5
         version: 0.18.5
     devDependencies:
-      '@eslint/js':
-        specifier: 'catalog:'
-        version: 10.0.1(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))
       '@faker-js/faker':
         specifier: ^10.5.0
         version: 10.5.0
@@ -499,6 +529,12 @@ importers:
       '@intlify/unplugin-vue-i18n':
         specifier: 'catalog:'
         version: 11.2.4(@vue/compiler-dom@3.5.41)(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(rollup@4.62.4)(supports-color@10.2.2)(typescript@5.9.3)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.27.7)(jiti@2.7.0)(sass@1.102.0)(terser@5.49.2)(yaml@2.9.0))(vue-i18n@11.4.8(vue@3.5.41(typescript@5.9.3)))(vue@3.5.41(typescript@5.9.3))
+      '@multi-admin/eslint-config':
+        specifier: workspace:*
+        version: link:../../internal/eslint-config
+      '@multi-admin/stylelint-config':
+        specifier: workspace:*
+        version: link:../../internal/stylelint-config
       '@tailwindcss/vite':
         specifier: 'catalog:'
         version: 4.3.3(vite@8.2.1(@types/node@24.13.3)(esbuild@0.27.7)(jiti@2.7.0)(sass@1.102.0)(terser@5.49.2)(yaml@2.9.0))
@@ -553,33 +589,15 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 10.8.1(jiti@2.7.0)(supports-color@10.2.2)
-      eslint-config-prettier:
-        specifier: 'catalog:'
-        version: 10.1.8(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))
-      eslint-plugin-better-tailwindcss:
-        specifier: 'catalog:'
-        version: 4.7.0(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(tailwindcss@4.3.3)(typescript@5.9.3)
-      eslint-plugin-prettier:
-        specifier: ^5.5.6
-        version: 5.5.6(@types/eslint@9.6.1)(eslint-config-prettier@10.1.8(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2)))(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(prettier@3.9.6)
-      eslint-plugin-vue:
-        specifier: 'catalog:'
-        version: 10.10.0(@typescript-eslint/parser@8.66.0(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@5.9.3))(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(vue-eslint-parser@10.4.1(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2))
       gradient-string:
         specifier: ^3.0.0
         version: 3.0.0
       postcss:
         specifier: ^8.5.20
         version: 8.5.26
-      postcss-html:
-        specifier: ^1.8.1
-        version: 1.8.1
       postcss-load-config:
         specifier: ^6.0.1
         version: 6.0.1(jiti@2.7.0)(postcss@8.5.26)(yaml@2.9.0)
-      postcss-scss:
-        specifier: ^4.0.9
-        version: 4.0.9(postcss@8.5.26)
       prettier:
         specifier: 'catalog:'
         version: 3.9.6
@@ -593,32 +611,8 @@ importers:
         specifier: ^1.101.0
         version: 1.102.0
       stylelint:
-        specifier: ^17.14.1
+        specifier: 'catalog:'
         version: 17.14.1(supports-color@10.2.2)(typescript@5.9.3)
-      stylelint-config-html:
-        specifier: ^2.0.0
-        version: 2.0.0(postcss-html@1.8.1)(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3))
-      stylelint-config-recess-order:
-        specifier: ^7.7.0
-        version: 7.7.0(stylelint-order@8.1.1(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3)))(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3))
-      stylelint-config-recommended-vue:
-        specifier: ^1.6.1
-        version: 1.6.1(postcss-html@1.8.1)(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3))
-      stylelint-config-standard:
-        specifier: ^40.0.0
-        version: 40.0.0(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3))
-      stylelint-config-standard-scss:
-        specifier: ^17.0.0
-        version: 17.0.0(postcss@8.5.26)(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3))
-      stylelint-order:
-        specifier: ^8.1.1
-        version: 8.1.1(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3))
-      stylelint-prettier:
-        specifier: ^5.0.3
-        version: 5.0.3(prettier@3.9.6)(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3))
-      stylelint-scss:
-        specifier: ^7.2.0
-        version: 7.2.0(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3))
       svgo:
         specifier: ^4.0.2
         version: 4.0.2
@@ -628,9 +622,6 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
-      typescript-eslint:
-        specifier: 'catalog:'
-        version: 8.66.0(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@5.9.3)
       unplugin-icons:
         specifier: ^23.0.1
         version: 23.0.1(@vue/compiler-sfc@3.5.41)
@@ -655,9 +646,6 @@ importers:
       vite-svg-loader:
         specifier: 'catalog:'
         version: 5.1.1(supports-color@10.2.2)(vue@3.5.41(typescript@5.9.3))
-      vue-eslint-parser:
-        specifier: 'catalog:'
-        version: 10.4.1(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)
       vue-tsc:
         specifier: 'catalog:'
         version: 3.3.9(typescript@5.9.3)
@@ -737,6 +725,9 @@ importers:
       '@multi-admin/eslint-config':
         specifier: workspace:*
         version: link:../../internal/eslint-config
+      '@multi-admin/stylelint-config':
+        specifier: workspace:*
+        version: link:../../internal/stylelint-config
       '@vue/runtime-core':
         specifier: 'catalog:'
         version: 3.5.41
@@ -749,6 +740,9 @@ importers:
       prettier:
         specifier: 'catalog:'
         version: 3.9.6
+      stylelint:
+        specifier: 'catalog:'
+        version: 17.14.1(supports-color@10.2.2)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -770,6 +764,9 @@ importers:
       eslint-config-prettier:
         specifier: 'catalog:'
         version: 10.1.8(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))
+      eslint-plugin-better-tailwindcss:
+        specifier: 'catalog:'
+        version: 4.7.0(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(tailwindcss@4.3.3)(typescript@5.9.3)
       eslint-plugin-vue:
         specifier: 'catalog:'
         version: 10.10.0(@typescript-eslint/parser@8.66.0(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@5.9.3))(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(vue-eslint-parser@10.4.1(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2))
@@ -782,6 +779,39 @@ importers:
       vue-eslint-parser:
         specifier: 'catalog:'
         version: 10.4.1(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)
+
+  internal/stylelint-config:
+    dependencies:
+      postcss-html:
+        specifier: 'catalog:'
+        version: 1.8.1
+      postcss-scss:
+        specifier: 'catalog:'
+        version: 4.0.9(postcss@8.5.26)
+      stylelint:
+        specifier: 'catalog:'
+        version: 17.14.1(supports-color@10.2.2)(typescript@5.9.3)
+      stylelint-config-html:
+        specifier: 'catalog:'
+        version: 2.0.0(postcss-html@1.8.1)(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3))
+      stylelint-config-recess-order:
+        specifier: 'catalog:'
+        version: 7.7.0(stylelint-order@8.1.1(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3)))(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3))
+      stylelint-config-recommended-vue:
+        specifier: 'catalog:'
+        version: 1.6.1(postcss-html@1.8.1)(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3))
+      stylelint-config-standard:
+        specifier: 'catalog:'
+        version: 40.0.0(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3))
+      stylelint-config-standard-scss:
+        specifier: 'catalog:'
+        version: 17.0.0(postcss@8.5.26)(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3))
+      stylelint-order:
+        specifier: 'catalog:'
+        version: 8.1.1(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3))
+      stylelint-scss:
+        specifier: 'catalog:'
+        version: 7.2.0(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3))
 
   internal/tsconfig: {}
 
@@ -5890,20 +5920,6 @@ packages:
       oxlint:
         optional: true
 
-  eslint-plugin-prettier@5.5.6:
-    resolution: {integrity: sha512-ifetmTcxWfz+4qRW3pH/ujdTq2jQIj59AxJMIN26K5avYgU8dxycUETQonWiW+wPrYXA0j3Try0l1CnwVQtDqQ==}
-    engines: {node: ^14.18.0 || >=16.0.0}
-    peerDependencies:
-      '@types/eslint': '>=8.0.0'
-      eslint: '>=8.0.0'
-      eslint-config-prettier: '>= 7.0.0 <10.0.0 || >=10.1.0'
-      prettier: '>=3.0.0'
-    peerDependenciesMeta:
-      '@types/eslint':
-        optional: true
-      eslint-config-prettier:
-        optional: true
-
   eslint-plugin-vue@10.10.0:
     resolution: {integrity: sha512-dL9x9rBHqqNcByWiLOHK6L0SB97V82/NC0cZRn9cXPjM7pCuWlpQQP9bFH4vjBv80ej1ZpzAkuD8zWH1o9bZbA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
@@ -6034,9 +6050,6 @@ packages:
 
   fast-deep-equal@3.1.3:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
-
-  fast-diff@1.3.0:
-    resolution: {integrity: sha512-VxPP4NqbUjj6MaAOafWeUn2cXWLcCtljklUtZf0Ind4XQ+QPtmA0b18zZy0jIQx+ExRVCR/ZQpBmik5lXshNsw==}
 
   fast-glob@3.3.3:
     resolution: {integrity: sha512-7MptL8U0cqcFdzIzwOTHoilX9x5BrNqye7Z/LuC7kCMRio1EMSyqRK3BEAUD7sXRq4iT4AzTVuZdhgQ2TCvYLg==}
@@ -7967,10 +7980,6 @@ packages:
     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
     engines: {node: '>= 0.8.0'}
 
-  prettier-linter-helpers@1.0.1:
-    resolution: {integrity: sha512-SxToR7P8Y2lWmv/kTzVLC1t/GDI2WGjMwNhLLE9qtH8Q13C+aEmuRlzDst4Up4s0Wc8sF2M+J57iB3cMLqftfg==}
-    engines: {node: '>=6.0.0'}
-
   prettier@2.7.1:
     resolution: {integrity: sha512-ujppO+MkdPqoVINuDFDRLClm7D78qbDt0/NR+wp5FqEZOoTNAjPHWj17QRhu7geIHJfcNhRk1XVQmF8Bp3ye+g==}
     engines: {node: '>=10.13.0'}
@@ -8566,13 +8575,6 @@ packages:
     engines: {node: '>=20.19.0'}
     peerDependencies:
       stylelint: ^16.18.0 || ^17.0.0
-
-  stylelint-prettier@5.0.3:
-    resolution: {integrity: sha512-B6V0oa35ekRrKZlf+6+jA+i50C4GXJ7X1PPmoCqSUoXN6BrNF6NhqqhanvkLjqw2qgvrS0wjdpeC+Tn06KN3jw==}
-    engines: {node: '>=18.12.0'}
-    peerDependencies:
-      prettier: '>=3.0.0'
-      stylelint: '>=16.0.0'
 
   stylelint-scss@7.2.0:
     resolution: {integrity: sha512-6E79Bachv0Iz0gqRUZgdqdXCsiq26DWBWIBNHYtjTmAp3wJu6cp/I37VfW7BPntmh2puF3bY09XWl4HZGrLhzw==}
@@ -9640,7 +9642,7 @@ snapshots:
   '@babel/code-frame@7.24.7':
     dependencies:
       '@babel/highlight': 7.25.9
-      picocolors: 1.1.0
+      picocolors: 1.1.1
 
   '@babel/code-frame@7.29.7':
     dependencies:
@@ -14460,7 +14462,7 @@ snapshots:
       caniuse-lite: 1.0.30001809
       fraction.js: 4.3.7
       normalize-range: 0.1.2
-      picocolors: 1.1.0
+      picocolors: 1.1.1
       postcss: 8.5.26
       postcss-value-parser: 4.2.0
 
@@ -14845,7 +14847,7 @@ snapshots:
 
   cliui@8.0.1:
     dependencies:
-      string-width: 4.2.3
+      string-width: 4.2.0
       strip-ansi: 6.0.1
       wrap-ansi: 7.0.0
 
@@ -15518,16 +15520,6 @@ snapshots:
       - '@eslint/css'
       - typescript
 
-  eslint-plugin-prettier@5.5.6(@types/eslint@9.6.1)(eslint-config-prettier@10.1.8(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2)))(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(prettier@3.9.6):
-    dependencies:
-      eslint: 10.8.1(jiti@2.7.0)(supports-color@10.2.2)
-      prettier: 3.9.6
-      prettier-linter-helpers: 1.0.1
-      synckit: 0.11.13
-    optionalDependencies:
-      '@types/eslint': 9.6.1
-      eslint-config-prettier: 10.1.8(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))
-
   eslint-plugin-vue@10.10.0(@typescript-eslint/parser@8.66.0(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@5.9.3))(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(vue-eslint-parser@10.4.1(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)):
     dependencies:
       '@eslint-community/eslint-utils': 4.10.1(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))
@@ -15751,8 +15743,6 @@ snapshots:
       tmp: 0.0.33
 
   fast-deep-equal@3.1.3: {}
-
-  fast-diff@1.3.0: {}
 
   fast-glob@3.3.3:
     dependencies:
@@ -17839,10 +17829,6 @@ snapshots:
 
   prelude-ls@1.2.1: {}
 
-  prettier-linter-helpers@1.0.1:
-    dependencies:
-      fast-diff: 1.3.0
-
   prettier@2.7.1: {}
 
   prettier@3.9.6: {}
@@ -18499,12 +18485,6 @@ snapshots:
     dependencies:
       postcss: 8.5.26
       postcss-sorting: 10.0.0(postcss@8.5.26)
-      stylelint: 17.14.1(supports-color@10.2.2)(typescript@5.9.3)
-
-  stylelint-prettier@5.0.3(prettier@3.9.6)(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3)):
-    dependencies:
-      prettier: 3.9.6
-      prettier-linter-helpers: 1.0.1
       stylelint: 17.14.1(supports-color@10.2.2)(typescript@5.9.3)
 
   stylelint-scss@7.2.0(stylelint@17.14.1(supports-color@10.2.2)(typescript@5.9.3)):
@@ -19380,14 +19360,14 @@ snapshots:
   wrap-ansi@6.2.0:
     dependencies:
       ansi-styles: 4.0.0
-      string-width: 4.2.0
+      string-width: 4.1.0
       strip-ansi: 6.0.0
 
   wrap-ansi@7.0.0:
     dependencies:
       ansi-styles: 4.0.0
-      string-width: 4.2.3
-      strip-ansi: 6.0.1
+      string-width: 4.1.0
+      strip-ansi: 6.0.0
 
   wrap-ansi@8.1.0:
     dependencies:
