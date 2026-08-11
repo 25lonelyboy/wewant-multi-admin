@@ -18,6 +18,8 @@ export default defineConfig([
     'src/**/iconfont/**'
   ]),
   ...vueConfig({
+    // tsconfig 解析根目录：显式传入避免 typescript-eslint 多候选目录推断报错
+    tsconfigRootDir: import.meta.dirname,
     globals: {
       // pure-admin 在 types/index.d.ts 中声明的全局类型别名，
       // 注册为 readonly 全局避免 no-undef 误报

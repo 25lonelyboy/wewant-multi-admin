@@ -10,8 +10,9 @@ export default [
   {
     ignores: ['dist/**', 'coverage/**', 'eslint.config.mjs']
   },
-  // 仓库 Vue 基线（ESLint 只校验，格式化由 Prettier 独占）
-  ...vueConfig(),
+  // 仓库 Vue 基线（ESLint 只校验，格式化由 Prettier 独占）；
+  // tsconfigRootDir 显式传入，避免 typescript-eslint 多候选目录推断报错
+  ...vueConfig({ tsconfigRootDir: import.meta.dirname }),
   {
     // uni-app 运行时注入的全局对象，注册为 readonly 避免 no-undef 误报
     languageOptions: {
