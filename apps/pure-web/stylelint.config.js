@@ -1,44 +1,18 @@
 // @ts-check
 
-/** @type {import("stylelint").Config} */
+/**
+ * pure-web Stylelint 薄壳：一行 extends 仓库基线，
+ * 仅在此声明本端差异（tailwind at-rules 白名单与忽略清单）。
+ * 职责分离模式：Stylelint 只校验，格式化由 Prettier 独占。
+ *
+ * @type {import("stylelint").Config}
+ */
 export default {
-  extends: [
-    'stylelint-config-standard',
-    'stylelint-config-html/vue',
-    'stylelint-config-recess-order'
-  ],
-  plugins: ['stylelint-scss', 'stylelint-order', 'stylelint-prettier'],
-  overrides: [
-    {
-      files: ['**/*.(css|html|vue)'],
-      customSyntax: 'postcss-html'
-    },
-    {
-      files: ['*.scss', '**/*.scss'],
-      customSyntax: 'postcss-scss',
-      extends: [
-        'stylelint-config-standard-scss',
-        'stylelint-config-recommended-vue/scss'
-      ]
-    }
-  ],
+  // 仓库共享基线（standard + vue/html 提取 + recess 属性顺序 + scss 支持）
+  extends: ['@multi-admin/stylelint-config/base'],
   rules: {
-    'prettier/prettier': true,
-    'selector-class-pattern': null,
-    'no-descending-specificity': null,
-    'scss/dollar-variable-pattern': null,
-    'selector-pseudo-class-no-unknown': [
-      true,
-      {
-        ignorePseudoClasses: ['deep', 'global']
-      }
-    ],
-    'selector-pseudo-element-no-unknown': [
-      true,
-      {
-        ignorePseudoElements: ['v-deep', 'v-global', 'v-slotted']
-      }
-    ],
+    // tailwind at-rules 白名单（pure-web 专属）；注意 stylelint 规则不做深合并，
+    // 基线的 scss 白名单需在此重复声明，否则会覆盖丢失
     'at-rule-no-unknown': [
       true,
       {
@@ -56,32 +30,8 @@ export default {
           'use'
         ]
       }
-    ],
-    'rule-empty-line-before': [
-      'always',
-      {
-        ignore: ['after-comment', 'first-nested']
-      }
-    ],
-    'unit-no-unknown': [true, { ignoreUnits: ['rpx'] }],
-    'order/order': [
-      [
-        'dollar-variables',
-        'custom-properties',
-        'at-rules',
-        'declarations',
-        {
-          type: 'at-rule',
-          name: 'supports'
-        },
-        {
-          type: 'at-rule',
-          name: 'media'
-        },
-        'rules'
-      ],
-      { severity: 'warning' }
     ]
   },
+  // 脚本文件与构建报告不含样式，跳过校验
   ignoreFiles: ['**/*.js', '**/*.ts', '**/*.jsx', '**/*.tsx', 'report.html']
 };
