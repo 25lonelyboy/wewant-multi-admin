@@ -81,6 +81,9 @@ catalogs:
     '@eslint/js':
       specifier: ^10.0.1
       version: 10.0.1
+    '@intlify/unplugin-vue-i18n':
+      specifier: ^11.2.4
+      version: 11.2.4
     '@nestjs/cli':
       specifier: ^11.0.0
       version: 11.0.24
@@ -99,6 +102,9 @@ catalogs:
     '@nestjs/testing':
       specifier: ^11.0.1
       version: 11.1.28
+    '@tailwindcss/vite':
+      specifier: ^4.3.3
+      version: 4.3.3
     '@types/express':
       specifier: ^5.0.0
       version: 5.0.6
@@ -111,18 +117,36 @@ catalogs:
     '@types/supertest':
       specifier: ^7.0.0
       version: 7.2.1
+    '@vitejs/plugin-vue':
+      specifier: ^6.0.8
+      version: 6.0.8
+    '@vitejs/plugin-vue-jsx':
+      specifier: ^5.1.6
+      version: 5.1.6
     '@vue/runtime-core':
       specifier: ^3.5.40
       version: 3.5.41
     '@vue/tsconfig':
       specifier: ^0.7.0
       version: 0.7.0
+    axios:
+      specifier: 1.18.1
+      version: 1.18.1
+    dayjs:
+      specifier: ^1.11.21
+      version: 1.11.21
+    echarts:
+      specifier: ^6.1.0
+      version: 6.1.0
     eslint:
       specifier: ^10.7.0
       version: 10.8.1
     eslint-config-prettier:
       specifier: ^10.1.8
       version: 10.1.8
+    eslint-plugin-better-tailwindcss:
+      specifier: ^4.7.0
+      version: 4.7.0
     eslint-plugin-vue:
       specifier: ^10.9.2
       version: 10.10.0
@@ -135,6 +159,9 @@ catalogs:
     lint-staged:
       specifier: ^17.3.0
       version: 17.3.0
+    pinia:
+      specifier: ^4.0.2
+      version: 4.0.2
     prettier:
       specifier: ^3.9.5
       version: 3.9.6
@@ -150,6 +177,9 @@ catalogs:
     supertest:
       specifier: ^7.0.0
       version: 7.2.2
+    tailwindcss:
+      specifier: ^4.3.3
+      version: 4.3.3
     ts-jest:
       specifier: ^29.2.5
       version: 29.4.12
@@ -174,6 +204,9 @@ catalogs:
     vite:
       specifier: ^8.1.5
       version: 8.2.1
+    vite-svg-loader:
+      specifier: ^5.1.1
+      version: 5.1.1
     vue:
       specifier: ^3.5.40
       version: 3.5.41
@@ -183,6 +216,9 @@ catalogs:
     vue-i18n:
       specifier: ^11.4.6
       version: 11.4.8
+    vue-router:
+      specifier: ^5.2.0
+      version: 5.2.0
     vue-tsc:
       specifier: ^3.3.7
       version: 3.3.9
@@ -331,7 +367,7 @@ importers:
         specifier: ^4.1.1
         version: 4.1.1
       axios:
-        specifier: 1.18.1
+        specifier: 'catalog:'
         version: 1.18.1(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
       china-area-data:
         specifier: ^5.0.1
@@ -340,10 +376,10 @@ importers:
         specifier: ^1.6.2
         version: 1.6.2
       dayjs:
-        specifier: ^1.11.21
+        specifier: 'catalog:'
         version: 1.11.21
       echarts:
-        specifier: ^6.1.0
+        specifier: 'catalog:'
         version: 6.1.0
       el-table-infinite-scroll:
         specifier: ^3.0.8
@@ -373,7 +409,7 @@ importers:
         specifier: ^1.0.1
         version: 1.0.1
       pinia:
-        specifier: ^4.0.2
+        specifier: 'catalog:'
         version: 4.0.2(@vue/devtools-api@8.2.1)(typescript@5.9.3)(vue@3.5.41(typescript@5.9.3))
       pinyin-pro:
         specifier: ^3.28.1
@@ -421,7 +457,7 @@ importers:
         specifier: ^2.1.5
         version: 2.1.5(vue@3.5.41(typescript@5.9.3))
       vue-router:
-        specifier: ^5.2.0
+        specifier: 'catalog:'
         version: 5.2.0(@vue/compiler-sfc@3.5.41)(esbuild@0.27.7)(pinia@4.0.2(@vue/devtools-api@8.2.1)(typescript@5.9.3)(vue@3.5.41(typescript@5.9.3)))(rolldown@1.2.3)(rollup@4.62.4)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.27.7)(jiti@2.7.0)(sass@1.102.0)(terser@5.49.2)(yaml@2.9.0))(vue@3.5.41(typescript@5.9.3))(webpack@5.106.2(cssnano@8.0.4(postcss@8.5.26))(csso@5.0.5)(esbuild@0.27.7)(lightningcss@1.33.0)(postcss@8.5.26)(uglify-js@3.19.3))
       vue-tippy:
         specifier: ^6.7.1
@@ -461,10 +497,10 @@ importers:
         specifier: 4.2.0
         version: 4.2.0(vue@3.5.41(typescript@5.9.3))
       '@intlify/unplugin-vue-i18n':
-        specifier: ^11.2.4
+        specifier: 'catalog:'
         version: 11.2.4(@vue/compiler-dom@3.5.41)(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(rollup@4.62.4)(supports-color@10.2.2)(typescript@5.9.3)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.27.7)(jiti@2.7.0)(sass@1.102.0)(terser@5.49.2)(yaml@2.9.0))(vue-i18n@11.4.8(vue@3.5.41(typescript@5.9.3)))(vue@3.5.41(typescript@5.9.3))
       '@tailwindcss/vite':
-        specifier: ^4.3.3
+        specifier: 'catalog:'
         version: 4.3.3(vite@8.2.1(@types/node@24.13.3)(esbuild@0.27.7)(jiti@2.7.0)(sass@1.102.0)(terser@5.49.2)(yaml@2.9.0))
       '@types/dagre':
         specifier: ^0.7.54
@@ -491,10 +527,10 @@ importers:
         specifier: ^1.15.9
         version: 1.15.9
       '@vitejs/plugin-vue':
-        specifier: ^6.0.8
+        specifier: 'catalog:'
         version: 6.0.8(vite@8.2.1(@types/node@24.13.3)(esbuild@0.27.7)(jiti@2.7.0)(sass@1.102.0)(terser@5.49.2)(yaml@2.9.0))(vue@3.5.41(typescript@5.9.3))
       '@vitejs/plugin-vue-jsx':
-        specifier: ^5.1.6
+        specifier: 'catalog:'
         version: 5.1.6(supports-color@10.2.2)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.27.7)(jiti@2.7.0)(sass@1.102.0)(terser@5.49.2)(yaml@2.9.0))(vue@3.5.41(typescript@5.9.3))
       '@vue/devtools-api':
         specifier: ^8.1.5
@@ -521,7 +557,7 @@ importers:
         specifier: 'catalog:'
         version: 10.1.8(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))
       eslint-plugin-better-tailwindcss:
-        specifier: ^4.7.0
+        specifier: 'catalog:'
         version: 4.7.0(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(tailwindcss@4.3.3)(typescript@5.9.3)
       eslint-plugin-prettier:
         specifier: ^5.5.6
@@ -587,7 +623,7 @@ importers:
         specifier: ^4.0.2
         version: 4.0.2
       tailwindcss:
-        specifier: ^4.3.3
+        specifier: 'catalog:'
         version: 4.3.3
       typescript:
         specifier: 'catalog:'
@@ -617,7 +653,7 @@ importers:
         specifier: ^2.0.0
         version: 2.0.0
       vite-svg-loader:
-        specifier: ^5.1.1
+        specifier: 'catalog:'
         version: 5.1.1(supports-color@10.2.2)(vue@3.5.41(typescript@5.9.3))
       vue-eslint-parser:
         specifier: 'catalog:'
@@ -9627,7 +9663,7 @@ snapshots:
       '@babel/traverse': 7.29.8(supports-color@10.2.2)
       '@babel/types': 7.29.8
       convert-source-map: 2.0.0
-      debug: 4.3.7(supports-color@10.2.2)
+      debug: 4.4.3(supports-color@10.2.2)
       gensync: 1.0.0-beta.2
       json5: 2.2.3
       semver: 6.3.1
@@ -9836,7 +9872,7 @@ snapshots:
       '@babel/helper-validator-identifier': 7.29.7
       chalk: 2.4.2
       js-tokens: 4.0.0
-      picocolors: 1.1.0
+      picocolors: 1.1.1
 
   '@babel/parser@7.25.6':
     dependencies:
@@ -17045,7 +17081,7 @@ snapshots:
 
   magic-string-ast@1.0.2:
     dependencies:
-      magic-string: 0.30.21
+      magic-string: 0.30.17
 
   magic-string@0.25.7:
     dependencies:
