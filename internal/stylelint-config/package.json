@@ -1,0 +1,27 @@
+{
+  "name": "@multi-admin/stylelint-config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "多端管理系统 - Stylelint 共享配置（base）",
+  "type": "module",
+  "exports": {
+    "./base": "./base.mjs"
+  },
+  "files": [
+    "base.mjs"
+  ],
+  "dependencies": {
+    "postcss-html": "catalog:",
+    "postcss-scss": "catalog:",
+    "stylelint-config-html": "catalog:",
+    "stylelint-config-recess-order": "catalog:",
+    "stylelint-config-recommended-vue": "catalog:",
+    "stylelint-config-standard": "catalog:",
+    "stylelint-config-standard-scss": "catalog:",
+    "stylelint-order": "catalog:",
+    "stylelint-scss": "catalog:"
+  },
+  "peerDependencies": {
+    "stylelint": "catalog:"
+  }
+}
