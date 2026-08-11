@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { isUrl } from '@pureadmin/utils';
-import { menuType } from '@/layout/types';
+import type { menuType } from '@/layout/types';
 
 const props = defineProps<{
   to: menuType;

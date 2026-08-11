@@ -37,12 +37,11 @@ function queryEmail(queryString, callback) {
     { value: '@126.com' },
     { value: '@163.com' }
   ];
-  let results = [];
   let queryList = [];
   emailList.map(item =>
     queryList.push({ value: queryString.split('@')[0] + item.value })
   );
-  results = queryString
+  const results = queryString
     ? queryList.filter(
         item =>
           item.value.toLowerCase().indexOf(queryString.toLowerCase()) === 0

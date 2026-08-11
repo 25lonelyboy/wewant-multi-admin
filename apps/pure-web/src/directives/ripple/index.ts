@@ -37,7 +37,7 @@ const calculate = (
   const localX = e.clientX - offset.left;
   const localY = e.clientY - offset.top;
 
-  let radius = 0;
+  let radius: number;
   let scale = 0.3;
   // 计算点击位置到 el 顶点最远距离，即为圆的最大半径（勾股定理）
   if (el._ripple?.circle) {

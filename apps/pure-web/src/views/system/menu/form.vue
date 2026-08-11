@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import ReCol from '@/components/ReCol';
 import { formRules } from './utils/rule';
-import { FormProps } from './utils/types';
+import type { FormProps } from './utils/types';
 import { transformI18n } from '@/plugins/i18n';
 import { IconSelect } from '@/components/ReIcon';
 import Segmented from '@/components/ReSegmented';

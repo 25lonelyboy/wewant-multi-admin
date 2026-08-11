@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { PropType } from 'vue';
-import { ListItem } from '../data';
+import type { PropType } from 'vue';
+import type { ListItem } from '../data';
 import NoticeItem from './NoticeItem.vue';
 import { transformI18n } from '@/plugins/i18n';
 

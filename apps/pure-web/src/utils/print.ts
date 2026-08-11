@@ -21,7 +21,7 @@ const Print = function (dom, options?: object): PrintFunction {
   };
   // @ts-expect-error
   for (const key in this.conf) {
-    if (key && options.hasOwnProperty(key)) {
+    if (key && Object.prototype.hasOwnProperty.call(options, key)) {
       // @ts-expect-error
       this.conf[key] = options[key];
     }

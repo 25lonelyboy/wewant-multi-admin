@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { getConfig } from '@/config';
 import { posix } from 'path-browserify';
-import { menuType } from '@/layout/types';
+import type { menuType } from '@/layout/types';
 import { ReText } from '@/components/ReText';
 import { useNav } from '@/layout/hooks/useNav';
 import { transformI18n } from '@/plugins/i18n';

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { formRules } from './utils/rule';
-import { FormProps } from './utils/types';
+import type { FormProps } from './utils/types';
 
 const props = withDefaults(defineProps<FormProps>(), {
   formInline: () => ({

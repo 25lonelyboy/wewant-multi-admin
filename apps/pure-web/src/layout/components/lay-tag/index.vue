@@ -2,7 +2,7 @@
 import { $t } from '@/plugins/i18n';
 import { emitter } from '@/utils/mitt';
 import NProgress from '@/utils/progress';
-import { RouteConfigs } from '../../types';
+import type { RouteConfigs } from '../../types';
 import { useTags } from '../../hooks/useTag';
 import { routerArrays } from '@/layout/types';
 import { onClickOutside } from '@vueuse/core';
@@ -152,12 +152,14 @@ const handleScroll = (offset: number): void => {
 const handleWheel = (event: WheelEvent): void => {
   isScrolling.value = true;
   const scrollIntensity = Math.abs(event.deltaX) + Math.abs(event.deltaY);
-  let offset = 0;
-  if (event.deltaX < 0) {
-    offset = scrollIntensity > 0 ? scrollIntensity : 100;
-  } else {
-    offset = scrollIntensity > 0 ? -scrollIntensity : -100;
-  }
+  const offset =
+    event.deltaX < 0
+      ? scrollIntensity > 0
+        ? scrollIntensity
+        : 100
+      : scrollIntensity > 0
+        ? -scrollIntensity
+        : -100;
 
   smoothScroll(offset);
 };

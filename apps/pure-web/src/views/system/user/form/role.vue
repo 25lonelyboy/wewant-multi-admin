@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import ReCol from '@/components/ReCol';
-import { RoleFormProps } from '../utils/types';
+import type { RoleFormProps } from '../utils/types';
 
 const props = withDefaults(defineProps<RoleFormProps>(), {
   formInline: () => ({

@@ -242,7 +242,6 @@ function scrollCancle() {
 
 function touchStart(e) {
   if (!unref(canTouchScroll)) return;
-  let timer;
   //touches数组对象获得屏幕上所有的touch，取第一个touch
   const touch = e.targetTouches[0];
   const { waitTime, singleHeight, singleWidth } = unref(options);
@@ -256,8 +255,7 @@ function touchStart(e) {
   //记录touchStart时候的posX
   startPosX = unref(xPos);
   if (!!singleHeight && !!singleWidth) {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
+    setTimeout(() => {
       scrollCancle();
     }, waitTime + 20);
   } else {
@@ -301,7 +299,6 @@ function touchMove(e) {
 function touchEnd() {
   if (!unref(canTouchScroll)) return;
 
-  let timer: any;
   const direction = unref(options).direction;
   delay.value = 50;
   if (direction === 'top') {
@@ -315,8 +312,7 @@ function touchEnd() {
     const w = unref(realBoxWidth) * -1;
     if (unref(xPos) < w) xPos.value = w;
   }
-  if (timer) clearTimeout(timer);
-  timer = setTimeout(() => {
+  setTimeout(() => {
     delay.value = 0;
     scrollMove();
   }, unref(delay));
@@ -425,8 +421,6 @@ function scrollInitMove() {
 
     // 是否可以滚动判断
     if (unref(scrollSwitch)) {
-      let timer;
-      if (timer) clearTimeout(timer);
       copyHtml.value = unref(slotList).innerHTML;
       setTimeout(() => {
         realBoxHeight.value = unref(realBox)?.offsetHeight;
