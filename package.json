@@ -11,6 +11,7 @@
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "typecheck": "pnpm -r run typecheck",
     "clean:cache": "node ./scripts/clean.mjs --del-lock && pnpm install",
     "prepare": "husky"
@@ -31,6 +32,7 @@
     "eslint": "catalog:",
     "husky": "catalog:",
     "lint-staged": "catalog:",
+    "stylelint": "catalog:",
     "typescript": "catalog:",
     "prettier": "catalog:"
   }

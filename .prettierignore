@@ -5,3 +5,4 @@ pnpm-lock.yaml
 **/unpackage
 **/target
 **/tests/**/coverage
+**/public/wasm/**
