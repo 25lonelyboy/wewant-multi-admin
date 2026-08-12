@@ -26,9 +26,9 @@ target
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# dotenv environment variable files
-.env*
-!.env.example
+# dotenv 策略：.env.* / .env.example 为平台配置，入库跟踪
+# 排除 .env 文件，避免敏感信息泄露；机器级敏感覆盖统一用 .local 后缀（由上方 *.local 规则忽略）
+.env
 
 # logs
 **/logs

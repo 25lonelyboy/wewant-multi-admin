@@ -10,7 +10,7 @@ import {
 } from './build/utils';
 
 export default async ({ mode }: ConfigEnv): Promise<UserConfigExport> => {
-  const { VITE_CDN, VITE_PORT, VITE_COMPRESSION, VITE_PUBLIC_PATH } =
+  const { VITE_CDN, VITE_PORT, VITE_COMPRESSION, VITE_PUBLIC_PATH, VITE_MOCK } =
     wrapperEnv(loadEnv(mode, root));
   return {
     base: VITE_PUBLIC_PATH,
@@ -30,7 +30,7 @@ export default async ({ mode }: ConfigEnv): Promise<UserConfigExport> => {
         clientFiles: ['./index.html', './src/{views,components}/*']
       }
     },
-    plugins: await getPluginsList(VITE_CDN, VITE_COMPRESSION),
+    plugins: await getPluginsList(VITE_CDN, VITE_COMPRESSION, VITE_MOCK),
     // https://cn.vitejs.dev/config/dep-optimization-options.html#dep-optimization-options
     optimizeDeps: {
       include,
