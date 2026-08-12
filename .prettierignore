@@ -6,3 +6,4 @@ pnpm-lock.yaml
 **/target
 **/tests/**/coverage
 **/public/wasm/**
+/docs

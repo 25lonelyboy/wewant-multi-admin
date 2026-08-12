@@ -4,6 +4,8 @@
   "files.eol": "\r\n",
   // 文件编码与 .editorconfig 的 charset = utf-8 一致
   "files.encoding": "utf8",
+  // VSCode 原生兜底：保存收尾强制补末尾换行，防任何保存参与者/pnpm 重写删换行
+  "files.insertFinalNewline": true,
 
   // ==================== 编辑器 ====================
   // 缩进 2 空格，与 .editorconfig / Prettier 默认一致
