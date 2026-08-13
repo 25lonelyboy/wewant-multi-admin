@@ -1,20 +1,37 @@
-FROM node:20-alpine as build-stage
+# 构建必须以仓库根目录为 context：
+#   docker build -f apps/pure-web/Dockerfile -t multi-admin-web .
+FROM node:24-alpine AS build-stage
 
-WORKDIR /app
-RUN corepack enable
-RUN corepack prepare pnpm@latest --activate
+WORKDIR /repo
 
-RUN npm config set registry https://registry.npmmirror.com
+# pnpm 下载 tarball 的镜像（pnpm 专属变量，npm_config_* 对 pnpm 无效）
+ENV PNPM_CONFIG_REGISTRY=https://registry.npmmirror.com
+# corepack 下载 pnpm 本体也走镜像（corepack 专属变量）
+ENV COREPACK_NPM_REGISTRY=https://registry.npmmirror.com
 
-COPY .npmrc package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+# 启用 corepack 并按 packageManager 字段锁定 pnpm 版本
+# 安装 git：pnpm 11 的 onlyBuiltDependencies 注入需要
+RUN corepack enable && apk add --no-cache git
 
-COPY . .
-RUN pnpm build
+# 先拷贝 manifest 与 lockfile，利用层缓存
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+COPY internal ./internal
+COPY packages ./packages
+COPY apps/pure-web/package.json ./apps/pure-web/
 
-FROM nginx:stable-alpine as production-stage
+# 仅安装 pure-web 及其 workspace 依赖
+RUN pnpm install --frozen-lockfile --filter @multi-admin/pure-web... \
+    --registry=https://registry.npmmirror.com \
+    --fetch-timeout=180000 \
+    --fetch-retries=5
 
-COPY --from=build-stage /app/dist /usr/share/nginx/html
+COPY apps/pure-web ./apps/pure-web
+RUN pnpm --filter @multi-admin/pure-web run build
+
+FROM nginx:stable-alpine AS production-stage
+
+COPY apps/pure-web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build-stage /repo/apps/pure-web/dist /usr/share/nginx/html
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
