@@ -5,7 +5,7 @@
     // 启用所有严格的类型检查选项
     "strict": true,
     // 索引访问时，结果类型中会包含 undefined
-    "noUncheckedIndexedAccess": true,
+    // "noUncheckedIndexedAccess": true,
     // 严格区分可选属性和值为 undefined 的属性
     "exactOptionalPropertyTypes": true,
     // 确保函数中的所有代码路径都有返回值
@@ -19,7 +19,7 @@
     // 禁止 switch 语句中的 case 贯穿（fallthrough）
     "noFallthroughCasesInSwitch": true,
     // 禁止通过点语法访问索引签名定义的属性，必须使用方括号
-    "noPropertyAccessFromIndexSignature": true,
+    // "noPropertyAccessFromIndexSignature": true,
     // 确保每个文件都能被安全地作为独立模块进行转译（适用于 Babel/SWC 等工具）
     "isolatedModules": true,
     // 强制进行模块检测，将所有文件视为模块

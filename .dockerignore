@@ -8,6 +8,8 @@ dist
 **/dist
 dist-ssr
 **/dist-ssr
+dist-electron
+**/dist-electron
 **/coverage
 **/release
 **/unpackage

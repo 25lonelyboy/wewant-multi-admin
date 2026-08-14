@@ -1,6 +1,6 @@
-import { BrowserWindow, app } from "electron";
-import { createWindow } from "./window";
-import { registerIPCHandlers } from "./ipc";
+import { BrowserWindow, app } from 'electron';
+import { createWindow } from './window.js';
+import { registerIPCHandlers } from './ipc/index.js';
 
 // 单实例锁
 const gotTheLock = app.requestSingleInstanceLock();
@@ -9,19 +9,20 @@ if (!gotTheLock) {
   process.exit(0);
 }
 
-app.whenReady().then(async () => {
+void (async () => {
+  await app.whenReady();
   registerIPCHandlers();
-  await createWindow();
-});
+  createWindow();
+})();
 
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
-app.on("activate", async () => {
+app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
-    await createWindow();
+    createWindow();
   }
 });

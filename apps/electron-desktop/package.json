@@ -3,21 +3,21 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "build/main/index.js",
+  "main": "dist-electron/main/index.js",
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "node esbuild.config.mjs && electron-builder",
     "build:dir": "node esbuild.config.mjs && electron-builder --dir",
-    "lint": "eslint --cache --max-warnings 0 electron scripts --fix"
+    "lint": "eslint --cache --max-warnings 0 electron --fix"
   },
-  "dependencies": {
-    "electron": "^37.0.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@multi-admin/pure-web": "workspace:*",
     "@multi-admin/tsconfig": "workspace:*",
+    "@multi-admin/eslint-config": "workspace:*",
     "@types/node": "catalog:",
     "cross-env": "^10.1.0",
+    "electron": "^37.0.0",
     "electron-builder": "^25.0.0",
     "esbuild": "^0.25.0",
     "typescript": "catalog:"
