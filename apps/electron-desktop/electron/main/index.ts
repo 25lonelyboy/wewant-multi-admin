@@ -1,5 +1,6 @@
 import { BrowserWindow, app } from "electron";
 import { createWindow } from "./window";
+import { registerIPCHandlers } from "./ipc";
 
 // 单实例锁
 const gotTheLock = app.requestSingleInstanceLock();
@@ -9,6 +10,7 @@ if (!gotTheLock) {
 }
 
 app.whenReady().then(async () => {
+  registerIPCHandlers();
   await createWindow();
 });
 
