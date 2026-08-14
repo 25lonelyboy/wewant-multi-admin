@@ -1,0 +1,38 @@
+appId: com.multiadmin.desktop
+productName: Multi Admin
+
+directories:
+  output: release/${version}
+
+files:
+  - "build/**/*"
+  - "assets/**/*"
+  - "package.json"
+
+asar: true
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: "${productName}_${version}_win.${ext}"
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: "Multi Admin"
+
+mac:
+  target: [dmg]
+  artifactName: "${productName}_${version}_mac.${ext}"
+
+linux:
+  target: [AppImage, deb]
+  artifactName: "${productName}_${version}_linux.${ext}"
+
+# 自动更新预留（当前不启用）
+# publish:
+#   provider: github
+#   releaseType: release
