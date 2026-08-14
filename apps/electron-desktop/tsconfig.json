@@ -1,0 +1,10 @@
+{
+  "extends": "@multi-admin/tsconfig/node.json",
+  "compilerOptions": {
+    "outDir": "./build",
+    "rootDir": ".",
+    "baseUrl": "."
+  },
+  "include": ["electron/**/*", "types/**/*", "scripts/**/*"],
+  "exclude": ["node_modules", "build", "dist"]
+}
