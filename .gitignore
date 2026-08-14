@@ -45,5 +45,8 @@ pids
 *.seed
 *.pid.lock
 
+# Electron 构建产物
+**/release
+
 # husky auto-generated runtime dir (hook files themselves are committed)
 .husky/_
