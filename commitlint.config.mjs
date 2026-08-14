@@ -10,7 +10,7 @@ export default {
     'scope-empty': [2, 'never'],
     // scope 白名单与仓库结构对应：
     // server=nestjs-server、mobile=uni-mobile、web=pure-web、desktop=tauri-desktop、
-    // common=packages/common、internal=internal/*、repo=根工程、deps=依赖升级、release=发版
+    // common=packages/common、internal=internal/*、repo=根工程、deps=依赖升级、release=发版、docs=文档
     'scope-enum': [
       2,
       'always',
@@ -23,7 +23,8 @@ export default {
         'internal',
         'repo',
         'deps',
-        'release'
+        'release',
+        'docs'
       ]
     ]
   }
