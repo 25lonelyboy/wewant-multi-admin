@@ -2,7 +2,7 @@
 // 与 nginx 部署共用同一份 pure-web 产物（绝对路径 /assets），桌面端不产生额外构建变体。
 import { protocol, net } from 'electron';
 import { existsSync } from 'node:fs';
-import { extname, join, resolve } from 'node:path';
+import { extname, join, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export const SCHEME = 'app';
@@ -11,9 +11,10 @@ const DIST_ROOT = join(import.meta.dirname, '../../dist-electron/web');
 /** 路径穿越防护：拼接结构必须落在 DIST_ROOT 内，否则回退 */
 function safeJoin(urlPath: string): string {
   const resolved = resolve(DIST_ROOT, `.${urlPath}`);
-  return resolved.startsWith(DIST_ROOT)
-    ? resolved
-    : join(DIST_ROOT, 'index.html');
+  // 带 sep 边界，避免 dist-electron/web-evil 类同前缀兄弟目录误通过
+  const insideRoot =
+    resolved === DIST_ROOT || resolved.startsWith(DIST_ROOT + sep);
+  return insideRoot ? resolved : join(DIST_ROOT, 'index.html');
 }
 
 function shouldFeedback(filePath: string): boolean {
