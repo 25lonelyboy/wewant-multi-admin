@@ -9,7 +9,7 @@ export default {
     // 强制携带 scope：feat(server): xxx / fix(mobile): xxx
     'scope-empty': [2, 'never'],
     // scope 白名单与仓库结构对应：
-    // server=nestjs-server、mobile=uni-mobile、web=pure-web、desktop=tauri-desktop、
+    // server=nestjs-server、mobile=uni-mobile、web=pure-web、desktop=electron-desktop、
     // common=packages/common、internal=internal/*、repo=根工程、deps=依赖升级、release=发版、docs=文档
     'scope-enum': [
       2,
