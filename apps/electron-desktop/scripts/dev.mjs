@@ -30,7 +30,7 @@ async function buildElectronMain() {
       entryPoints: entryPoints,
       bundle: true,
       platform: 'node',
-      target: 'node22',
+      target: 'node24',
       outdir: resolve(cwd, 'dist-electron'),
       outbase: resolve(cwd, 'electron'),
       format: format,

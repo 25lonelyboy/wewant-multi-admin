@@ -23,7 +23,7 @@ async function build(entryPoints, format, extension) {
     entryPoints: entryPoints,
     bundle: true,
     platform: 'node',
-    target: 'node22',
+    target: 'node24',
     outdir: 'dist-electron',
     outbase: 'electron',
     format: format,
