@@ -21,21 +21,27 @@ async function buildElectronMain() {
     // 目录不存在，忽略
   }
 
-  await esbuild.build({
-    entryPoints: [
-      resolve(cwd, 'electron/main/index.ts'),
-      resolve(cwd, 'electron/preload/index.ts')
-    ],
-    bundle: true,
-    platform: 'node',
-    target: 'node22',
-    outdir: resolve(cwd, 'dist-electron'),
-    format: 'esm',
-    external: ['electron'],
-    sourcemap: true,
-    define: {
-      'process.env.NODE_ENV': '"development"'
-    }
+  const build = async (entryPoints, format, extension) => {
+    await esbuild.build({
+      entryPoints: entryPoints,
+      bundle: true,
+      platform: 'node',
+      target: 'node22',
+      outdir: resolve(cwd, 'dist-electron'),
+      outbase: resolve(cwd, 'electron'),
+      format: format,
+      outExtension: extension,
+      external: ['electron'],
+      sourcemap: true,
+      define: {
+        'process.env.NODE_ENV': '"development"'
+      }
+    });
+  };
+
+  await build([resolve(cwd, 'electron/main/index.ts')], 'esm');
+  await build([resolve(cwd, 'electron/preload/index.ts')], 'cjs', {
+    '.js': '.cjs'
   });
 
   console.log('[dev] Electron main process built successfully');

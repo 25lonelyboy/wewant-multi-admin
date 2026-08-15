@@ -1,7 +1,10 @@
 import { join } from 'node:path';
 import { BrowserWindow, shell } from 'electron';
+import { SCHEME } from './protocol.js';
 
-const preload = join(import.meta.dirname, '../preload/index.js');
+// import.meta.dirname = dist-electron/main；与 esbuild 产物结构对应
+const preload = join(import.meta.dirname, '../preload/index.cjs');
+const DIST_ENTRY = `${SCHEME}://bundle/index.html`;
 
 export function createWindow() {
   const win = new BrowserWindow({
@@ -24,11 +27,7 @@ export function createWindow() {
   if (devServerUrl) {
     void win.loadURL(devServerUrl);
   } else {
-    const indexHtml = join(
-      import.meta.dirname,
-      '../../dist-electron/web/index.html'
-    );
-    void win.loadFile(indexHtml);
+    void win.loadURL(DIST_ENTRY);
   }
 
   // 外部链接用浏览器打开

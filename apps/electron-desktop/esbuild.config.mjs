@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import * as esbuild from 'esbuild';
-import { rmSync, cpSync } from 'node:fs';
+import { rmSync, cpSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 // 清理旧构建产物
@@ -10,23 +10,35 @@ try {
   // 目录不存在，忽略
 }
 
-// 构建主进程
-await esbuild.build({
-  entryPoints: ['electron/main/index.ts', 'electron/preload/index.ts'],
-  bundle: true,
-  platform: 'node',
-  target: 'node22',
-  outdir: 'dist-electron',
-  format: 'esm',
-  external: ['electron'],
-  sourcemap: true,
-  define: {
-    'process.env.NODE_ENV': '"production"'
-  }
-});
+async function build(entryPoints, format, extension) {
+  // 构建主进程
+  await esbuild.build({
+    entryPoints: entryPoints,
+    bundle: true,
+    platform: 'node',
+    target: 'node22',
+    outdir: 'dist-electron',
+    outbase: 'electron',
+    format: format,
+    outExtension: extension,
+    external: ['electron'],
+    sourcemap: true,
+    define: {
+      'process.env.NODE_ENV': '"production"'
+    }
+  });
+}
+
+await build(['electron/main/index.ts'], 'esm');
+await build(['electron/preload/index.ts'], 'cjs', { '.js': '.cjs' });
 
 // 复制 pure-web 构建产物
-const pureWebDist = resolve('../pure-web/dist');
+const pureWebDist = resolve(import.meta.dirname, '../pure-web/dist');
+if (!existsSync(pureWebDist)) {
+  throw new Error(
+    `未找到 pure-web 构建产物：${pureWebDist}。请先执行 pnpm --filter @multi-admin/pure-web run build`
+  );
+}
 const targetDir = resolve('dist-electron/web');
 cpSync(pureWebDist, targetDir, { recursive: true });
 
