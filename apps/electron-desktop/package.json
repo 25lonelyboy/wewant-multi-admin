@@ -14,6 +14,7 @@
   },
   "dependencies": {},
   "devDependencies": {
+    "@multi-admin/node-utils": "workspace:*",
     "@multi-admin/pure-web": "workspace:*",
     "@multi-admin/tsconfig": "workspace:*",
     "@multi-admin/eslint-config": "workspace:*",

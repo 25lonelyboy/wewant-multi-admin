@@ -284,6 +284,9 @@ importers:
       '@commitlint/types':
         specifier: 'catalog:'
         version: 21.2.0
+      '@multi-admin/node-utils':
+        specifier: workspace:*
+        version: link:internal/node-utils
       eslint:
         specifier: 'catalog:'
         version: 10.8.1(jiti@2.7.0)(supports-color@10.2.2)
@@ -308,6 +311,9 @@ importers:
       '@multi-admin/eslint-config':
         specifier: workspace:*
         version: link:../../internal/eslint-config
+      '@multi-admin/node-utils':
+        specifier: workspace:*
+        version: link:../../internal/node-utils
       '@multi-admin/pure-web':
         specifier: workspace:*
         version: link:../pure-web
@@ -815,6 +821,8 @@ importers:
       vue-eslint-parser:
         specifier: 'catalog:'
         version: 10.4.1(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)
+
+  internal/node-utils: {}
 
   internal/stylelint-config:
     dependencies:

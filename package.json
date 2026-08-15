@@ -34,6 +34,7 @@
     "@commitlint/cli": "catalog:",
     "@commitlint/config-conventional": "catalog:",
     "@commitlint/types": "catalog:",
+    "@multi-admin/node-utils": "workspace:*",
     "eslint": "catalog:",
     "husky": "catalog:",
     "lint-staged": "catalog:",
