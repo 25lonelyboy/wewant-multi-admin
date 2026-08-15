@@ -35,9 +35,6 @@ async function buildElectronMain() {
     sourcemap: true,
     define: {
       'process.env.NODE_ENV': '"development"'
-    },
-    banner: {
-      js: 'const __dirname = import.meta.dirname;\n'
     }
   });
 

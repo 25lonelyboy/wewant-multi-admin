@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { BrowserWindow, shell } from 'electron';
 
-const preload = join(__dirname, '../preload/index.js');
+const preload = join(import.meta.dirname, '../preload/index.js');
 
 export function createWindow() {
   const win = new BrowserWindow({
@@ -10,7 +10,7 @@ export function createWindow() {
     minWidth: 800,
     minHeight: 600,
     title: 'Multi Admin',
-    icon: join(__dirname, '../../assets/icon.png'),
+    icon: join(import.meta.dirname, '../../assets/icon.png'),
     webPreferences: {
       preload,
       contextIsolation: true,
@@ -24,7 +24,10 @@ export function createWindow() {
   if (devServerUrl) {
     void win.loadURL(devServerUrl);
   } else {
-    const indexHtml = join(__dirname, '../../dist-electron/web/index.html');
+    const indexHtml = join(
+      import.meta.dirname,
+      '../../dist-electron/web/index.html'
+    );
     void win.loadFile(indexHtml);
   }
 
