@@ -1,7 +1,14 @@
 #!/usr/bin/env node
 import * as esbuild from 'esbuild';
-import { rmSync, cpSync, existsSync } from 'node:fs';
+import { rmSync, cpSync, existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+
+const webPkg = JSON.parse(
+  readFileSync(
+    resolve(import.meta.dirname, '../pure-web/package.json'),
+    'utf-8'
+  )
+);
 
 // 清理旧构建产物
 try {
@@ -24,7 +31,8 @@ async function build(entryPoints, format, extension) {
     external: ['electron'],
     sourcemap: true,
     define: {
-      'process.env.NODE_ENV': '"production"'
+      'process.env.NODE_ENV': '"production"',
+      'process.env.WEB_VERSION': JSON.stringify(webPkg.version)
     }
   });
 }

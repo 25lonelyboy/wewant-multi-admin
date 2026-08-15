@@ -25,7 +25,7 @@ export function registerAppProtocol() {
     const { pathname } = new URL(request.url);
 
     // 阶段二预留： /api/ 前缀请求在此转发到后端（主进程代理，天然规避 CORS 与混合内容拦截）
-    // if (pathname.startWith('/api/')){}
+    // if (pathname.startsWith('/api/')){}
 
     let filePath = safeJoin(pathname);
     if (shouldFeedback(filePath) || !existsSync(filePath)) {

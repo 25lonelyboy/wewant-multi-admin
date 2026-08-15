@@ -1,5 +1,5 @@
-// electron/main/ipc/system.ts
-import { ipcMain, shell } from 'electron';
+import { app, ipcMain, shell } from 'electron';
+import type { SystemVersion } from '../../../types/ipc.js';
 
 export function registerSystemHandlers() {
   // 预留接口：打开外部链接
@@ -10,9 +10,10 @@ export function registerSystemHandlers() {
   });
 
   // 预留接口：获取应用版本
-  ipcMain.handle('system:getVersion', () => {
+  ipcMain.handle('system:getVersion', (): SystemVersion => {
     return {
-      app: '0.1.0',
+      app: app.getVersion(),
+      web: process.env.WEB_VERSION ?? 'unknown',
       electron: process.versions.electron,
       node: process.versions.node
     };

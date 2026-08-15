@@ -4,7 +4,7 @@ import { get } from 'node:http';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as esbuild from 'esbuild';
-import { rmSync } from 'node:fs';
+import { rmSync, readFileSync } from 'node:fs';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const PURE_WEB_PORT = 8848;
@@ -21,6 +21,10 @@ async function buildElectronMain() {
     // 目录不存在，忽略
   }
 
+  const webPkg = JSON.parse(
+    readFileSync(resolve(cwd, '../pure-web/package.json'), 'utf-8')
+  );
+
   const build = async (entryPoints, format, extension) => {
     await esbuild.build({
       entryPoints: entryPoints,
@@ -34,7 +38,8 @@ async function buildElectronMain() {
       external: ['electron'],
       sourcemap: true,
       define: {
-        'process.env.NODE_ENV': '"development"'
+        'process.env.NODE_ENV': '"development"',
+        'process.env.WEB_VERSION': JSON.stringify(webPkg.version)
       }
     });
   };

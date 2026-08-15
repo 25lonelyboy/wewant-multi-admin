@@ -1,4 +1,10 @@
-// types/ipc.d.ts
+export interface SystemVersion {
+  app: string;
+  web: string;
+  electron: string;
+  node: string;
+}
+
 export interface ElectronAPI {
   versions: {
     node: string;
