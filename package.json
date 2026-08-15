@@ -30,7 +30,6 @@
     "pnpm": ">=11"
   },
   "devDependencies": {
-    "@changesets/cli": "catalog:",
     "@commitlint/cli": "catalog:",
     "@commitlint/config-conventional": "catalog:",
     "@commitlint/types": "catalog:",
