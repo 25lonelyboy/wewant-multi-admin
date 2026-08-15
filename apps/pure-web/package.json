@@ -11,7 +11,7 @@
     "report": "rimraf dist && cross-env NODE_OPTIONS=--max-old-space-size=8192 vite build",
     "preview": "vite preview",
     "preview:build": "pnpm build && vite preview",
-    "typecheck": "vue-tsc --noEmit --skipLibCheck",
+    "typecheck": "tsc --noEmit --skipLibCheck && vue-tsc --noEmit --skipLibCheck",
     "svgo": "svgo -f . -r",
     "lint": "eslint --cache --max-warnings 0 src mock build --fix",
     "format": "prettier --write  \"src/**/*.{js,ts,json,tsx,css,scss,vue,html,md}\"",
