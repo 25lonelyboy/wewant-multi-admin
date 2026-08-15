@@ -8,8 +8,8 @@
     "prebuild": "pnpm --filter @multi-admin/pure-web run build",
     "prebuild:dir": "pnpm --filter @multi-admin/pure-web run build",
     "dev": "node scripts/dev.mjs",
-    "build": "node esbuild.config.mjs && electron-builder",
-    "build:dir": "node esbuild.config.mjs && electron-builder --dir",
+    "build": "node esbuild.config.mjs && cross-env ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/ electron-builder",
+    "build:dir": "node esbuild.config.mjs && cross-env ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/ electron-builder --dir",
     "lint": "eslint --cache --max-warnings 0 electron --fix",
     "typecheck": "tsc --noEmit"
   },

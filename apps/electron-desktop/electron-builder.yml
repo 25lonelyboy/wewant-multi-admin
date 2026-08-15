@@ -11,6 +11,11 @@ files:
 
 asar: true
 
+# 打包期 Electron 产物 zip 下载镜像：electron-builder 程序化调用 @electron/get，
+# 拿不到 .npmrc 的 electron_mirror（仅安装阶段生效），必须在此显式声明，否则回落 GitHub 超时
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/
+
 win:
   icon: build/icon.ico
   target:
