@@ -1,26 +1,19 @@
 // electron/preload/index.ts
+// 安全约束：仅暴露具名方法，禁止透出 ipcRenderer 泛通道（invoke/send/on/off），
+// 新增 IPC 时在此按 handler 一一登记具名包装。
 import { ipcRenderer, contextBridge } from 'electron';
+import type { ElectronAPI } from '../../types/ipc.js';
 
-contextBridge.exposeInMainWorld('electronAPI', {
+const api: ElectronAPI = {
   versions: {
     node: process.versions.node,
     electron: process.versions.electron,
     chrome: process.versions.chrome
   },
 
-  invoke: (channel: string, ...args: unknown[]) =>
-    ipcRenderer.invoke(channel, ...args),
+  getVersion: () => ipcRenderer.invoke('system:getVersion'),
 
-  send: (channel: string, ...args: unknown[]) =>
-    ipcRenderer.send(channel, ...args),
+  openExternal: (url: string) => ipcRenderer.invoke('system:openExternal', url)
+};
 
-  on: (channel: string, callback: (...args: unknown[]) => void) => {
-    const handler = (_event: any, ...args: unknown[]) => callback(...args);
-    ipcRenderer.on(channel, handler);
-    return () => ipcRenderer.removeListener(channel, handler);
-  },
-
-  off: (channel: string, callback: (...args: unknown[]) => void) => {
-    ipcRenderer.removeListener(channel, callback);
-  }
-});
+contextBridge.exposeInMainWorld('electronAPI', api);
