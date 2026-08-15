@@ -6,7 +6,31 @@ import { SCHEME } from './protocol.js';
 const preload = join(import.meta.dirname, '../preload/index.cjs');
 const DIST_ENTRY = `${SCHEME}://bundle/index.html`;
 
+let mainWindow: BrowserWindow | null = null;
+// 托盘常驻：默认关窗仅隐藏，仅托盘"退出"置位后才允许真正退出
+let allowQuit = false;
+
+export function allowAppQuit() {
+  allowQuit = true;
+}
+
+export function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+  mainWindow.show();
+  mainWindow.focus();
+}
+
 export function createWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    showMainWindow();
+    return mainWindow;
+  }
+
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -38,5 +62,18 @@ export function createWindow() {
     return { action: 'deny' };
   });
 
+  // 托盘常驻：关窗拦截为隐藏，进程驻留后台
+  win.on('close', event => {
+    if (!allowQuit) {
+      event.preventDefault();
+      win.hide();
+    }
+  });
+
+  win.on('closed', () => {
+    mainWindow = null;
+  });
+
+  mainWindow = win;
   return win;
 }
