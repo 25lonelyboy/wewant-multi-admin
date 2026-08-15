@@ -104,8 +104,6 @@ catalogs:
   uni-app:
     'vite': '5.2.8'
 overrides:
-  # electron-builder 26.15.3 声明 @electron/get ^3.0.0 但代码依赖 v5 API（ElectronDownloadCacheMode），强制收敛修复
-  '@electron/get': '5.1.0'
   'jest': '30.4.1'
   'jest-runtime': '30.4.1'
   'jest-circus': '30.4.1'
