@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-import { spawn } from 'node:child_process';
 import { get } from 'node:http';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as esbuild from 'esbuild';
 import { rmSync, readFileSync } from 'node:fs';
+import { run } from '@multi-admin/node-utils';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const PURE_WEB_PORT = 8848;
@@ -68,14 +68,12 @@ function checkDevServer() {
 
 async function startPureWeb() {
   console.log('[dev] Starting pure-web dev server...');
-  const child = spawn(
-    'pnpm',
-    ['--filter', '@multi-admin/pure-web', 'run', 'dev'],
-    {
-      stdio: 'inherit',
-      shell: true
-    }
-  );
+  const child = run('pnpm', [
+    '--filter',
+    '@multi-admin/pure-web',
+    'run',
+    'dev'
+  ]);
 
   // 等待 dev server 就绪
   await new Promise(resolve => {
@@ -95,18 +93,14 @@ async function startElectron() {
   console.log('[dev] Starting Electron...');
   const cwd = resolve(__dirname, '..');
 
-  // 在 Windows 上使用 cmd /c 执行 electron.cmd
-  const isWin = process.platform === 'win32';
-  const electronPath = isWin
-    ? resolve(__dirname, '../node_modules/.bin/electron.cmd')
-    : resolve(__dirname, '../node_modules/.bin/electron');
+  // Windows 下的可执行入口是 electron.cmd 垫片
+  const electronPath = resolve(
+    __dirname,
+    '../node_modules/.bin/electron' +
+      (process.platform === 'win32' ? '.cmd' : '')
+  );
 
-  const args = isWin ? ['/c', electronPath, '.'] : ['.'];
-  const command = isWin ? 'cmd' : electronPath;
-
-  const child = spawn(command, args, {
-    stdio: 'inherit',
-    shell: true,
+  const child = run(electronPath, ['.'], {
     cwd,
     env: {
       ...process.env,
