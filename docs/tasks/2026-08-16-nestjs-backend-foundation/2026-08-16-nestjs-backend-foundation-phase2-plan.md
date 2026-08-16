@@ -2035,7 +2035,7 @@ docs(server): 同步阶段 P2 落地结果至总 spec 与 AGENTS
 
 ### Task 17: 质量门禁与最终验收（设计 §12）
 
-- [ ] **Step 1: 全量门禁**
+- [x] **Step 1: 全量门禁**
 
 ```bat
 pnpm check
@@ -2043,18 +2043,18 @@ pnpm check
 
 预期：prettier → typecheck → lint → test 全绿。lint 注意：`src/generated/**` 已在 ignores（Task 3）；若 typecheck 报生成物类型错误，核对 `importFileExtension = "js"` 与 tsconfig nodenext 匹配。
 
-- [ ] **Step 2: 对照设计 §12 逐项打勾（在本计划文件内勾选 checkbox）**
+- [x] **Step 2: 对照设计 §12 逐项打勾（在本计划文件内勾选 checkbox）**
 
-- [ ] compose 三服务健康，启动链 migrate + seed 全绿（Task 15 Step 3）
-- [ ] 二次 up/restart seed 幂等（Task 15 Step 4-2）
-- [ ] `/health` 双探针信封；断 redis 503 + 50300（Task 15 Step 4-3）
-- [ ] e2e 全绿 + truncate/FLUSHDB 生效（Task 12）
-- [ ] jest × Prisma 7 ESM 对策生效（Task 4）
-- [ ] `pnpm check` 全绿（Step 1）
-- [ ] alpine 容器内 migrate + seed + 启动成功（Task 15 Step 4）
-- [ ] 文档同步（Task 16）
+- [x] compose 三服务健康，启动链 migrate + seed 全绿（Task 15 Step 3）
+- [x] 二次 up/restart seed 幂等（Task 15 Step 4-2）
+- [x] `/health` 双探针信封；断 redis 503 + 50300（Task 15 Step 4-3）
+- [x] e2e 全绿 + truncate/FLUSHDB 生效（Task 12）
+- [x] jest × Prisma 7 ESM 对策生效（Task 4）
+- [x] `pnpm check` 全绿（Step 1）
+- [x] alpine 容器内 migrate + seed + 启动成功（Task 15 Step 4）
+- [x] 文档同步（Task 16）
 
-- [ ] **Step 3: 无遗留改动后收尾提交（若 Step 2 勾选产生文件变更）**
+- [x] **Step 3: 无遗留改动后收尾提交（若 Step 2 勾选产生文件变更）**
 
 ```
 docs(server): 勾选阶段 P2 计划验收清单
