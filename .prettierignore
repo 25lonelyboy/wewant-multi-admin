@@ -7,3 +7,5 @@ pnpm-lock.yaml
 **/tests/**/coverage
 **/public/wasm/**
 /docs
+.qoder
+**/coverage

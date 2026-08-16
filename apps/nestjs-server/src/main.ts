@@ -13,7 +13,13 @@ async function bootstrap() {
   app.use(requestIdMiddleware);
   app.setGlobalPrefix('api/v1', { exclude: ['health'] });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  app.enableCors({ origin: config.corsOrigin.split(',') });
+  // 逗号分隔允许多来源；trim + 过滤空串，容忍 "a, b" 与尾逗号等手写配置
+  app.enableCors({
+    origin: config.corsOrigin
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean)
+  });
   app.enableShutdownHooks();
 
   await app.listen(config.port);

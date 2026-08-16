@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'node:crypto';
+import type { Request } from 'express';
 import type { IncomingMessage } from 'node:http';
 import { AppConfigService } from '../../config/app-config.service.js';
 
@@ -19,6 +20,9 @@ interface RequestWithId extends IncomingMessage {
     LoggerModule.forRootAsync({
       inject: [AppConfigService],
       useFactory: (config: AppConfigService) => ({
+        // nestjs-pino 4.6.1 默认 forRoutes '*'（叠加全局前缀后 Nest 11 报 Unsupported route path WARN），
+        // 此处用官方逃生口语法固定为全部路由，消除启动 WARN
+        forRoutes: ['/{*splat}'],
         pinoHttp: {
           level: config.logLevel,
           // 读取 request-id 中间件写入的 requestId；缺失时兜底生成
@@ -29,7 +33,11 @@ interface RequestWithId extends IncomingMessage {
             censor: '***'
           },
           // 健康检查路径不产生访问日志（含 query 变体；尾斜杠 /health/ 暂不覆盖，P2 换 terminus 时按需处理）
-          autoLogging: { ignore: req => req.url?.split('?')[0] === '/health' },
+          // 注意：Nest 中间件在路由匹配后执行，req.url 已被 Express 5 改写为剩余路径，必须用 originalUrl 判断
+          autoLogging: {
+            ignore: req =>
+              (req as Request).originalUrl?.split('?')[0] === '/health'
+          },
           ...(config.nodeEnv === 'development'
             ? {
                 transport: {

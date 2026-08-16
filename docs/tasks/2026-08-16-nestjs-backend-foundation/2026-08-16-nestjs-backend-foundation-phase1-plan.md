@@ -132,6 +132,8 @@ Expected：安装成功；typecheck 通过（无代码变更，仅确认依赖�
 deps(server): P1 基架依赖入 catalog（config/zod/pino/class-validator）
 ```
 
+<!-- 注意：commitlint type-enum 白名单无 deps，实际提交采用 chore(deps): P1 基架依赖入 catalog（config/zod/pino/class-validator） -->
+
 ---
 
 ### Task 2: 配置模块（zod 校验 + 类型安全访问）
@@ -303,6 +305,8 @@ describe('AppConfigService', () => {
 ```
 
 此时 `app-config.module.ts` 尚不存在，先运行确认 FAIL，再创建模块文件（Step 8）后跑绿。
+
+> 实现注记（与最终实现一致）：@nestjs/config 4.x 的 `forRoot.validate` 在**模块加载时**同步执行并缓存校验结果快照，因此 service spec 必须在 `process.env` 就绪后**动态 import** 模块（见 `app-config.service.spec.ts` 的 `await import(...)`），快照才会包含注入的环境变量；若顶层静态 import，校验快照会早于 `process.env` 赋值而丢失 `warn`。
 
 - [ ] **Step 8: 实现 app-config.module.ts 并跑绿**
 
@@ -793,7 +797,7 @@ feat(server): nestjs-pino 结构化日志模块（dev pretty / prod JSON / 敏�
 - Modify: `apps/nestjs-server/src/app.module.ts`
 - Delete: `apps/nestjs-server/src/app.controller.ts`、`app.service.ts`、`app.controller.spec.ts`
 
-- [ ] **Step 1: 创建 health 模块**
+- [x] **Step 1: 创建 health 模块**
 
 `health.controller.ts`（骨架端点，P2 换 terminus 双探针）：
 
@@ -821,7 +825,7 @@ import { HealthController } from './health.controller.js';
 export class HealthModule {}
 ```
 
-- [ ] **Step 2: 重写 app.module.ts**
+- [x] **Step 2: 重写 app.module.ts**
 
 ```ts
 import { Module } from '@nestjs/common';
@@ -844,7 +848,7 @@ export class AppModule {}
 
 注意：requestId 中间件**不在本文件用 MiddlewareConsumer 挂载**——Nest 11 + Express 5 下 `forRoutes('*')` 已废弃（官方迁移指南明确不应再使用，新语法为 `forRoutes('{*splat}')`），统一在 main.ts 以 `app.use` 注册为唯一注册点（见 Step 3）。
 
-- [ ] **Step 3: 重写 main.ts**
+- [x] **Step 3: 重写 main.ts**
 
 ```ts
 import { ValidationPipe } from '@nestjs/common';
@@ -875,11 +879,11 @@ void (async () => {
 
 说明：requestId 在 main.ts 以 Express 原生方式注册，这是唯一注册点（不用 MiddlewareConsumer，避开 Express 5 通配语法变更）。`bufferLogs: true` 保证启动期日志也走 pino。
 
-- [ ] **Step 4: 删除脚手架样例**
+- [x] **Step 4: 删除脚手架样例**
 
 删除 `src/app.controller.ts`、`src/app.service.ts`、`src/app.controller.spec.ts`。
 
-- [ ] **Step 5: 手动冒烟**
+- [x] **Step 5: 手动冒烟**
 
 ```bash
 pnpm dev:server
@@ -899,7 +903,7 @@ Expected：
 
 冒烟后终止 dev 进程。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```
 feat(server): health 骨架端点与 main 装配，移除脚手架样例
@@ -913,7 +917,7 @@ feat(server): health 骨架端点与 main 装配，移除脚手架样例
 - Modify: `apps/nestjs-server/test/app.e2e-spec.ts`
 - Modify: `AGENTS.md`（nestjs-server 状态行）
 
-- [ ] **Step 1: 重写 e2e 冒烟**
+- [x] **Step 1: 重写 e2e 冒烟**
 
 `test/app.e2e-spec.ts`（jest-e2e 默认 `NODE_ENV=test`，pino 不开 transport）：
 
@@ -970,7 +974,7 @@ describe('基架冒烟 (e2e)', () => {
 
 requestId 唯一注册点为 main.ts 的 `app.use`（见 Task 6 Step 3）；e2e 中 createNestApplication 不会执行 main.ts，故此处需手动补注册，与生产行为对齐。
 
-- [ ] **Step 2: 运行 e2e**
+- [x] **Step 2: 运行 e2e**
 
 ```bash
 pnpm --filter @multi-admin/nestjs-server run test:e2e
@@ -978,7 +982,7 @@ pnpm --filter @multi-admin/nestjs-server run test:e2e
 
 Expected：3 个用例 PASS。
 
-- [ ] **Step 3: 全量质量门禁**
+- [x] **Step 3: 全量质量门禁**
 
 ```bash
 pnpm check
@@ -986,7 +990,7 @@ pnpm check
 
 Expected：prettier → typecheck → lint → test 全绿。若 prettier 报新文件格式问题，先跑 `pnpm format` 再复验。
 
-- [ ] **Step 4: 更新 AGENTS.md 状态行**
+- [x] **Step 4: 更新 AGENTS.md 状态行**
 
 将 AGENTS.md 项目概览表中 nestjs-server 行更新为（描述与代码一致）：
 
@@ -994,7 +998,7 @@ Expected：prettier → typecheck → lint → test 全绿。若 prettier 报新
 | `apps/nestjs-server`    | NestJS 后端，阶段二基架补全中：已完成骨架与横切基建（配置校验/信封/日志/健康检查），Prisma + Redis 接入中 |
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 test(server): e2e 冒烟覆盖信封/404/requestId，更新 AGENTS.md 状态

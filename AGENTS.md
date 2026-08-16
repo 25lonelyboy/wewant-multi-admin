@@ -9,7 +9,7 @@ This file provides guidance to Lingma (lingma.aliyun.com) when working with code
 | Workspace               | 说明                                                                                                                              |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/pure-web`         | Vue3 管理后台（vue-pure-admin 基底：Element Plus + Tailwind + Pinia），当前用 vite-plugin-fake-server mock 数据，尚未接入真实后端 |
-| `apps/nestjs-server`    | NestJS 后端，当前为脚手架状态（Prisma + PostgreSQL 属阶段二计划）                                                                 |
+| `apps/nestjs-server`    | NestJS 后端，阶段二基架补全中：已完成骨架与横切基建（配置校验/信封/日志/健康检查），Prisma + Redis 接入中                         |
 | `apps/uni-mobile`       | uni-app 多端应用（H5 + 各家小程序），基于 Vue3                                                                                    |
 | `apps/electron-desktop` | Electron 桌面端，托管 pure-web 构建产物作为渲染层                                                                                 |
 | `packages/common`       | 跨端共享 TS 代码（tsdown 构建），暂无应用实际引用                                                                                 |
@@ -34,7 +34,7 @@ pnpm typecheck                    # 全 workspace 类型检查
 pnpm format                       # Prettier 全量格式化
 
 # 运行单个测试文件（目前仅 nestjs-server 有 jest 基建）
-pnpm --filter @multi-admin/nestjs-server run test -- src/app.controller.spec.ts
+pnpm --filter @multi-admin/nestjs-server run test -- src/config/env.schema.spec.ts
 pnpm --filter @multi-admin/nestjs-server run test:e2e   # e2e 测试（jest-e2e.json）
 ```
 
