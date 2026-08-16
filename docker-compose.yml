@@ -1,5 +1,5 @@
-# 本机部署编排：web（nginx）+ server（NestJS）+ postgres
-# 启动前复制根目录 .env.example 为 .env 并填写密码
+# 本机部署编排：web（nginx）+ server（NestJS）+ postgres + redis
+# 启动前复制根目录 .env.example 为 .env 并填写密码与 ADMIN_INIT_PASSWORD
 services:
   postgres:
     image: postgres:15-alpine
@@ -7,13 +7,28 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?请在 .env 中设置 POSTGRES_PASSWORD}
-      POSTGRES_DB: multi-admin
+      POSTGRES_DB: multi_admin
+    ports:
+      - '5432:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres -d multi-admin']
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d multi_admin']
       interval: 5s
       timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
       retries: 10
 
   server:
@@ -24,13 +39,26 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      # 阶段二接入 Prisma 后生效
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/multi-admin?schema=public}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/multi_admin?schema=public}
+      REDIS_URL: redis://redis:6379
+      ADMIN_INIT_PASSWORD: ${ADMIN_INIT_PASSWORD:?请在 .env 中设置 ADMIN_INIT_PASSWORD}
     ports:
       - '3000:3000'
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'node -e "fetch(''http://localhost:3000/health'').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"'
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
 
   web:
     build:
@@ -42,3 +70,4 @@ services:
 
 volumes:
   postgres-data:
+  redis-data:
