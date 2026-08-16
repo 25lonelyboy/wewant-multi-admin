@@ -8,14 +8,16 @@ export const envSchema = z.object({
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
     .default('info'),
-  CORS_ORIGIN: z.string().default('http://localhost:8848')
+  CORS_ORIGIN: z.string().default('http://localhost:8848'),
+  DATABASE_URL: z.url(),
+  REDIS_URL: z.string().min(1)
 });
 
 export type Env = z.infer<typeof envSchema>;
 
 /**
  * 供 @nestjs/config 的 validate 选项使用：校验失败直接抛出，启动即崩、快速暴露部署问题。
- * 后续阶段在此追加 DATABASE_URL（P2）、JWT_*（P3）等必填项。
+ * JWT_*（P3）等必填项后续追加。
  */
 export function validateEnv(raw: Record<string, unknown>): Env {
   const parsed = envSchema.safeParse(raw);

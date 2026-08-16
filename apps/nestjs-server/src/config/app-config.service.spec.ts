@@ -28,4 +28,9 @@ describe('AppConfigService', () => {
     expect(typeof service.port).toBe('number');
     expect(typeof service.isProduction).toBe('boolean');
   });
+
+  it('databaseUrl/redisUrl 读取测试态兜底环境变量', () => {
+    expect(service.databaseUrl).toBe(process.env['DATABASE_URL']);
+    expect(service.redisUrl).toBe(process.env['REDIS_URL']);
+  });
 });

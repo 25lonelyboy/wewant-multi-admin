@@ -25,6 +25,14 @@ export class AppConfigService {
     return this.config.get('CORS_ORIGIN', { infer: true });
   }
 
+  get databaseUrl(): Env['DATABASE_URL'] {
+    return this.config.get('DATABASE_URL', { infer: true });
+  }
+
+  get redisUrl(): Env['REDIS_URL'] {
+    return this.config.get('REDIS_URL', { infer: true });
+  }
+
   get isProduction(): boolean {
     return this.nodeEnv === 'production';
   }
