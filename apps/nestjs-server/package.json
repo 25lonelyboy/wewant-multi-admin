@@ -22,10 +22,16 @@
   },
   "dependencies": {
     "@nestjs/common": "catalog:",
+    "@nestjs/config": "catalog:",
     "@nestjs/core": "catalog:",
     "@nestjs/platform-express": "catalog:",
+    "class-transformer": "catalog:",
+    "class-validator": "catalog:",
+    "nestjs-pino": "catalog:",
+    "pino": "catalog:",
     "reflect-metadata": "catalog:",
-    "rxjs": "catalog:"
+    "rxjs": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@multi-admin/tsconfig": "workspace:*",
@@ -39,6 +45,7 @@
     "@types/supertest": "catalog:",
     "eslint": "catalog:",
     "jest": "catalog:",
+    "pino-pretty": "catalog:",
     "prettier": "catalog:",
     "source-map-support": "catalog:",
     "supertest": "catalog:",
