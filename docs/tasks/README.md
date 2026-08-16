@@ -4,7 +4,9 @@
 
 ## 进行中
 
-（无）
+| 任务 | 说明 |
+|---|---|
+| NestJS 后端基架补全 | 总体设计见 [2026-08-16-nestjs-backend-foundation/](2026-08-16-nestjs-backend-foundation/)，总-分结构，分 P1~P5 五阶段 |
 
 ## 最近已完成
 
