@@ -4,7 +4,7 @@ import request from 'supertest';
 import type { Server } from 'node:http';
 import { AppModule } from './../src/app.module.js';
 
-describe('AppController (e2e)', () => {
+describe('AppModule (e2e)', () => {
   let app: INestApplication<Server>;
 
   beforeEach(async () => {
@@ -16,11 +16,28 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+  it('/health (GET) 返回统一信封', async () => {
+    const res = await request(app.getHttpServer()).get('/health').expect(200);
+    const body = res.body as {
+      code: number;
+      message: string;
+      data: { status: string; uptime: number };
+    };
+
+    expect(body).toMatchObject({
+      code: 0,
+      message: 'ok',
+      data: { status: 'ok' }
+    });
+    expect(typeof body.data.uptime).toBe('number');
+  });
+
+  it('未知路径返回 404 信封', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/no-such-route')
+      .expect(404);
+
+    expect(res.body).toMatchObject({ code: 40400, data: null });
   });
 
   afterEach(async () => {
