@@ -1,0 +1,81 @@
+// 五表 + 三级 RBAC（总 spec §6.2）；v7：datasource url 移入 prisma.config.ts
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider           = "prisma-client"
+  output             = "../src/generated/prisma"
+  moduleFormat       = "esm"
+  importFileExtension = "js"
+}
+
+model User {
+  id        String     @id @default(cuid())
+  username  String     @unique
+  password  String // argon2 hash，永不落日志
+  nickname  String
+  status    UserStatus @default(ACTIVE)
+  roles     UserRole[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Role {
+  id     String     @id @default(cuid())
+  code   String     @unique // admin / common
+  name   String
+  status RoleStatus @default(ACTIVE)
+  users  UserRole[]
+  menus  RoleMenu[]
+}
+
+model Menu {
+  id         String     @id @default(cuid())
+  parentId   String?
+  parent     Menu?      @relation("MenuTree", fields: [parentId], references: [id])
+  children   Menu[]     @relation("MenuTree")
+  type       MenuType // MENU | BUTTON
+  name       String     @unique // 路由名 / 权限点宿主标识
+  title      String // i18n key，对齐 pure-web locales
+  icon       String?
+  path       String?
+  component  String?
+  permission String?    @unique // BUTTON 型权限点，如 system:user:add
+  sort       Int        @default(0)
+  visible    Boolean    @default(true)
+  roles      RoleMenu[]
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RoleMenu {
+  roleId String
+  menuId String
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  menu   Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, menuId])
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum RoleStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum MenuType {
+  MENU
+  BUTTON
+}

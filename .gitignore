@@ -56,3 +56,6 @@ pids
 
 # husky auto-generated runtime dir (hook files themselves are committed)
 .husky/_
+
+# Prisma 生成物（prisma generate 产物，build 链重新生成）
+apps/nestjs-server/src/generated/

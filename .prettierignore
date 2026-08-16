@@ -9,3 +9,4 @@ pnpm-lock.yaml
 /docs
 .qoder
 **/coverage
+apps/nestjs-server/src/generated
