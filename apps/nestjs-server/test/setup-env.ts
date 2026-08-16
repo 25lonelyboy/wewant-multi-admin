@@ -1,6 +1,6 @@
 // jest setupFiles（先于任何测试模块 import 执行）：仅在进程 env 缺失时填测试默认值，
 // 支持真机 env 覆盖（如 CI 用独立账号库）。DATABASE_URL 指向测试库 multi_admin_test，
-// 与 e2e globalSetup 建库逻辑（test/global-setup.ts）保持一致。
+// 与 e2e globalSetup 建库逻辑（test/e2e-env.ts，由 test/global-setup.ts 经 tsx 拉起）保持一致。
 
 function setIfAbsent(key: string, value: string): void {
   if (process.env[key] === undefined || process.env[key] === '') {

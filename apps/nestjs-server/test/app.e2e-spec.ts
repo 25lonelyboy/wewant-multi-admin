@@ -1,10 +1,9 @@
-import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import type { Server } from 'node:http';
 import { AppModule } from './../src/app.module.js';
-import { requestIdMiddleware } from './../src/common/middleware/request-id.middleware.js';
+import { applyAppDefaults } from './../src/common/bootstrap/apply-app-defaults.js';
 
 describe('基架冒烟 (e2e)', () => {
   let app: INestApplication<Server>;
@@ -15,11 +14,7 @@ describe('基架冒烟 (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.use(requestIdMiddleware);
-    app.setGlobalPrefix('api/v1', { exclude: ['health'] });
-    app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, transform: true })
-    );
+    applyAppDefaults(app);
     await app.init();
   });
 
@@ -27,11 +22,16 @@ describe('基架冒烟 (e2e)', () => {
     await app.close();
   });
 
-  it('GET /health → 信封 + requestId 响应头', async () => {
+  it('GET /health → 信封 + 双探针 up + requestId 响应头', async () => {
     const res = await request(app.getHttpServer()).get('/health').expect(200);
-    const body = res.body as { code: number; data: { status: string } };
+    const body = res.body as {
+      code: number;
+      data: { status: string; details: Record<string, { status: string }> };
+    };
     expect(body.code).toBe(0);
     expect(body.data.status).toBe('ok');
+    expect(body.data.details.database.status).toBe('up');
+    expect(body.data.details.redis.status).toBe('up');
     expect(res.headers['x-request-id']).toBeTruthy();
   });
 

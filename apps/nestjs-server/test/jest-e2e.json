@@ -4,6 +4,8 @@
   "setupFiles": ["<rootDir>/setup-env.ts"],
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
+  "globalSetup": "<rootDir>/global-setup.ts",
+  "globalTeardown": "<rootDir>/global-teardown.ts",
   "moduleNameMapper": {
     "^@prisma/client/runtime/(.+)\\.mjs$": "@prisma/client/runtime/$1.js",
     "^(\\.{1,2}/.*)\\.js$": "$1"
