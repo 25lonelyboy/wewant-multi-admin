@@ -6,12 +6,15 @@ packages:
 allowBuilds:
   '@logicflow/core': true
   '@parcel/watcher': true
+  '@prisma/engines': true
+  argon2: true
   core-js: true
   core-js-pure: true
   electron: true
   electron-winstaller: true
   es5-ext: true
   esbuild: true
+  prisma: true
   typeit: true
   unrs-resolver: true
   vue-demi: true
@@ -49,6 +52,9 @@ catalog:
   '@nestjs/cli': '^11.0.0'
   '@nestjs/schematics': '^11.0.0'
   '@nestjs/testing': '^11.0.1'
+  '@nestjs/terminus': '^11.0.0'
+  '@prisma/adapter-pg': '7.9.1'
+  '@prisma/client': '7.9.1'
   '@tailwindcss/vite': '^4.3.3'
   '@types/express': '^5.0.0'
   '@types/jest': '^30.0.0'
@@ -58,6 +64,7 @@ catalog:
   '@vitejs/plugin-vue-jsx': '^5.1.6'
   '@vue/runtime-core': '^3.5.40'
   '@vue/tsconfig': '^0.7.0'
+  'argon2': '^0.45.0'
   'axios': '1.18.1'
   'class-transformer': '^0.5.1'
   'class-validator': '^0.15.1'
@@ -69,6 +76,7 @@ catalog:
   'eslint-config-prettier': '^10.1.8'
   'globals': '^17.0.0'
   'husky': '^9.1.7'
+  'ioredis': '^6.0.0'
   'jest': '30.4.1'
   'lint-staged': '^17.3.0'
   'nestjs-pino': '^4.6.1'
@@ -78,6 +86,7 @@ catalog:
   'postcss-html': '^1.8.1'
   'postcss-scss': '^4.0.9'
   'prettier': '^3.9.5'
+  'prisma': '7.9.1'
   'reflect-metadata': '^0.2.2'
   'rxjs': '^7.8.1'
   'source-map-support': '^0.5.21'
@@ -97,6 +106,7 @@ catalog:
   'ts-loader': '^9.5.2'
   'ts-node': '^10.9.2'
   'tsconfig-paths': '^4.2.0'
+  'tsx': '^4.0.0'
   'tsdown': '^0.22.14'
   'vite': '^8.1.5'
   'vite-svg-loader': '^5.1.1'
