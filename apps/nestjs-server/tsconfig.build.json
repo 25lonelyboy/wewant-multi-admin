@@ -1,7 +1,9 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "rootDir": "./src"
+    "rootDir": "./src",
+    // 构建专用：关闭增量编译，避免 deleteOutDir 清空 dist 后 tsc 凭 tsbuildinfo 空转不 emit
+    "incremental": false
   },
   "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
 }

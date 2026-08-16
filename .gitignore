@@ -19,6 +19,8 @@ target
 
 # Tests
 **/tests/**/coverage/
+# jest coverage 输出（各 app/package 的 coverageDirectory 产物）
+**/coverage/
 
 # OS
 .DS_Store
