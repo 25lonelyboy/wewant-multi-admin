@@ -8,6 +8,8 @@ WORKDIR /repo
 ENV PNPM_CONFIG_REGISTRY=https://registry.npmmirror.com
 # corepack 下载 pnpm 本体也走镜像（corepack 专属变量）
 ENV COREPACK_NPM_REGISTRY=https://registry.npmmirror.com
+# prisma generate 不连库，占位值仅为满足 prisma.config.ts 加载（真实连接串由运行期 compose 注入）
+ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 
 # 启用 corepack 并按 packageManager 字段锁定 pnpm 版本
 # 安装 git：pnpm 11 的 onlyBuiltDependencies 注入需要
@@ -49,7 +51,14 @@ RUN corepack enable && pnpm install --frozen-lockfile --prod --ignore-scripts --
     --fetch-retries=5
 
 COPY --from=build-stage /repo/apps/nestjs-server/dist ./apps/nestjs-server/dist
+# 启动链刚需：migrations/seed 源码、v7 配置、生成物（seed 经 tsx 从源码产物导入，dev/prod 同路径）
+COPY --from=build-stage /repo/apps/nestjs-server/prisma ./apps/nestjs-server/prisma
+COPY --from=build-stage /repo/apps/nestjs-server/prisma.config.ts ./apps/nestjs-server/prisma.config.ts
+COPY --from=build-stage /repo/apps/nestjs-server/src/generated ./apps/nestjs-server/src/generated
+
+# 启动链：migrate deploy → db seed → 主进程；任一环节失败即容器退出（compose restart 兜底）
+RUN printf '#!/bin/sh\nset -e\npnpm exec prisma migrate deploy\npnpm exec prisma db seed\nexec node dist/main.js\n' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 WORKDIR /repo/apps/nestjs-server
 EXPOSE 3000
-CMD [ "node", "dist/main.js" ]
+CMD ["/entrypoint.sh"]
