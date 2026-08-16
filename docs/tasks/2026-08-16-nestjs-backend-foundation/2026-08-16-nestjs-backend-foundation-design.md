@@ -188,8 +188,8 @@ P2 修订备案 1-9（登记于 P2「分」设计 `...-phase2-design.md` §11）
 
 - [x] `docker compose up` postgres/redis/server 三服务健康；启动链 entrypoint（`migrate deploy` → `db seed` → `exec node`）全绿且幂等验证通过
 - [x] 二次启动 seed 幂等：upsert/skipDuplicates/超管 create-only，无重复记录、超管密码不被覆盖；`ADMIN_INIT_PASSWORD` 缺失即失败
-- [x] `/health` terminus 双探针（探针 Promise.race 3s 超时竞速、down 附根因）返回信封 `{code:0,data:{database:{status:'up'},redis:{status:'up'}}}`；断 redis → 503 + `50300`
-- [x] e2e 全绿：独立测试库 `multi_admin_test`（globalSetup 建库 + migrate + seed，globalTeardown 删库），Redis 侧 FLUSHDB（DB 0）
+- [x] `/health` terminus 双探针（探针 Promise.race 3s 超时竞速、down 附根因）返回信封 `{code:0,message:'ok',data:{status:'ok',details:{database:{status:'up'},redis:{status:'up'}}}}`；断 redis → 503 + `50300`
+- [x] e2e 全绿：独立测试库 `multi_admin_test`（globalSetup 幂等建库 + migrate + seed，globalTeardown truncate 全表 + FLUSHDB，库保留），Redis 侧 FLUSHDB（DB 0）
 - [x] jest × Prisma 7 ESM 对策生效（transformIgnorePatterns 放行方案），含 PrismaService 的 e2e 与单测全绿
 - [x] `pnpm check` 全绿
 - [x] Dockerfile 产物 alpine 内 migrate + seed + 启动成功；argon2 预编译在 alpine + `--ignore-scripts` 下可用（未触发兜底）
@@ -202,7 +202,7 @@ P2 修订备案 1-9（登记于 P2「分」设计 `...-phase2-design.md` §11）
 | argon2 在 node:24-alpine 无预编译二进制 | Dockerfile 补 `apk add python3 make g++` 构建层（构建后丢弃），或降级 Node 内置 `crypto.scrypt`（零依赖备胎，优于 bcryptjs 纯 JS 方案） |
 | ~~Prisma engine 二进制与 alpine/musl 不兼容~~ | **已注销**（P2 备案 7）：Prisma 7 Rust-free 无引擎二进制；alpine 兼容风险收敛为 argon2 原生模块（已冒烟通过）与 ESM 运行时 |
 | `@prisma/client` 与纯 ESM（`"type": "module"`）解析兼容性 | Prisma 7 ESM-only + driver adapter（`@prisma/adapter-pg`），P2 冒烟口径「ESM import 生成 client + adapter 构造成功」已验证通过 |
-| `@nestjs/throttler` redis store 与 ioredis 版本适配 | 实施时用 pnpm view 核实 peer 要求，版本入 catalog 时记录理由 |
+| P3 自实现 ThrottlerStorage 的 Lua INCR+EXPIRE 原子性 | P3 实施时冒烟验证并发计数正确性 |
 | packages/contracts 被 Nest（ESM，`"type": "module"`）与 vite 双消费 | tsdown 配 dual（cjs+esm）输出 + package.json exports 双入口，P5 优先验证消费链路 |
 | e2e 依赖本机 postgres 可用性 | 测试前置检查 compose postgres 健康；文档写明 e2e 前置条件 |
 | 覆盖率门槛被基架样板代码稀释 | 门槛只约束 src，排除 main.ts/bootstrap 类胶水文件（collectCoverageFrom 精调） |
