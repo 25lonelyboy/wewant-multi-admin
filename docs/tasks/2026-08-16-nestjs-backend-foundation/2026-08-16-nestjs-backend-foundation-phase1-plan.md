@@ -28,7 +28,7 @@ apps/nestjs-server/
 ├── .env.example                                # Create：env 模板（入库）
 ├── src/
 │   ├── main.ts                                 # Modify：bootstrap 装配
-│   ├── app.module.ts                           # Modify：根模块装配 + requestId 中间件挂载
+│   ├── app.module.ts                           # Modify：根模块装配
 │   ├── app.controller.ts                       # Delete：脚手架样例
 │   ├── app.service.ts                          # Delete：脚手架样例
 │   ├── app.controller.spec.ts                  # Delete：样例测试
@@ -824,13 +824,11 @@ export class HealthModule {}
 - [ ] **Step 2: 重写 app.module.ts**
 
 ```ts
-import type { MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AppConfigModule } from './config/app-config.module.js';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor.js';
-import { requestIdMiddleware } from './common/middleware/request-id.middleware.js';
 import { AppLoggerModule } from './common/logging/app-logger.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 
@@ -841,14 +839,10 @@ import { HealthModule } from './modules/health/health.module.js';
     { provide: APP_INTERCEPTOR, useClass: ResponseEnvelopeInterceptor }
   ]
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(requestIdMiddleware).forRoutes('*');
-  }
-}
+export class AppModule {}
 ```
 
-注意：Nest 11 的 MiddlewareConsumer 通配若报 Express 5 兼容问题（`forRoutes('*')` 在 Express 5 下可能失效），降级为 main.ts 中 `app.use(requestIdMiddleware)` 注册并从本文件移除 `NestModule` 实现——两种位置只需保留一处。
+注意：requestId 中间件**不在本文件用 MiddlewareConsumer 挂载**——Nest 11 + Express 5 下 `forRoutes('*')` 已废弃（官方迁移指南明确不应再使用，新语法为 `forRoutes('{*splat}')`），统一在 main.ts 以 `app.use` 注册为唯一注册点（见 Step 3）。
 
 - [ ] **Step 3: 重写 main.ts**
 
@@ -879,7 +873,7 @@ void (async () => {
 })();
 ```
 
-说明：requestId 在 main.ts 以 Express 原生方式注册（若 Step 2 选择了 consumer 方式则此处二选一保留 main.ts 版）。`bufferLogs: true` 保证启动期日志也走 pino。
+说明：requestId 在 main.ts 以 Express 原生方式注册，这是唯一注册点（不用 MiddlewareConsumer，避开 Express 5 通配语法变更）。`bufferLogs: true` 保证启动期日志也走 pino。
 
 - [ ] **Step 4: 删除脚手架样例**
 
@@ -974,7 +968,7 @@ describe('基架冒烟 (e2e)', () => {
 });
 ```
 
-若 Task 6 Step 2 保留了 `consumer.apply` 方式而非 main.ts 注册，`app.use(requestIdMiddleware)` 一行可删（避免双注册，重复注册仅覆盖同值头、无副作用，但保持单一注册点）。
+requestId 唯一注册点为 main.ts 的 `app.use`（见 Task 6 Step 3）；e2e 中 createNestApplication 不会执行 main.ts，故此处需手动补注册，与生产行为对齐。
 
 - [ ] **Step 2: 运行 e2e**
 

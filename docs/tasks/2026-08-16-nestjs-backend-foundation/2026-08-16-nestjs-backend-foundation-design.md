@@ -13,7 +13,7 @@
 | 决策点 | 结论 | 被否方案及理由 |
 | --- | --- | --- |
 | 实施范围 | 全量基架（10 项全补） | 核心链路优先（分两轮反而多一次集成成本） |
-| 技术路线 | 方案 A 官方主流生态：Prisma + nestjs-pino + passport + zod + swagger + throttler + terminus | 方案 B 轻量自研（单人项目自研基建风险高）；方案 C TypeORM（与阶段二既定决策冲突） |
+| 技术路线 | 方案 A 官方主流生态：Prisma + nestjs-pino + passport + zod + swagger + throttler + terminus | 方案 B 轻量自研（单人项目自研基建风险高）；方案 C TypeORM（与阶段二既定决策冲突）。注：Prisma vs Drizzle（无 engine 二进制/无 codegen，alpine 镜像更轻）的实质对比、认证库 Lucia（2025-03 弃维）/Better Auth、zod vs Joi 的对照结论一并落 ADR-004 |
 | 认证范围 | JWT access + refresh 双令牌；passport 多策略即 provider 扩展位，本轮只实现账密 | 多端登录一步到位（范围膨胀）；不留扩展位（返工风险） |
 | RBAC 深度 | 用户-角色-菜单/按钮三级模型；数据权限作正交预留（见 §6.3） | 仅角色级（vue-pure-admin 按钮级 v-auth 无法对接）；含数据权限（当前性价比低） |
 | 接口契约 | 继承 pure-web mock 结构 + 升级：`/api/v1` 前缀、端域分组、`{code,message,data}` 数字错误码信封、契约类型入 `packages/contracts` | 原样沿用（欠版本化/错误码/多端三笔债）；推迟决策（错过零业务窗口） |
@@ -37,7 +37,8 @@ apps/nestjs-server/
 │   │   ├── decorators/        # @Public @CurrentUser @RequirePermissions
 │   │   ├── filters/           # 全局异常过滤器 → 统一信封
 │   │   ├── guards/            # JwtAuth / Permissions / Throttler
-│   │   ├── interceptors/      # 响应信封包装、requestId
+│   │   ├── interceptors/      # 响应信封包装
+│   │   ├── middleware/        # requestId 中间件
 │   │   ├── errors/            # BizException + 错误码枚举
 │   │   ├── prisma/            # PrismaService（全局模块）
 │   │   └── redis/             # RedisModule（ioredis 封装）
@@ -52,7 +53,7 @@ apps/nestjs-server/
 
 ## 4. 配置管理
 
-- `@nestjs/config` + zod schema 启动即校验：缺 `DATABASE_URL`/`REDIS_URL`/`JWT_*` 等关键项直接启动失败。
+- `@nestjs/config` + zod schema 启动即校验：关键项缺失直接启动失败，快速暴露部署问题。**必填项随阶段递增**：P1 仅校验基础运行参数（PORT/NODE_ENV/LOG_LEVEL/CORS_ORIGIN，均带默认值），P2 追加 `DATABASE_URL`/`REDIS_URL`，P3 追加 `JWT_*`。
 - 环境分档：`.env`（本地默认）+ `.env.production`（compose 注入）；根 `.env.example` 同步补全。
 - 类型安全：导出 `AppConfig` 类型，业务经封装 getter 访问，不裸写字符串 key。
 
@@ -77,6 +78,7 @@ apps/nestjs-server/
 | `50000` | 内部错误 |
 
 - 业务异常抛 `BizException(code, message)`；全局 ExceptionFilter 兜底未知异常为 `50000` 并记日志。
+- **派生规则**：未列入上表的异常按 `code = HTTP status × 100` 派生（如 404 → `40400`、403 → `40300`），保证任意错误都有可机读 code；前端仅需对上表枚举码做分支，派生码按 HTTP 语义兜底处理。
 - requestId（UUID）由中间件生成，写入响应头 `x-request-id` 并贯穿 pino 日志上下文。
 - 错误码常量导出至 `packages/contracts`，前端可直接 import 做分支逻辑。
 
@@ -147,6 +149,7 @@ RoleMenu(roleId, menuId)
 | 单元 | service 纯逻辑（令牌签发/轮换、权限集合推导、信封/错误码）；Prisma 用 mock 注入 |
 | e2e 示范用例 | 认证全链路：登录成功/失败、限流、刷新轮换、登出后 access 失效、无权限 40301 |
 | 数据库策略 | e2e 连独立测试库 `multi-admin-test`（同实例独立 DB），套件前 migrate + seed，套件间 truncate；不引入 testcontainers |
+| 状态隔离 | 套件间清理必须同时覆盖 **Postgres truncate 与 Redis FLUSH**（限流计数、refresh 注册表、黑名单均为 Redis 状态，不清会导致用例间污染） |
 | 覆盖率门槛 | statements/branches/functions/lines 均 80%，jest `coverageThreshold` |
 | 门禁接入 | 根 `scripts/check.mjs` test 阶段已全 workspace 跑 `pnpm test`，门槛自动生效（实施时验证无需改 check 脚本） |
 
@@ -165,15 +168,17 @@ RoleMenu(roleId, menuId)
 | --- | --- | --- |
 | P1 骨架与横切 | 目录结构、config 模块（zod 校验）、信封/错误码/异常过滤、requestId、nestjs-pino、`/health` 骨架 | `pnpm dev:server` 启动，`/health` 200，错误响应符合信封，日志带 requestId |
 | P2 Prisma + Redis + compose | schema 五表 + migration + seed、PrismaService、RedisModule、compose/env 变更、Dockerfile 启动链 | compose up 全绿，seed 可跑，健康检查双探针通过 |
-| P3 认证与 RBAC | passport 策略、JWT 双令牌 + Redis 吊销/轮换、全局守卫链、权限端点、限流、helmet/CORS、Swagger | 认证链路手工全通，Swagger 可见，越权返 40301 |
-| P4 测试门禁 | 单元 + e2e 示范用例、测试库策略、覆盖率门槛 80% | `pnpm --filter @multi-admin/nestjs-server test` 达标，`pnpm check` 全绿 |
-| P5 contracts 与前端对齐 | `packages/contracts` 建包、nestjs/pure-web 消费、mock 升级、文档收尾（architecture/ADR-004/AGENTS.md） | pure-web mock 态运行正常，类型双端编译通过，文档齐 |
+| P3 认证与 RBAC | passport 策略、JWT 双令牌 + Redis 吊销/轮换、全局守卫链、权限端点、限流、helmet/CORS、Swagger、**认证链路 e2e 示范用例随本阶段落地** | 认证链路 e2e 全绿（登录/刷新轮换/登出失效/越权 40301），Swagger 可见 |
+| P4 测试门禁 | 补齐全余示范用例（system 端点等）、测试库与 Redis 隔离策略固化、覆盖率门槛 80% | `pnpm --filter @multi-admin/nestjs-server test` 达标，`pnpm check` 全绿 |
+| P5 contracts 与前端对齐 | `packages/contracts` 建包、nestjs/pure-web 消费、mock 升级、文档收尾（architecture/ADR-004/AGENTS.md）。**迁移清单**：BizCode/ApiResponse（P1 产物）与 Auth DTO（P3 产物）从 server 内部迁入 contracts，修正全部 import 路径，双端 typecheck + e2e 复验 | pure-web mock 态运行正常，类型双端编译通过，文档齐 |
 
 ## 12. 风险与预案
 
 | 风险 | 预案 |
 | --- | --- |
-| argon2 在 node:24-alpine 无预编译二进制 | Dockerfile 补 `apk add python3 make g++` 构建层（构建后丢弃），或降级 bcryptjs 纯 JS 实现 |
+| argon2 在 node:24-alpine 无预编译二进制 | Dockerfile 补 `apk add python3 make g++` 构建层（构建后丢弃），或降级 Node 内置 `crypto.scrypt`（零依赖备胎，优于 bcryptjs 纯 JS 方案） |
+| Prisma engine 二进制与 alpine/musl 不兼容 | schema 声明 `binaryTargets = ["native", "linux-musl-openssl-3.0.x"]`，Dockerfile 验证产物可启动；此为 Prisma + Docker 头号名坑，P2 验收必查 |
+| `@prisma/client` 与纯 ESM（`"type": "module"`）解析兼容性 | Prisma 6 已改善但需验证：P2 验收口径含「ESM import PrismaClient 冒烟」 |
 | `@nestjs/throttler` redis store 与 ioredis 版本适配 | 实施时用 pnpm view 核实 peer 要求，版本入 catalog 时记录理由 |
 | packages/contracts 被 Nest（ESM，`"type": "module"`）与 vite 双消费 | tsdown 配 dual（cjs+esm）输出 + package.json exports 双入口，P5 优先验证消费链路 |
 | e2e 依赖本机 postgres 可用性 | 测试前置检查 compose postgres 健康；文档写明 e2e 前置条件 |
