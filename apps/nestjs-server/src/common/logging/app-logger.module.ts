@@ -28,7 +28,7 @@ interface RequestWithId extends IncomingMessage {
             paths: ['req.headers.authorization', '*.password'],
             censor: '***'
           },
-          // 忽略 pathname 为 /health 的请求（兼容 /health?x=1、/health/）
+          // 健康检查路径不产生访问日志（含 query 变体；尾斜杠 /health/ 暂不覆盖，P2 换 terminus 时按需处理）
           autoLogging: { ignore: req => req.url?.split('?')[0] === '/health' },
           ...(config.nodeEnv === 'development'
             ? {
