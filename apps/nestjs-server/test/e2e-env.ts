@@ -14,7 +14,9 @@ process.env.ADMIN_INIT_PASSWORD ??= 'e2e-admin-password';
 
 const dbName = new URL(TEST_DB_URL).pathname.slice(1);
 // 维护连接打到 postgres 默认库（不依赖目标库已存在）
-const adminUrl = TEST_DB_URL.replace(`/${dbName}`, '/postgres');
+const adminUrlObj = new URL(TEST_DB_URL);
+adminUrlObj.pathname = '/postgres';
+const adminUrl = adminUrlObj.toString();
 
 function connect(url: string): PrismaClient {
   return new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
@@ -36,7 +38,9 @@ async function main(): Promise<void> {
     dbName
   );
   if (rows.length === 0) {
-    await admin.$executeRawUnsafe(`CREATE DATABASE ${dbName}`);
+    await admin.$executeRawUnsafe(
+      `CREATE DATABASE "${dbName.replace(/"/g, '""')}"`
+    );
   }
   await admin.$disconnect();
 
