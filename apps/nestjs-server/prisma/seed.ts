@@ -156,17 +156,21 @@ export async function runSeed(prisma: PrismaClient): Promise<void> {
     skipDuplicates: true
   });
 
-  // 5. 超管 create-only：已存在即跳过，绝不覆盖已改密码
+  // 5. 超管 create-only：已存在即跳过，绝不覆盖已改密码。
+  // 前置约束：seed 须串行执行（生产启动链单点执行），避免并发重入导致重复创建。
+  // user.create 与 userRole.create 包在交互式事务内：部分失败整体回滚，重跑可自愈。
   const existingAdmin = await prisma.user.findUnique({
     where: { username: 'admin' }
   });
   if (!existingAdmin) {
     const hash = await argon2.hash(adminPassword);
-    const adminUser = await prisma.user.create({
-      data: { username: 'admin', password: hash, nickname: '超级管理员' }
-    });
-    await prisma.userRole.create({
-      data: { userId: adminUser.id, roleId: adminRole.id }
+    await prisma.$transaction(async tx => {
+      const adminUser = await tx.user.create({
+        data: { username: 'admin', password: hash, nickname: '超级管理员' }
+      });
+      await tx.userRole.create({
+        data: { userId: adminUser.id, roleId: adminRole.id }
+      });
     });
   }
 }
@@ -179,8 +183,13 @@ const isDirectRun =
   pathToFileURL(process.argv[1]).href === import.meta.url;
 
 if (isDirectRun) {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    console.error('DATABASE_URL 未设置，seed 拒绝执行');
+    process.exit(1);
+  }
   const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! })
+    adapter: new PrismaPg({ connectionString: databaseUrl })
   });
   runSeed(prisma)
     .then(() => prisma.$disconnect())
