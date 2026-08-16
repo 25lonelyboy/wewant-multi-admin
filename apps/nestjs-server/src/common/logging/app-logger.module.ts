@@ -2,14 +2,8 @@ import { Module } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'node:crypto';
 import type { Request } from 'express';
-import type { IncomingMessage } from 'node:http';
 import { AppConfigService } from '../../config/app-config.service.js';
-
-// requestId 由 request-id 中间件在 main.ts 以 app.use 注册（先于 Nest 路由），
-// 此处复用其写入的值；可选语义准确：中间件未注册时 requestId 缺失
-interface RequestWithId extends IncomingMessage {
-  requestId?: string;
-}
+import type { RequestWithId } from '../middleware/request-id.middleware.js';
 
 /**
  * 结构化日志：dev 环境 pino-pretty 可读输出；test/production 纯 JSON 行
@@ -28,6 +22,10 @@ interface RequestWithId extends IncomingMessage {
           // 读取 request-id 中间件写入的 requestId；缺失时兜底生成
           // （防御性兜底：若中间件移除，日志 id 与响应头脱钩，但不应崩溃）
           genReqId: req => (req as RequestWithId).requestId ?? randomUUID(),
+          // 请求作用域日志统一携带 requestId 字段（P1 残留：filter context 与 pino req.id 漂移）
+          customProps: req => ({
+            requestId: (req as RequestWithId).requestId
+          }),
           redact: {
             paths: ['req.headers.authorization', '*.password'],
             censor: '***'
