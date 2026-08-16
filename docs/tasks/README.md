@@ -10,7 +10,7 @@
 
 | 任务 | 收口说明 |
 |---|---|
-| 仓库基架与桌面端阶段 1 | 计划/设计文档（2026-08-12 / 2026-08-14）已随提交 `bab19b5` 归档进 git 历史；可复用结论已提升至 `docs/architecture/` 与 `docs/engineering/`，稳定决策落为 ADR-001/002/003 |
+| 仓库基架与桌面端阶段 1 | 结论已提升至 `docs/architecture/` 与 `docs/engineering/`，稳定决策落为 ADR-001/002/003；过程原件已移入 [archive/2026-08-12-repo-foundation-and-desktop/](archive/2026-08-12-repo-foundation-and-desktop/) |
 
 ## 规则
 

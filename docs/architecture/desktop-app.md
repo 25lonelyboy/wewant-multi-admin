@@ -12,7 +12,7 @@ last_verified: 2026-08-16
 ```text
 apps/electron-desktop/
   electron/main/        主进程：index.ts（入口）/ window.ts / tray.ts / protocol.ts / ipc/
-  electron/preload/     preload：index.cjs（CJS 格式，sandboxed 环境要求）
+  electron/preload/     preload：index.ts（编译产物 index.cjs，CJS 格式，sandboxed 环境要求）
   esbuild.config.mjs    主进程 + preload 编译（TS → dist-electron/）
   electron-builder.yml  打包配置（图标需 build/ 与 assets/ 双位置维护）
   scripts/dev.mjs       dev 启动编排
