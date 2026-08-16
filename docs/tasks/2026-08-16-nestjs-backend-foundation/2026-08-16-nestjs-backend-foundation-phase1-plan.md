@@ -1008,11 +1008,25 @@ test(server): e2e 冒烟覆盖信封/404/requestId，更新 AGENTS.md 状态
 
 ## P1 完成判定
 
-- [ ] `pnpm dev:server` 正常启动且优雅关闭（Ctrl+C 无挂起）
-- [ ] `GET /health` 返回 `{code:0,...}` 且带 `x-request-id`
-- [ ] 未知路由返回 `{code:40400,...,"data":null}`
-- [ ] dev 日志为 pino-pretty 格式且含 requestId
-- [ ] `pnpm --filter @multi-admin/nestjs-server run test:e2e` 全绿
-- [ ] `pnpm check` 全绿
+- [x] `pnpm dev:server` 正常启动且优雅关闭（Ctrl+C 无挂起）
+- [x] `GET /health` 返回 `{code:0,...}` 且带 `x-request-id`
+- [x] 未知路由返回 `{code:40400,...,"data":null}`
+- [x] dev 日志为 pino-pretty 格式且含 requestId
+- [x] `pnpm --filter @multi-admin/nestjs-server run test:e2e` 全绿
+- [x] `pnpm check` 全绿
+
+全部判定项已于 2026-08-16 经子代理驱动执行与两阶段审查后达成（最终审查见 P1 收尾记录）。
 
 P1 收尾后，进入 P2（Prisma + Redis + compose）前另起 brainstorm→plan，产出本目录下的 `phase2` 计划文档。
+
+---
+
+## P1 执行期间的计划外修复（已随对应任务提交）
+
+- Task 5 衔接修复：`AppConfigModule` 加 `@Global()`（nestjs-pino `forRootAsync` 的 `inject` 在 LoggerModule 作用域解析，不全局化则装配即崩）
+- Task 5 适配：`genReqId` 局部接口 `RequestWithId` 替代双层断言（pino-http 参数类型为 `IncomingMessage`）；`transport` 用展开运算符（`exactOptionalPropertyTypes` 拒绝显式 undefined）
+- Task 5 缺陷修复：`autoLogging.ignore` 改用 `req.originalUrl`（Express 5 下 use 挂载层改写 `req.url`，原判断永不生效）
+- Task 5 优化：`forRoutes: ['/{*splat}']` 消除启动期 `Unsupported route path` WARN（LegacyRouteConverter）
+- Task 2 测试适配：service spec 动态 `import()`（@nestjs/config 4.x 在模块加载时执行 validate 并缓存快照，静态 import 下 `beforeAll` 设 env 来不及）
+- Task 6 收尾：CORS origin 数组 trim + filter 空串；`tsconfig.build.json` 关闭 `incremental` 根治 dev:server 空转（`deleteOutDir` + tsbuildinfo 组合陷阱）
+- 文档一致性：Task 1 提交消息实际为 `chore(deps):`（commitlint type-enum 无 `deps` 类型，deps 属 scope）；`.gitignore` 补 `**/coverage/`、`.prettierignore` 补产物目录
