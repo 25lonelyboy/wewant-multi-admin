@@ -7,7 +7,7 @@ covers:
   - apps/pure-web/Dockerfile
   - apps/nestjs-server/Dockerfile
   - docker-compose.yml
-last_verified: 2026-08-16
+last_verified: 2026-08-17
 ---
 
 # 构建与验证
@@ -41,7 +41,7 @@ last_verified: 2026-08-16
 
 - **构建 context 必须是仓库根**：`docker build -f apps/pure-web/Dockerfile .`（Dockerfile 内部已按 manifest 分层缓存 + `--filter @multi-admin/pure-web...` 依赖隔离安装）。
 - 基础镜像 `node:24-alpine`，pnpm 版本经 corepack 按 `packageManager` 字段锁定；镜像变量用 `PNPM_CONFIG_REGISTRY` / `COREPACK_NPM_REGISTRY`（`npm_config_*` 对 pnpm 无效）。
-- 本机编排：`cp .env.example .env` 填写 `POSTGRES_PASSWORD` 后 `docker compose up`（postgres + server + web 三服务）。
+- 本机编排：`cp .env.example .env` 填写 `POSTGRES_PASSWORD` 与 `ADMIN_INIT_PASSWORD` 后 `docker compose up`（postgres + redis + server + web 四服务；server 依赖 postgres/redis 双健康，启动链 entrypoint 串 `prisma migrate deploy → prisma db seed → exec node`，幂等可重复）。库名统一 `multi_admin`；存量旧卷（旧库名初始化）需 `docker compose down -v` 重建。
 
 ## 已知环境事实
 

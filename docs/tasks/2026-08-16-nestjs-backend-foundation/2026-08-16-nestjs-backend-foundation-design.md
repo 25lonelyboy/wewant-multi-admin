@@ -88,7 +88,8 @@ apps/nestjs-server/
 
 - `PrismaService extends PrismaClient`，全局模块，与 Nest 优雅关闭联动。
 - migration：本地 `prisma migrate dev`；生产 `prisma migrate deploy` 写入 Dockerfile 启动链（失败即容器退出，compose 重启策略兜底）。
-- seed：超管账号（口令经环境变量注入，不写死明文）、默认角色、与 vue-pure-admin 菜单结构对齐的初始菜单/权限点。
+- 本地 seed：Prisma 7 起 `migrate dev` 不再自动 seed，迁移后需显式执行 `prisma db seed`（P2 备案 9 已落实）。
+- seed：超管账号（口令经环境变量注入，不写死明文）、默认角色、与 vue-pure-admin 菜单结构对齐的初始菜单/权限点。范围为全量一次到位：超管 1 + 默认角色 2 + 菜单/权限点 26（10 MENU 节点 + 16 按钮权限点）；幂等语义 = upsert / createMany skipDuplicates / 超管 create-only（已存在即跳过，绝不覆盖已改密码），生产环境由启动链幂等执行（P2 备案 6 已落实）。
 - 敏感字段：密码 hash 永不落日志；DTO 序列化剔除。
 
 ### 6.2 数据模型（三级 RBAC）
@@ -96,7 +97,7 @@ apps/nestjs-server/
 ```
 User(id, username 唯一, password, nickname, status, ...)
 Role(id, code 唯一, name, status)
-Menu(id, parentId, type[MENU|BUTTON], name, path?, permission?, sort, visible)
+Menu(id, parentId, type[MENU|BUTTON], name, title, icon?, path?, component?, permission?, sort, visible)
 UserRole(userId, roleId)
 RoleMenu(roleId, menuId)
 ```
@@ -129,7 +130,7 @@ RoleMenu(roleId, menuId)
 
 ## 7. 安全、日志、健康检查、Swagger
 
-- **安全**：helmet、CORS 策略（config 声明允许来源）、`@nestjs/throttler` + 官方 redis store：全局默认限流（60 次/分钟/IP），登录端点收紧（5 次/分钟）防爆破。
+- **安全**：helmet、CORS 策略（config 声明允许来源）、`@nestjs/throttler`（无官方 Redis store，P3 自实现 `ThrottlerStorage`——Lua 原子 INCR + EXPIRE；P2 已交付 `REDIS_CLIENT` 稳定注入契约）：全局默认限流（60 次/分钟/IP），登录端点收紧（5 次/分钟）防爆破。
 - **日志**：nestjs-pino 全局接管 Nest Logger；dev `pino-pretty`、prod JSON 行；`redact` 屏蔽 `authorization`/`password`；`LOG_LEVEL` 走 env。
 - **健康检查**：`GET /health`（不带 `/api/v1` 前缀、`@Public`），DB + Redis 双探针；compose server healthcheck 指向它。不做 live/ready 拆分（YAGNI）。
 - **Swagger**：`@nestjs/swagger` 仅非生产环境启用；tag 按端域分组（Auth/System/Health）；响应用泛型 `ApiResponse<T>` 声明。
@@ -148,7 +149,7 @@ RoleMenu(roleId, menuId)
 | --- | --- |
 | 单元 | service 纯逻辑（令牌签发/轮换、权限集合推导、信封/错误码）；Prisma 用 mock 注入 |
 | e2e 示范用例 | 认证全链路：登录成功/失败、限流、刷新轮换、登出后 access 失效、无权限 40301 |
-| 数据库策略 | e2e 连独立测试库 `multi-admin-test`（同实例独立 DB），套件前 migrate + seed，套件间 truncate；不引入 testcontainers |
+| 数据库策略 | e2e 连独立测试库 `multi_admin_test`（同实例独立 DB，由 e2e globalSetup 幂等建库 + migrate + seed，不依赖 compose init 脚本），套件间 truncate；不引入 testcontainers |
 | 状态隔离 | 套件间清理必须同时覆盖 **Postgres truncate 与 Redis FLUSH**（限流计数、refresh 注册表、黑名单均为 Redis 状态，不清会导致用例间污染） |
 | 覆盖率门槛 | statements/branches/functions/lines 均 80%，jest `coverageThreshold` |
 | 门禁接入 | 根 `scripts/check.mjs` test 阶段已全 workspace 跑 `pnpm test`，门槛自动生效（实施时验证无需改 check 脚本） |
@@ -157,9 +158,9 @@ RoleMenu(roleId, menuId)
 
 1. **`packages/contracts`（新建）**：见 §8。tsdown 产物需同时被 vite（ESM）与 Nest 消费，必要时配 dual build。
 2. **`apps/pure-web`（小改）**：axios 响应拦截器改判 `code === 0`、40102 静默刷新；5 个 mock 升级为新信封 + `/api/v1` 路径（mock 保持可用直到真实后端就绪，联调当天零改动切换）；请求层 baseURL 对齐。
-3. **根 `docker-compose.yml`**：新增 redis 服务（redis:7-alpine + healthcheck），server 依赖 postgres + redis 双健康，server 补 healthcheck。
-4. **根 `.env.example`**：补 `REDIS_URL`、`JWT_ACCESS_SECRET`、`JWT_REFRESH_SECRET`、`JWT_ACCESS_TTL`、`JWT_REFRESH_TTL`、`ADMIN_INIT_PASSWORD`。
-5. **catalog**：新增依赖（`@nestjs/jwt`、passport 系列、`prisma`/`@prisma/client`、`nestjs-pino`、`@nestjs/swagger`、`@nestjs/throttler`、`@nestjs/terminus`、`ioredis`、`zod`、`argon2` 等）均为后端框架级，全部入 catalog（实施时逐个过判据）。
+3. **根 `docker-compose.yml`**：新增 redis 服务（redis:7-alpine + healthcheck），server 依赖 postgres + redis 双健康，server 补 healthcheck。Dockerfile build-stage 需 `ENV DATABASE_URL` 占位（`prisma.config.ts` 的 `env()` 在配置加载期硬校验，`prisma generate` 亦需加载 config），运行期由 compose 注入真实值。
+4. **根 `.env.example`**：P2 已补 `REDIS_URL`、`ADMIN_INIT_PASSWORD`（占位符 change_me 风格）；`JWT_ACCESS_SECRET`、`JWT_REFRESH_SECRET`、`JWT_ACCESS_TTL`、`JWT_REFRESH_TTL` 四项刻意顺延至 P3 消费时补，避免死变量。
+5. **catalog**：新增依赖（`@nestjs/jwt`、passport 系列、`prisma`/`@prisma/client`、`nestjs-pino`、`@nestjs/swagger`、`@nestjs/throttler`、`@nestjs/terminus`、`ioredis`、`zod`、`argon2`（P2 已入册，seed 哈希刚需，提前自 P3）等）均为后端框架级，全部入 catalog（实施时逐个过判据）。
 6. **文档（AGENTS.md 硬规则：同一提交内更新）**：阶段落地时同步更新 `docs/architecture/`（模块结构/契约规范/错误码表）、`docs/decisions/`（ADR-004）、`AGENTS.md` 概览表。
 
 ## 11. 阶段拆分（每个阶段一份「分」文档，独立验收）
@@ -172,13 +173,35 @@ RoleMenu(roleId, menuId)
 | P4 测试门禁 | 补齐全余示范用例（system 端点等）、测试库与 Redis 隔离策略固化、覆盖率门槛 80% | `pnpm --filter @multi-admin/nestjs-server test` 达标，`pnpm check` 全绿 |
 | P5 contracts 与前端对齐 | `packages/contracts` 建包、nestjs/pure-web 消费、mock 升级、文档收尾（architecture/ADR-004/AGENTS.md）。**迁移清单**：BizCode/ApiResponse（P1 产物）与 Auth DTO（P3 产物）从 server 内部迁入 contracts，修正全部 import 路径，双端 typecheck + e2e 复验 | pure-web mock 态运行正常，类型双端编译通过，文档齐 |
 
+### P2 完成判定（已完成，2026-08-17）
+
+P2 修订备案 1-9（登记于 P2「分」设计 `...-phase2-design.md` §11）已逐条落实进本文档对应章节，备案 10 随 Dockerfile 落地一并标注：
+
+1. §7 throttler 改为无官方 store、P3 自实现 `ThrottlerStorage`（备案 1）✅
+2. §12 Prisma ESM 行改为 Prisma 7 冒烟口径（备案 2）；binaryTargets 行已注销（备案 7）✅
+3. §10.5 argon2 标注 P2 已入册（备案 3）；§10.4 JWT 四项顺延 P3 说明（备案 4）✅
+4. §6.2 Menu 字段明确化（备案 5）；§6.1 seed 范围全量与幂等语义（备案 6）✅
+5. §9 测试库名统一 `multi_admin_test`（备案 8）；§6.1 补显式 `prisma db seed`（备案 9）✅
+6. §10.3 Dockerfile build-stage `DATABASE_URL` 占位标注（备案 10）✅
+
+逐项对照 P2「分」设计 §12 完成判定，全部达成：
+
+- [x] `docker compose up` postgres/redis/server 三服务健康；启动链 entrypoint（`migrate deploy` → `db seed` → `exec node`）全绿且幂等验证通过
+- [x] 二次启动 seed 幂等：upsert/skipDuplicates/超管 create-only，无重复记录、超管密码不被覆盖；`ADMIN_INIT_PASSWORD` 缺失即失败
+- [x] `/health` terminus 双探针（探针 Promise.race 3s 超时竞速、down 附根因）返回信封 `{code:0,data:{database:{status:'up'},redis:{status:'up'}}}`；断 redis → 503 + `50300`
+- [x] e2e 全绿：独立测试库 `multi_admin_test`（globalSetup 建库 + migrate + seed，globalTeardown 删库），Redis 侧 FLUSHDB（DB 0）
+- [x] jest × Prisma 7 ESM 对策生效（transformIgnorePatterns 放行方案），含 PrismaService 的 e2e 与单测全绿
+- [x] `pnpm check` 全绿
+- [x] Dockerfile 产物 alpine 内 migrate + seed + 启动成功；argon2 预编译在 alpine + `--ignore-scripts` 下可用（未触发兜底）
+- [x] 根 `.env.example`、AGENTS.md、总 spec 同步更新（Task 16）
+
 ## 12. 风险与预案
 
 | 风险 | 预案 |
 | --- | --- |
 | argon2 在 node:24-alpine 无预编译二进制 | Dockerfile 补 `apk add python3 make g++` 构建层（构建后丢弃），或降级 Node 内置 `crypto.scrypt`（零依赖备胎，优于 bcryptjs 纯 JS 方案） |
-| Prisma engine 二进制与 alpine/musl 不兼容 | schema 声明 `binaryTargets = ["native", "linux-musl-openssl-3.0.x"]`，Dockerfile 验证产物可启动；此为 Prisma + Docker 头号名坑，P2 验收必查 |
-| `@prisma/client` 与纯 ESM（`"type": "module"`）解析兼容性 | Prisma 6 已改善但需验证：P2 验收口径含「ESM import PrismaClient 冒烟」 |
+| ~~Prisma engine 二进制与 alpine/musl 不兼容~~ | **已注销**（P2 备案 7）：Prisma 7 Rust-free 无引擎二进制；alpine 兼容风险收敛为 argon2 原生模块（已冒烟通过）与 ESM 运行时 |
+| `@prisma/client` 与纯 ESM（`"type": "module"`）解析兼容性 | Prisma 7 ESM-only + driver adapter（`@prisma/adapter-pg`），P2 冒烟口径「ESM import 生成 client + adapter 构造成功」已验证通过 |
 | `@nestjs/throttler` redis store 与 ioredis 版本适配 | 实施时用 pnpm view 核实 peer 要求，版本入 catalog 时记录理由 |
 | packages/contracts 被 Nest（ESM，`"type": "module"`）与 vite 双消费 | tsdown 配 dual（cjs+esm）输出 + package.json exports 双入口，P5 优先验证消费链路 |
 | e2e 依赖本机 postgres 可用性 | 测试前置检查 compose postgres 健康；文档写明 e2e 前置条件 |
