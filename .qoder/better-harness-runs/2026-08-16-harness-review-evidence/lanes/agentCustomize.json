@@ -1,0 +1,154 @@
+{
+  "status": "available",
+  "data": {
+    "kind": "agent-asset-baseline",
+    "schemaVersion": 1,
+    "status": "complete",
+    "scope": {
+      "provider": "qoder",
+      "workspace": "d:\\WorkSpace\\AI\\wewant-multi-admin",
+      "includeUserHome": true,
+      "includeMemories": true
+    },
+    "envelopes": {
+      "lint": {
+        "status": "available",
+        "data": {
+          "kind": "agent-lint",
+          "profile": "agent-assets-review",
+          "summary": {
+            "entrypoints": 1,
+            "documents": 1,
+            "links": 1,
+            "references": 1,
+            "missingReferences": 0,
+            "findings": 0,
+            "errors": 0,
+            "warnings": 0,
+            "advisories": 0
+          },
+          "assetInventory": {
+            "provider": "qoder",
+            "summary": {
+              "skills": 0,
+              "mcps": 0,
+              "commands": 0,
+              "hooks": 0,
+              "rules": 1,
+              "agents": 0,
+              "customAgents": 0,
+              "builtinAgentOverrides": 0,
+              "plugins": 0
+            }
+          },
+          "findings": {
+            "items": [],
+            "total": 0,
+            "omitted": 0
+          }
+        }
+      },
+      "inventory": {
+        "status": "available",
+        "data": {
+          "scope": {
+            "platform": "qoder",
+            "includeUserHome": true,
+            "includeMemories": true
+          },
+          "summary": {
+            "projectAssets": 1,
+            "userAssets": 0,
+            "pluginAssets": 0,
+            "sessionSourceHints": 1,
+            "memories": 0,
+            "builtinAgentOverrides": 0
+          },
+          "coverageRows": [
+            {
+              "surface": "Rules",
+              "scopes": ["Project"],
+              "count": 1,
+              "paths": ["AGENTS.md"]
+            }
+          ],
+          "ownerRoutes": {
+            "items": [
+              {
+                "kind": "rules",
+                "scope": "project",
+                "name": "AGENTS.md",
+                "owner": "25lonelyboy/wewant-multi-admin",
+                "route": "AGENTS.md"
+              }
+            ],
+            "total": 1,
+            "omitted": 0
+          },
+          "memories": {
+            "included": true,
+            "contentPolicy": "raw-memory-content-not-read",
+            "categories": [],
+            "titleCount": 0,
+            "details": {
+              "contentPolicy": "metadata-only",
+              "scanState": "scanned-empty",
+              "scopeCounts": [],
+              "integrity": {
+                "status": "reviewed",
+                "titleCount": 0,
+                "reviewedTitleCount": 0,
+                "truncated": false,
+                "exactCollisionGroups": 0,
+                "similarityCandidates": 0
+              }
+            }
+          },
+          "warnings": []
+        }
+      },
+      "integrity": {
+        "status": "available",
+        "data": {
+          "kind": "asset-integrity-review",
+          "profile": "asset-integrity-review",
+          "status": "reviewed",
+          "contentPolicy": "memory-title-and-path-metadata-only",
+          "summary": {
+            "findingCount": 0,
+            "memories": {
+              "titleCount": 0,
+              "reviewedTitleCount": 0,
+              "truncated": false,
+              "exactCollisionGroups": 0,
+              "similarityCandidates": 0
+            },
+            "plugins": {
+              "enabledPluginCount": 0,
+              "nameCollisionGroups": 0,
+              "capabilityOverlapGroups": 0,
+              "familyCandidates": 0
+            },
+            "hooks": {
+              "enabledHookCount": 0,
+              "overRecommendedLimit": false,
+              "exactDuplicateGroups": 0,
+              "fanoutCandidates": 0
+            }
+          },
+          "findings": {
+            "items": [],
+            "total": 0,
+            "omitted": 0
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "sharedInventorySnapshot": true,
+      "compact": true,
+      "findingLimitPerEnvelope": 16,
+      "ownerRouteLimit": 16
+    }
+  }
+}

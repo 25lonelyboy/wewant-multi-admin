@@ -1,0 +1,124 @@
+{
+  "summary": {
+    "projectName": "multi-admin",
+    "locale": "zh-CN",
+    "modelId": "agent-work-loop-v4",
+    "reportContractVersion": 26,
+    "overview": "仓库 harness 机制整体成型：AGENTS.md 指引、pnpm check 四阶段门禁、husky 提交钩子（lint-staged + commitlint）、catalog 依赖治理均已就位；但验证与调试路由存在真实缺口——preload 安全不变量无自动验证、check 门禁的 lint 阶段带 --fix 会静默改写文件、test 阶段对 3/4 应用静默跳过，处于机制存在但未完全接入普通工作的阶段。",
+    "aiAgentPractice": {
+      "inspectedSurfaces": ["Rules"],
+      "coverageRows": [
+        {
+          "surface": "Rules",
+          "scopes": ["Project"],
+          "count": 1,
+          "paths": ["AGENTS.md"]
+        }
+      ]
+    },
+    "assignmentSummaries": [],
+    "dimensions": [
+      {
+        "id": "task-understanding",
+        "label": "任务理解",
+        "score": 74,
+        "summary": "AGENTS.md 完整覆盖概览、命令、架构、硬规则与文档治理，机制 Present；会话证据不可用，且厂商声明与事实不符削弱上下文可靠性。",
+        "findingRefs": ["agents-provider-declaration"]
+      },
+      {
+        "id": "controlled-execution",
+        "label": "可控执行",
+        "score": 68,
+        "summary": "常用命令与启动路由齐全（dev.mjs 带 dev server 健康检查），但无调试/诊断路由，权限边界部分隐含。",
+        "findingRefs": ["no-debug-routes"]
+      },
+      {
+        "id": "change-validation",
+        "label": "改动验证",
+        "score": 72,
+        "summary": "check.mjs 四阶段门禁可到达且真实执行，但 lint --fix 使门禁非纯校验、test 阶段静默跳过、preload 安全不变量无验证覆盖。",
+        "findingRefs": [
+          "preload-invariant-unverified",
+          "check-mutates-files",
+          "test-stage-silent-skip"
+        ]
+      },
+      {
+        "id": "reliable-delivery",
+        "label": "可靠交付",
+        "score": 65,
+        "summary": "commit 门禁（commitlint scope 白名单 + husky）真实生效并多次使用；验收与回滚无会话证据支撑，依赖 git 默认能力。",
+        "findingRefs": []
+      },
+      {
+        "id": "learning-capture",
+        "label": "经验沉淀",
+        "score": 65,
+        "summary": "记忆、文档治理、过程归档与 ADR 机制存在且有真实产物，但尚无 comparable later outcome 验证其长期效果。",
+        "findingRefs": []
+      }
+    ]
+  },
+  "findings": [
+    {
+      "id": "preload-invariant-unverified",
+      "title": "preload 安全不变量（禁泛通道透传）无自动验证，回归无人察觉",
+      "severity": "Medium",
+      "reason": "AGENTS.md 将「preload 仅暴露具名方法，禁止 ipcRenderer 泛通道透传」列为安全不变量，但 pnpm check 四阶段（prettier/typecheck/lint/test）均不覆盖该约束；apps/electron-desktop/scripts/dev.mjs 构建后无产物契约检查。具名收窄（提交 0a88394）完成后，未来若重新暴露泛通道，任何门禁都不会发现。",
+      "expectedOutput": [
+        "Update the existing Script owner identified by the reviewed evidence and retain a focused validation result."
+      ],
+      "expectedArtifact": "Script",
+      "aiFixPrompt": "/better-harness fix this issue\n\n为 preload 安全不变量添加最小自动验证，保持现有 check 门禁结构。\n\n## 要求\n- 在 scripts/check.mjs 中新增一个 preload 契约校验阶段（或独立脚本），扫描 apps/electron-desktop/electron/preload/index.ts，断言 contextBridge.exposeInMainWorld 仅暴露具名方法且不含 invoke/send/on/off 泛通道\n- 断言 apps/electron-desktop/types/ipc.d.ts 的 ElectronAPI 声明与 preload 实现一致\n- 保留现有四阶段顺序与失败即退出语义\n\n## Validation\n- pnpm check 全绿\n- 临时在 preload 中加回泛通道后 check 失败（验证后还原）",
+      "dimensionRefs": ["change-validation"]
+    },
+    {
+      "id": "check-mutates-files",
+      "title": "pnpm check 的 lint 阶段带 --fix 静默改写源文件，与「ESLint 只校验」声明冲突",
+      "severity": "Low",
+      "reason": "四个 workspace 的 lint 脚本均带 --fix（如 electron-desktop 为 eslint --cache --max-warnings 0 electron --fix），scripts/check.mjs 的 lint 阶段调用 pnpm -r run lint，因此质量门禁会静默修改源文件而非纯校验；AGENTS.md 架构要点声明「ESLint 只校验，格式化由 Prettier 独占」，与实现不符；.lintstagedrc.json 的 eslint --fix 未带 --max-warnings 0，与「lint 带 --max-warnings 0」表述亦不一致。",
+      "expectedOutput": [
+        "Update the existing Config owner identified by the reviewed evidence and retain a focused validation result."
+      ],
+      "expectedArtifact": "Config",
+      "aiFixPrompt": "/better-harness fix this issue\n\n统一 lint 语义：门禁纯校验、修复只发生在提交钩子。\n\n## 要求\n- 各 workspace lint 脚本移除 --fix（保留 --max-warnings 0），使其成为纯校验命令\n- 保留 .lintstagedrc.json 的 --fix 作为提交前自动修复的唯一入口\n- 同步修正 AGENTS.md 中与此不一致的表述\n\n## Validation\n- pnpm check 前后 git status 无差异（工作区不被改动）\n- pnpm check 全绿",
+      "dimensionRefs": ["change-validation"]
+    },
+    {
+      "id": "test-stage-silent-skip",
+      "title": "check 的 test 阶段对无测试脚本的 workspace 静默跳过，验证覆盖缩水无提示",
+      "severity": "Low",
+      "reason": "scripts/check.mjs 的 test 阶段使用 pnpm -r --if-present run test，而 4 个应用中仅 nestjs-server 有 test 脚本（4 个测试文件），pure-web / uni-mobile / electron-desktop 三应用零测试且门禁静默跳过、不报告跳过情况；146 个 TypeScript 源文件的验证覆盖集中在单应用，agent 运行 check 会误以为全量验证通过。",
+      "expectedOutput": [
+        "Update the existing Script owner identified by the reviewed evidence and retain a focused validation result."
+      ],
+      "expectedArtifact": "Script",
+      "aiFixPrompt": "/better-harness fix this issue\n\n让测试阶段的覆盖范围可见。\n\n## 要求\n- 修改 scripts/check.mjs：test 阶段显式枚举各 workspace，逐一报告「有测试/无测试（跳过）」状态\n- 对无测试脚本的 workspace 打印明确跳过原因\n\n## Validation\n- pnpm check 输出显示每个 workspace 的 test 状态\n- 校验通过时退出码为 0",
+      "dimensionRefs": ["change-validation"]
+    },
+    {
+      "id": "agents-provider-declaration",
+      "title": "AGENTS.md 声明仅面向 Lingma，与当前 Qoder 工作流不符",
+      "severity": "Low",
+      "reason": "AGENTS.md 首行声明「This file provides guidance to Lingma (lingma.aliyun.com)」，但当前实际使用 Qoder（.qoder/ 目录、qoder-bundler 插件）；文档声明与事实不符，读取者会收到错误的厂商限定信号，且违反仓库「文档与代码冲突时以代码为准并修复文档」的治理规则。",
+      "expectedOutput": [
+        "Update the existing Document owner identified by the reviewed evidence and retain a focused validation result."
+      ],
+      "expectedArtifact": "Document",
+      "aiFixPrompt": "/better-harness fix this issue\n\n修正 AGENTS.md 的厂商声明。\n\n## 要求\n- 将首行改为不限定具体厂商的通用表述（如「为在本仓库工作的代码助手提供指引」），或同时列出实际使用的工具\n\n## Validation\n- AGENTS.md 首行与当前工作流一致\n- 仓库内无其他文档引用旧的厂商限定表述",
+      "dimensionRefs": ["task-understanding"]
+    },
+    {
+      "id": "no-debug-routes",
+      "title": "AGENTS.md 无调试路由，Electron 主进程/preload 故障排查无指引",
+      "severity": "Low",
+      "reason": "AGENTS.md 常用命令覆盖 install/dev/build/check 但无任何调试章节；apps/electron-desktop/scripts/dev.mjs（148 行）是纯启动编排，失败仅顶层打印错误，无日志路由与诊断输出；主进程与 preload 出问题时 agent 没有可用的排查路径（devtools 打开方式、日志位置、产物验证方法）。",
+      "expectedOutput": [
+        "Update the existing Document owner identified by the reviewed evidence and retain a focused validation result."
+      ],
+      "expectedArtifact": "Document",
+      "aiFixPrompt": "/better-harness fix this issue\n\n为 AGENTS.md 补充最小调试路由。\n\n## 要求\n- 在 AGENTS.md 常用命令后新增「调试」小节，覆盖：Electron 渲染层/主进程 devtools 打开方式、主进程 console 日志输出位置、preload 编译产物（dist-electron/index.cjs）验证方法、NestJS watch 日志\n- 每项给出一行可执行命令或验证方式\n\n## Validation\n- 按文档调试步骤可在 5 分钟内定位一个预置故障（如主进程崩溃日志）\n- pnpm check 不受影响",
+      "dimensionRefs": ["controlled-execution"]
+    }
+  ]
+}

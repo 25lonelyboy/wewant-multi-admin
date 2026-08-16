@@ -1,0 +1,98 @@
+{
+  "status": "available",
+  "data": {
+    "schemaVersion": 3,
+    "kind": "session-core-facts",
+    "scope": {
+      "platform": "qoder",
+      "workspace": "wewant-multi-admin",
+      "until": "2026-08-16T00:00:00.000Z",
+      "selection": "all-eligible",
+      "eligibleSessions": 0,
+      "selectedSessions": 0,
+      "sampled": false
+    },
+    "candidateSelection": {
+      "strategy": "agent-work-loop-portfolio-v1",
+      "availableClasses": {},
+      "emittedClasses": {}
+    },
+    "requestRootSelection": {
+      "strategy": "recent-context-first-prompt-v1",
+      "distinctRoots": 0,
+      "emittedRoots": 0
+    },
+    "admission": {
+      "taskEpisodes": 0,
+      "candidateEpisodes": 0,
+      "distinctRequests": 0,
+      "emittedCandidates": 0,
+      "distinctRequestRoots": 0,
+      "emittedRequestRoots": 0
+    },
+    "populationCoverage": {
+      "withChanges": 0,
+      "withChecks": 0,
+      "withReviewedRelevantCheck": 0,
+      "withResultSignal": 0,
+      "withAssistantHandoff": 0,
+      "withStructuredCompletion": 0,
+      "withUserCorrection": 0,
+      "withExecutionFriction": 0,
+      "withFrictionConsequence": 0
+    },
+    "observationCoverage": {
+      "withChanges": 0,
+      "withChecks": 0,
+      "withReviewedRelevantCheck": 0,
+      "withResultSignal": 0,
+      "withAssistantHandoff": 0,
+      "withStructuredCompletion": 0,
+      "withUserCorrection": 0,
+      "withExecutionFriction": 0,
+      "withFrictionConsequence": 0
+    },
+    "admissionSupport": {
+      "semanticGuardrails": [
+        "occurrences-not-distinct-episodes",
+        "coverage-not-suggestion",
+        "omitted-details-not-signal-evidence",
+        "project-capability-inventory-unobserved"
+      ],
+      "sharedFrictionConsequences": []
+    },
+    "candidates": [],
+    "requestRoots": [],
+    "omitted": {
+      "noRequest": 0,
+      "selfAnalysis": 0,
+      "lowSignal": 0,
+      "duplicateRequests": 0,
+      "candidateBudget": 0,
+      "requestRootBudget": 0,
+      "checkBudget": 0,
+      "activeSessions": 0,
+      "homeSessionOnly": 0,
+      "benchmarkGenerated": 0
+    },
+    "warningCodes": ["missing-optional-root", "disabled-source-root"],
+    "excludes": [
+      "assistantText",
+      "rawPrompts",
+      "commands",
+      "toolOutput",
+      "paths",
+      "rawIds",
+      "secrets"
+    ],
+    "diagnosticFlags": [
+      "no-change-evidence",
+      "no-reviewed-relevant-check-evidence",
+      "no-result-evidence"
+    ],
+    "cost": {
+      "serializedBytes": 1820,
+      "estimatedTokens": 455
+    }
+  }
+}
