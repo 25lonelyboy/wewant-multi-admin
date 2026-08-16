@@ -9,11 +9,19 @@ describe('RedisHealthIndicator', () => {
     });
   });
 
-  it('ping 抛错 → redis down（不向上抛）', async () => {
+  it('ping 抛错 → redis down（不向上抛，附根因）', async () => {
     const redis = { ping: jest.fn().mockRejectedValue(new Error('down')) };
     const indicator = new RedisHealthIndicator(redis as never);
     await expect(indicator.isHealthy()).resolves.toEqual({
-      redis: { status: 'down' }
+      redis: { status: 'down', error: 'down' }
+    });
+  });
+
+  it('ping 永不 resolve → 超时 down（不向上抛）', async () => {
+    const redis = { ping: jest.fn().mockReturnValue(new Promise(() => {})) };
+    const indicator = new RedisHealthIndicator(redis as never);
+    await expect(indicator.isHealthy(20)).resolves.toEqual({
+      redis: { status: 'down', error: 'probe timeout' }
     });
   });
 });
