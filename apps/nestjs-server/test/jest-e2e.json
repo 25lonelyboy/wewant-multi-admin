@@ -5,16 +5,21 @@
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "moduleNameMapper": {
+    "^@prisma/client/runtime/(.+)\\.mjs$": "@prisma/client/runtime/$1.js",
     "^(\\.{1,2}/.*)\\.js$": "$1"
   },
+  "transformIgnorePatterns": [
+    "node_modules/(?!(@prisma/client|@prisma/adapter-pg|@prisma/driver-adapter-utils)/)"
+  ],
   "transform": {
     "^.+\\.(t|j)s$": [
-      "ts-jest",
+      "<rootDir>/strip-import-meta.cjs",
       {
         "tsconfig": {
           "module": "commonjs",
           "moduleResolution": "node10",
-          "resolvePackageJsonExports": false
+          "resolvePackageJsonExports": false,
+          "allowJs": true
         }
       }
     ]
