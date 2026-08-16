@@ -114,16 +114,16 @@ pnpm view prisma version & pnpm view @prisma/client version & pnpm view @prisma/
 编辑 `pnpm-workspace.yaml` 的 `catalog:` 段（按序插入，`^major` 用 Step 1 实查的主版本；prisma 系写 Step 1 查到的精确版本号）：
 
 ```yaml
-  '@nestjs/terminus': '^<查到的 major>.0.0'   # 插在 '@nestjs/testing' 行之后
+  '@nestjs/terminus': '^<查到的 major>.0.0'   # 插在 '@nestjs/testing' 行之前（ASCII 序 terminus < testing）
   '@prisma/adapter-pg': '<查到的精确版本>'     # 插在 '@nestjs/terminus' 之后
   '@prisma/client': '<查到的精确版本>'
   'argon2': '^<major>.0.0'                     # 插在 '@vue/tsconfig' 之后、'axios' 之前
   'ioredis': '^<major>.0.0'                    # 插在 'husky' 之后、'jest' 之前
   'prisma': '<查到的精确版本>'                  # 插在 'prettier' 之后、'reflect-metadata' 之前
-  'tsx': '^<major>.0.0'                        # 插在 'tsconfig-paths' 之后、'tsdown' 之前
+  'tsx': '^<major>.0.0'                        # 插在 'tsdown' 之后、'vite' 之前
 ```
 
-说明：`prisma`/`@prisma/client`/`@prisma/adapter-pg` 三者同版本族，写精确版本避免漂移；其余按仓库惯例 `^`（设计 §10）。
+说明：`prisma`/`@prisma/client`/`@prisma/adapter-pg` 三者同版本族，写精确版本避免漂移；其余按仓库惯例 `^`（设计 §10）。**0.x 主版本包（如 argon2）写 `^0.<minor>.0`**，`^0.0.0` 是无效 semver 范围（实施实证）。
 
 - [ ] **Step 3: 应用包声明依赖**
 
