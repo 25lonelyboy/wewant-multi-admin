@@ -33,6 +33,20 @@ describe('resolveException', () => {
     expect(resolveException(new HttpException('自定义', 418)).code).toBe(41800);
   });
 
+  it('HttpException 数组态 message 以 "; " 拼接', () => {
+    const resolved = resolveException(
+      new HttpException({ message: ['a', 'b'], error: 'x' }, 422)
+    );
+    expect(resolved.message).toBe('a; b');
+    expect(resolved.code).toBe(42200);
+  });
+
+  it('HttpException 对象态无 message 字段时回退 exception.message', () => {
+    const resolved = resolveException(new HttpException({ error: 'x' }, 422));
+    expect(typeof resolved.message).toBe('string');
+    expect(resolved.message.length).toBeGreaterThan(0);
+  });
+
   it('未知异常归为 50000', () => {
     expect(resolveException(new Error('boom'))).toEqual({
       status: 500,

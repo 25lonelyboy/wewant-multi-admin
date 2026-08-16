@@ -4,7 +4,9 @@ import {
   requestIdMiddleware
 } from './request-id.middleware.js';
 
-function mockReqRes(headers: Record<string, string> = {}) {
+function mockReqRes(
+  headers: Record<string, string | string[] | undefined> = {}
+) {
   const req = { headers } as Request;
   const setHeader = jest.fn();
   const res = { setHeader } as unknown as Response;
@@ -30,5 +32,29 @@ describe('requestIdMiddleware', () => {
     requestIdMiddleware(req, res, next);
     expect(req.requestId).toBe('upstream-123');
     expect(setHeader).toHaveBeenCalledWith(REQUEST_ID_HEADER, 'upstream-123');
+  });
+
+  it('空字符串上游头视为缺失，回退生成 UUID', () => {
+    const { req, res, setHeader, next } = mockReqRes({
+      [REQUEST_ID_HEADER]: ''
+    });
+    requestIdMiddleware(req, res, next);
+    expect(req.requestId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+    );
+    expect(setHeader).toHaveBeenCalledWith(REQUEST_ID_HEADER, req.requestId);
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('数组态上游头视为缺失，回退生成 UUID', () => {
+    const { req, res, setHeader, next } = mockReqRes({
+      [REQUEST_ID_HEADER]: ['a', 'b']
+    });
+    requestIdMiddleware(req, res, next);
+    expect(req.requestId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+    );
+    expect(setHeader).toHaveBeenCalledWith(REQUEST_ID_HEADER, req.requestId);
+    expect(next).toHaveBeenCalled();
   });
 });
