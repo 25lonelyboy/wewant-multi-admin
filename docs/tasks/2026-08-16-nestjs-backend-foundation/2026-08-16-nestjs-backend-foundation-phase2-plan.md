@@ -1934,9 +1934,16 @@ repo: env 模板补 DATABASE_URL/REDIS_URL/ADMIN_INIT_PASSWORD
 **Files:**
 - Modify: `apps/nestjs-server/Dockerfile`
 
-- [ ] **Step 1: build-stage 无改动确认**
+- [ ] **Step 1: build-stage 补构建期 DATABASE_URL 占位（Task 3 质量审查发现）**
 
-现有 `COPY apps/nestjs-server ./apps/nestjs-server` + `pnpm --filter ... run build`；因 Task 3 已把 build 改为 `prisma generate && nest build`，build-stage 链路自动成立，无需改 Dockerfile 该区段。
+现有 `COPY apps/nestjs-server ./apps/nestjs-server` + `pnpm --filter ... run build` 链路本身成立，但 **`prisma.config.ts` 的 `env('DATABASE_URL')` 在配置加载期即硬抛**（@prisma/config 7.x 实码核实），而 `prisma generate` 也需加载 config；build-stage 无 `.env`（dockerignore 排除）且未注入 env → 构建必挂。在 build-stage 装依赖之前（ENV 镜像变量区段）补占位：
+
+```dockerfile
+# prisma generate 不连库，占位值仅为满足 prisma.config.ts 加载（真实连接串由运行期 compose 注入）
+ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
+```
+
+注意：该 ENV 仅 build-stage；production-stage 不设（运行期由 compose environment 注入真实值，避免占位值泄漏进运行期）。
 
 - [ ] **Step 2: production-stage 改造**
 

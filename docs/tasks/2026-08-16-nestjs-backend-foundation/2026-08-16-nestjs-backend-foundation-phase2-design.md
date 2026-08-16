@@ -272,6 +272,7 @@ jest/ supertest 等已在 catalog。zod 已随 P1 入册。
 7. §12 风险表「Prisma engine 二进制与 alpine/musl 不兼容（binaryTargets）」→ **注销备案**：v7 Rust-free 无引擎二进制；alpine 兼容风险收敛为 argon2 原生模块与 ESM 运行时冒烟（§7.3/§9.1）。
 8. §9 测试库名 `multi-admin-test` → 统一为 `multi_admin_test`（随 DB 名统一，见 §7.1）。
 9. §6.1 本地流程补充：v7 `migrate dev` 不再自动 seed，需显式 `prisma db seed`。
+10. §7.3 补充：build-stage 需 `ENV DATABASE_URL` 占位——`prisma.config.ts` 的 `env()` 在配置加载期硬抛（@prisma/config 7.x 实码核实），`prisma generate` 亦需加载 config，构建层无 `.env` 时必挂；占位仅 build-stage，运行期由 compose 注入真实值（P2 实施 Task 3 质量审查发现）。
 
 ## 12. P2 完成判定
 
