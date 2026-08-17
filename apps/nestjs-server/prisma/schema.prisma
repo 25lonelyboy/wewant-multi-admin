@@ -45,6 +45,8 @@ model Menu {
   sort       Int        @default(0)
   visible    Boolean    @default(true)
   roles      RoleMenu[]
+
+  @@index([parentId])
 }
 
 model UserRole {
