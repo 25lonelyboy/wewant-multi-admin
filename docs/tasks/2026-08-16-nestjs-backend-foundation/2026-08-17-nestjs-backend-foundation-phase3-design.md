@@ -27,15 +27,15 @@
 
 ### 3.1 双令牌签发
 
-- **access**：JWT HS256（`@nestjs/jwt`，secret = `JWT_ACCESS_SECRET`），payload `{sub: userId, username, jti, type: 'access'}`，TTL 默认 15 分钟。
-- **refresh**：JWT HS256（**独立 secret** = `JWT_REFRESH_SECRET`），payload `{sub: userId, jti, type: 'refresh'}`，TTL 默认 7 天。
-- `jti` 用 `crypto.randomUUID()`；`type` 字段防止 access/refresh 互串（验签时强制校验）。
+- **access**：JWT HS256（`@nestjs/jwt`，secret = `JWT_ACCESS_SECRET`），payload `{sub: userId, username, sid, jti, type: 'access'}`，TTL 默认 15 分钟。
+- **refresh**：JWT HS256（**独立 secret** = `JWT_REFRESH_SECRET`），payload `{sub: userId, sid, jti, type: 'refresh'}`，TTL 默认 7 天。
+- `jti`、`sid` 均用 `crypto.randomUUID()`。**sid（会话 id）由双令牌共载**：每次登录生成新 sid、刷新轮换保持不变，使登出能精确吊销整个会话（多端共存 = 多 sid 互不影响）；`type` 字段防止 access/refresh 互串（验签时强制校验）。
 
 ### 3.2 Redis 键空间（无 keyPrefix，前缀隔离，与 P2 设计 §5.2 一致）
 
 | 键 | 值 | TTL | 用途 |
 | --- | --- | --- | --- |
-| `auth:refresh:{jti}` | userId | refresh 剩余寿命 | 刷新注册表：轮换校验 + 登出删除 |
+| `auth:refresh:{sid}` | JSON `{userId, jti}`（jti = 当前有效 refresh） | refresh 剩余寿命 | 会话注册表：轮换比对 + 登出整会话吊销 |
 | `auth:blacklist:{jti}` | `'1'` | access 剩余寿命 | 登出黑名单：JwtAuthGuard 每请求查 |
 | `throttle:{tracker}:{context}` | 计数 | 限流窗口 | 限流存储（见 §5.1） |
 
@@ -43,18 +43,21 @@
 
 ```
 登录（LocalStrategy 校验 argon2）
-  → 签 access + refresh → 注册 auth:refresh:{jti} → 返回契约数据
+  → 生成 sid → 签 access + refresh（双令牌共载 sid、各自 jti）
+  → 注册 auth:refresh:{sid} = {userId, jti} → 返回契约数据
 
-刷新（校验 refresh 签名/type → 查注册表存在 jti）
-  → Lua 原子「删旧注册 + 注册新 jti」→ 签新双令牌 → 旧 refresh 立即失效
-  → 注册表无 jti（已轮换/已登出/过期）→ 40103
+刷新（校验 refresh 签名/type → 查 auth:refresh:{sid}）
+  → Lua 原子「比对存储 jti === payload.jti → 写入新 jti + 重置 TTL」
+  → 签新双令牌（sid 不变、jti 换新）→ 旧 refresh 立即失效
+  → sid 键不存在或 jti 不符（已轮换/已登出/过期）→ 40103
 
-登出（需有效 access，单会话语义）
-  → access jti 入黑名单（TTL=剩余寿命）→ 删当前 refresh 注册键
-  → 幂等：重复登出/已失效令牌登出均返回成功
+登出（严格校验：需有效 access，过期 → 40102、无效 → 40101）
+  → access jti 入黑名单（TTL=剩余寿命）→ DEL auth:refresh:{sid}（整会话吊销）
+  → Redis 删除操作本身幂等；登出成功后同一 access 已入黑名单，重用即 40101
 
 JwtAuthGuard（受保护请求）
   → 验签 access → 校验 type='access' → 查黑名单 → 挂载 req.user 放行
+  → 错误映射：令牌过期 → 40102；缺令牌/签名无效/type 不符/已黑名单 → 40101
 ```
 
 ### 3.4 env 追加（总 spec §10.4 兑现）
@@ -78,18 +81,30 @@ ThrottlerGuard → JwtAuthGuard（@Public 放行）→ PermissionsGuard（@Requi
 | --- | --- | --- |
 | `POST /auth/login` | `{avatar, username, nickname, roles, permissions, accessToken, refreshToken, expires}` | LocalStrategy；失败 40101；`@Throttle` 收紧 5 次/分 |
 | `POST /auth/refresh-token` | `{accessToken, refreshToken, expires}` | 轮换语义；缺参走 DTO 校验 → 40001；签名无效/过期/已轮换 → 40103 |
-| `POST /auth/logout` | `null` | 需有效 access；幂等 |
+| `POST /auth/logout` | `null` | 严格校验：需有效 access（过期 40102/无效 40101）；DEL 操作幂等 |
 | `GET /auth/get-user-info` | `{avatar, username, nickname, roles, permissions}` | 从库实时查（非令牌快照） |
 | `GET /auth/get-async-routes` | MENU 节点组装的路由树（vue-pure-admin 元数据格式） | 按角色 Menu 可见集 + parentId 组装 |
 
-- `expires` 返回**毫秒时间戳**（mock 注释已声明前端一行切换即可，实际切换留 P5 联调）。
+- `expires` 返回**毫秒时间戳**（pure-web `src/utils/auth.ts` 的 `setToken` 注释已声明前端一行切换即可，实际切换留 P5 联调）。
 - `avatar` 字段：User 表无 avatar 列（P2 模型未含），P3 返回 `null`，前端已有兜底；加列留待业务需要时。
+
+**路径分组修订备案**：mock/前端现行路径为平铺（`/login`、`/refresh-token`、`/get-async-routes`），P3 有意收拢到 `/auth/*` 分组（认证端域隔离、为 uni-mobile 微信 OAuth 等全端共享接口预留端域、避免根路径污染）。此为对总 spec §8「继承 pure-web mock 请求结构」的**契约偏离**，在此显式登记；前端适配代价一次性记入下表，P5 联调清偿。
+
+**P5 前端适配清单**（联调时逐项清偿）：
+
+| 项 | pure-web 改动 |
+| --- | --- |
+| baseUrl 与路径 | axios 现无 baseUrl（mock 直拦平铺路径）；联调时 baseUrl 对齐 `/api/v1`（dev 代理/nginx），`src/api/user.ts`、`routes.ts` 请求路径改 `/auth/login`、`/auth/refresh-token`、`/auth/get-async-routes` |
+| expires 格式 | `src/utils/auth.ts` `setToken` 按注释改为直接消费毫秒时间戳（`DataInfo<number>`） |
+| 登出调用 | user store `logOut()` 现为「前端登出（不调用接口）」，改为先调 `POST /auth/logout` 再清本地 |
+| get-user-info | 前端现无消费方（用户信息随登录响应下发），端点为 uni-mobile 与页面刷新重取预留 |
 
 ### 4.3 权限模型口径
 
 - 权限点集合 = 用户各角色关联的 `Menu.permission` 非空集合（BUTTON 型）。
 - **admin 角色返回 `['*:*:*']` 通配**（与 mock 一致，前端权限判断零适配）；其他角色返回真实集合。
 - 动态路由 = 同角色关联的 MENU 型节点按 parentId 组装树（admin 全量树）。
+- **权限集数据来源**：JwtAuthGuard 验签后**实时查库**取用户 status/角色/权限点并挂 `req.user`（与 get-user-info 同口径，非令牌快照）；PermissionsGuard 只读 `req.user`；查得用户 status=DISABLED 直接 40101。
 - 错误码复用现有 BizCode（40101/40102/40103/40301/42901），**无新增码段**。
 
 ## 5. 限流、安全与 Swagger
@@ -105,7 +120,7 @@ ThrottlerGuard → JwtAuthGuard（@Public 放行）→ PermissionsGuard（@Requi
 
 ### 5.2 安全防护
 
-- **helmet**：默认策略，装配收口进 `applyAppDefaults`（P1 既有单点，不新增装配位置）。
+- **helmet**：默认策略，装配收口进 `applyAppDefaults`（P1 既有单点，不新增装配位置）；**非生产关闭 `contentSecurityPolicy`**（Swagger UI 依赖内联脚本，默认 CSP 会致文档页白屏），生产保持默认（生产无 Swagger）。
 - **CORS**：沿用 P1 已落地的 `CORS_ORIGIN` 声明式配置，P3 仅验证 pure-web 8848 联调可用，不改机制。
 - 登录 DTO 序列化剔除 password（总 spec §6.1 既有约束）；pino redact 已覆盖 authorization/password。
 
@@ -144,16 +159,17 @@ src/common/security/        helmet/CORS/swagger 装配（并入 applyAppDefaults
 
 ## 8. 测试策略
 
-**单测**：令牌签发/轮换 service、黑名单读写、TTL 解析器、权限集合推导（admin→`*:*:*`、common→真实集）、路由树组装、ThrottlerStorage 并发计数（真 redis，复用 e2e 基建）、redis 薄壳去重/超时路径。
+**单测**：令牌签发/轮换 service、黑名单读写、TTL 解析器、权限集合推导（admin→`*:*:*`、common→真实集）、路由树组装、ThrottlerStorage 逻辑校验（mock redis）、redis 薄壳去重/超时路径。
 
 **e2e 示范用例**（总 spec §9 口径；套件间 truncate + FLUSHDB 已覆盖限流计数/黑名单/注册表的状态隔离）：
 
 1. 登录成功（admin 通配集 / common 真实集）与失败（40101，密码错误/用户不存在同码不泄露）
 2. 登录限流：窗口内第 6 次 → 42901
-3. refresh 轮换：新令牌对可用；**旧 refresh 重用 → 40103**
-4. 登出后旧 access → 40101（黑名单生效）；他端会话（另一 refresh）不受影响
+3. refresh 轮换：新令牌对可用（sid 不变）；**旧 refresh 重用 → 40103**
+4. 登出后旧 access → 40101（黑名单生效）、同会话 refresh → 40103（注册表已删）；他端会话（另次登录的不同 sid）不受影响
 5. 越权 40301：测试专用受保护路由挂 `@RequirePermissions('system:user:query')`，common 拒、admin 通配过
 6. Swagger 可见：dev 态 `GET /api/docs` 200
+7. ThrottlerStorage 并发冒烟：N 并发同键计数精确 = N 且 TTL 只设一次（真 redis，复用 e2e 基建）
 
 ## 9. 风险与预案
 
@@ -162,12 +178,12 @@ src/common/security/        helmet/CORS/swagger 装配（并入 applyAppDefaults
 | Lua 脚本并发计数不准 | 实施时并发冒烟（N 并发同键计数精确 = N 且 TTL 只设一次，总 spec §12 既有预案） |
 | @nestjs/throttler 新版本接口变动 | 实施时 pnpm view 实查 + 核对 ThrottlerStorage 接口签名后再写实现 |
 | terminus 替换牵连 /health 契约 | 契约先行冻结（e2e 既有断言不动），替换实现后断言必须原样通过 |
-| e2e 限流用例污染后续套件 | FLUSHDB 已覆盖；限流用例置独立 describe 并在用例内显式 FLUSHDB 前置 |
+| e2e 限流用例污染后续套件；套件内多次登录耗尽其 5 次/分登录桶误触 429 | auth 套件 `beforeEach` FLUSHDB（兼治套件间污染与套件内桶消耗）；限流用例置独立 describe 并在用例内显式 FLUSHDB 前置 |
 | passport 生态包与 ESM（`"type": "module"`）兼容 | passport 系为 CJS，经 Nest/jest 管线消费无 ESM 解析问题；实施时冒烟验证（同 P2 Prisma 对策预案模式） |
 
 ## 10. P3 完成判定
 
-- [ ] 认证链路 e2e 六类用例全绿（§8）
+- [ ] 认证链路 e2e 七类用例全绿（§8）
 - [ ] `pnpm check` 全绿
 - [ ] Swagger 非生产可见（`/api/docs`）
 - [ ] 技术债 6 项逐项验收通过（§7）
