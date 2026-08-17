@@ -27,9 +27,17 @@ import { REDIS_CLIENT } from './redis.constants.js';
           lazyConnect: true,
           maxRetriesPerRequest: null
         });
-        client.on('error', (err: unknown) =>
-          logger.error({ err }, 'redis 连接错误（自动重连中）')
-        );
+        // 债 #2：按连接状态迁移去重，重连风暴下不再刷屏；ready 后复位允许再报
+        let errorLogged = false;
+        client.on('error', (err: unknown) => {
+          if (!errorLogged) {
+            errorLogged = true;
+            logger.error({ err }, 'redis 连接错误（自动重连中）');
+          }
+        });
+        client.on('ready', () => {
+          errorLogged = false;
+        });
         return client;
       }
     }
@@ -46,7 +54,17 @@ export class RedisModule
     await this.redis.ping();
   }
 
+  /** 债 #2：quit 3s 竞速超时，超时强制 disconnect，防 shutdown 悬挂 */
   async onApplicationShutdown(): Promise<void> {
-    await this.redis.quit();
+    await Promise.race([
+      this.redis.quit().catch(() => undefined),
+      new Promise<void>(resolve => {
+        const timer = setTimeout(resolve, 3_000);
+        timer.unref();
+      })
+    ]);
+    if (this.redis.status !== 'end') {
+      this.redis.disconnect();
+    }
   }
 }

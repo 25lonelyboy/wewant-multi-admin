@@ -12,6 +12,7 @@ jest.mock('ioredis', () => {
   const instance = {
     ping: jest.fn().mockResolvedValue('PONG'),
     quit: jest.fn().mockResolvedValue('OK'),
+    disconnect: jest.fn(),
     on: jest.fn().mockReturnThis(),
     status: 'ready'
   };
@@ -23,6 +24,7 @@ jest.mock('ioredis', () => {
 interface RedisMockInstance {
   ping: jest.Mock;
   quit: jest.Mock;
+  disconnect: jest.Mock;
   on: jest.Mock;
   status: string;
 }
@@ -50,6 +52,18 @@ function buildModule() {
 }
 
 describe('RedisModule', () => {
+  const emit = (
+    client: RedisMockInstance,
+    event: string,
+    ...args: unknown[]
+  ) => {
+    const entry = client.on.mock.calls.find(
+      (c: unknown[]) => (c[0] as string) === event
+    ) as [string, (...a: unknown[]) => void] | undefined;
+    expect(entry).toBeDefined();
+    entry![1](...args);
+  };
+
   it('以 lazyConnect + maxRetriesPerRequest:null 构造实例并导出具名 token', async () => {
     const moduleRef = await buildModule();
     const client = moduleRef.get<Redis>(REDIS_CLIENT);
@@ -76,5 +90,31 @@ describe('RedisModule', () => {
     const client = moduleRef.get<RedisMockInstance>(REDIS_CLIENT);
     await moduleRef.close();
     expect(client.quit).toHaveBeenCalled();
+  });
+
+  /* eslint-disable @typescript-eslint/unbound-method */
+  it('error 日志按状态迁移去重，ready 后复位', async () => {
+    const moduleRef = await buildModule();
+    const logger = moduleRef.get(Logger);
+    const client = moduleRef.get<RedisMockInstance>(REDIS_CLIENT);
+    emit(client, 'error', new Error('conn refused'));
+    emit(client, 'error', new Error('conn refused'));
+    expect(logger.error).toHaveBeenCalledTimes(1);
+    emit(client, 'ready');
+    emit(client, 'error', new Error('conn refused'));
+    expect(logger.error).toHaveBeenCalledTimes(2);
+    await moduleRef.close().catch(() => undefined);
+  });
+  /* eslint-enable @typescript-eslint/unbound-method */
+
+  it('quit 悬挂 3s 后强制 disconnect，shutdown 不卡死', async () => {
+    const moduleRef = await buildModule();
+    await moduleRef.init();
+    const client = moduleRef.get<RedisMockInstance>(REDIS_CLIENT);
+    client.quit.mockReturnValueOnce(new Promise(() => undefined)); // 永不 resolve
+    client.status = 'connecting';
+    await moduleRef.close(); // jest 默认 5s 超时内必须返回
+     
+    expect(client.disconnect).toHaveBeenCalled();
   });
 });
