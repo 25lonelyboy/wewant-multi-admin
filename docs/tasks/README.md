@@ -6,7 +6,7 @@
 
 | 任务 | 说明 |
 |---|---|
-| NestJS 后端基架补全 | 总体设计见 [2026-08-16-nestjs-backend-foundation/](2026-08-16-nestjs-backend-foundation/)，总-分结构，分 P1~P5 五阶段；P1/P2 已完成，P3（认证与 RBAC + 技术债清偿）设计中 |
+| NestJS 后端基架补全 | 总体设计见 [2026-08-16-nestjs-backend-foundation/](2026-08-16-nestjs-backend-foundation/)，总-分结构，分 P1~P5 五阶段；P1/P2 已完成，P3（认证与 RBAC + 技术债清偿）设计与实施计划已就绪，待执行 |
 
 ## 最近已完成
 
