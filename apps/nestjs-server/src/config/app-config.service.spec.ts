@@ -33,4 +33,11 @@ describe('AppConfigService', () => {
     expect(service.databaseUrl).toBe(process.env['DATABASE_URL']);
     expect(service.redisUrl).toBe(process.env['REDIS_URL']);
   });
+
+  it('JWT getter：secret 透传 env、TTL 解析为秒', () => {
+    expect(service.jwtAccessSecret).toBe(process.env['JWT_ACCESS_SECRET']);
+    expect(service.jwtRefreshSecret).toBe(process.env['JWT_REFRESH_SECRET']);
+    expect(service.jwtAccessTtlSeconds).toBe(900); // 默认 15m
+    expect(service.jwtRefreshTtlSeconds).toBe(604800); // 默认 7d
+  });
 });
