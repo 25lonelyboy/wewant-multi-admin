@@ -22,7 +22,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.cjs"
   },
   "dependencies": {
     "@nestjs/common": "catalog:",
@@ -76,41 +76,5 @@
     "ts-node": "catalog:",
     "tsconfig-paths": "catalog:",
     "typescript": "catalog:"
-  },
-  "jest": {
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "ts"
-    ],
-    "rootDir": "src",
-    "setupFiles": [
-      "<rootDir>/../test/setup-env.ts"
-    ],
-    "testRegex": ".*\\.spec\\.ts$",
-    "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.js$": "$1"
-    },
-    "transformIgnorePatterns": [
-      "node_modules/(?!(@prisma/client|@prisma/adapter-pg|@prisma/driver-adapter-utils)/)"
-    ],
-    "transform": {
-      "^.+\\.(t|j)s$": [
-        "<rootDir>/../test/strip-import-meta.cjs",
-        {
-          "tsconfig": {
-            "module": "commonjs",
-            "moduleResolution": "node10",
-            "resolvePackageJsonExports": false,
-            "allowJs": true
-          }
-        }
-      ]
-    },
-    "collectCoverageFrom": [
-      "**/*.(t|j)s"
-    ],
-    "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
   }
 }
