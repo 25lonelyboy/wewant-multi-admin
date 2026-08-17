@@ -56,7 +56,6 @@ catalog:
   '@nestjs/throttler': '^6.5.0'
   '@nestjs/cli': '^11.0.0'
   '@nestjs/schematics': '^11.0.0'
-  '@nestjs/terminus': '^11.0.0'
   '@nestjs/testing': '^11.0.1'
   '@prisma/adapter-pg': '7.9.1'
   '@prisma/client': '7.9.1'
