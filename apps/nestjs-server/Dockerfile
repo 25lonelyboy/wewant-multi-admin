@@ -57,7 +57,7 @@ COPY --from=build-stage /repo/apps/nestjs-server/prisma.config.ts ./apps/nestjs-
 COPY --from=build-stage /repo/apps/nestjs-server/src/generated ./apps/nestjs-server/src/generated
 
 # 启动链：migrate deploy → db seed → 主进程；任一环节失败即容器退出（compose restart 兜底）
-RUN printf '#!/bin/sh\nset -e\npnpm exec prisma migrate deploy\npnpm exec prisma db seed\nexec node dist/main.js\n' > /entrypoint.sh && chmod +x /entrypoint.sh
+RUN printf '#!/bin/sh\nset -e\necho "[entrypoint] migrate deploy"\npnpm exec prisma migrate deploy\necho "[entrypoint] db seed"\npnpm exec prisma db seed\necho "[entrypoint] start server"\nexec node dist/main.js\n' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 WORKDIR /repo/apps/nestjs-server
 EXPOSE 3000
