@@ -144,7 +144,7 @@ src/common/throttler/       redis-throttler.storage（+ spec）
 src/common/security/        helmet/CORS/swagger 装配（并入 applyAppDefaults 链路）
 ```
 
-**catalog 新增**（实施时逐个过判据 + `pnpm view` 实查版本）：`@nestjs/jwt`、`@nestjs/passport`、`passport`、`passport-local`、`passport-jwt`、`@nestjs/throttler`、`@nestjs/swagger`，及对应 `@types/passport-*`（如需）。全部入 nestjs-server `dependencies`（生产运行期需要）。
+**catalog 新增**（实施时逐个过判据 + `pnpm view` 实查版本）：`@nestjs/jwt`、`@nestjs/passport`、`passport`、`passport-local`、`passport-jwt`、`@nestjs/throttler`、`@nestjs/swagger`、`helmet`，及对应 `@types/passport-*`（如需）。全部入 nestjs-server `dependencies`（生产运行期需要）。
 
 ## 7. 技术债清偿（P2 遗留 6 项）
 
