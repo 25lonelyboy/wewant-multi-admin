@@ -1,4 +1,5 @@
 import { Controller, Get, HttpException, HttpStatus } from '@nestjs/common';
+import { Public } from '../../common/decorators/public.decorator.js';
 import { DatabaseHealthIndicator } from './database-health.indicator.js';
 import { RedisHealthIndicator } from './redis-health.indicator.js';
 
@@ -14,6 +15,7 @@ export class HealthController {
     private readonly redis: RedisHealthIndicator
   ) {}
 
+  @Public()
   @Get()
   async check() {
     const database = await this.db.isHealthy();
