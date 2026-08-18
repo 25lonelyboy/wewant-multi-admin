@@ -10,6 +10,7 @@ import { RedisModule } from './common/redis/redis.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { RedisThrottlerGuard } from './common/throttler/redis-throttler.guard.js';
+import { RedisThrottlerModule } from './common/throttler/redis-throttler.module.js';
 import { RedisThrottlerStorage } from './common/throttler/redis-throttler.storage.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from './common/guards/permissions.guard.js';
@@ -21,6 +22,7 @@ import { PermissionsGuard } from './common/guards/permissions.guard.js';
     PrismaModule,
     RedisModule,
     ThrottlerModule.forRootAsync({
+      imports: [RedisThrottlerModule],
       inject: [RedisThrottlerStorage],
       useFactory: (storage: RedisThrottlerStorage) => ({
         throttlers: [{ limit: 60, ttl: 60_000 }],
@@ -31,7 +33,6 @@ import { PermissionsGuard } from './common/guards/permissions.guard.js';
     AuthModule
   ],
   providers: [
-    RedisThrottlerStorage,
     { provide: APP_GUARD, useClass: RedisThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },

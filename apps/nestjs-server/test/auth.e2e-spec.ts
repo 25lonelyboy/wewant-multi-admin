@@ -6,10 +6,9 @@ import type { Redis } from 'ioredis';
 import { AppModule } from './../src/app.module.js';
 import { applyAppDefaults } from './../src/common/bootstrap/apply-app-defaults.js';
 import { REDIS_CLIENT } from './../src/common/redis/redis.constants.js';
-import { PrismaService } from './../src/database/prisma.service.js';
 import { RedisThrottlerStorage } from './../src/common/throttler/redis-throttler.storage.js';
 import { TestProtectedController } from './fixtures/test-protected.controller.js';
-import { COMMON_PASSWORD, ensureCommonUser } from './helpers/auth.js';
+import { COMMON_PASSWORD } from './helpers/auth.js';
 
 const ADMIN_PASSWORD = 'e2e-admin-password';
 
@@ -32,7 +31,6 @@ interface LoginData {
 
 describe('认证链路 (e2e)', () => {
   let app: INestApplication<Server>;
-  let prisma: PrismaService;
   let redis: Redis;
 
   beforeAll(async () => {
@@ -43,9 +41,7 @@ describe('认证链路 (e2e)', () => {
     app = moduleFixture.createNestApplication();
     applyAppDefaults(app);
     await app.init();
-    prisma = app.get(PrismaService);
     redis = app.get(REDIS_CLIENT);
-    await ensureCommonUser(prisma);
   }, 30_000);
 
   afterAll(async () => {

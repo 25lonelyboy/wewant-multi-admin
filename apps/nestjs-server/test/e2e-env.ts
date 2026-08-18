@@ -5,6 +5,7 @@ import { execSync } from 'node:child_process';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { runSeed } from '../prisma/seed.js';
+import { ensureCommonUser } from './helpers/auth.js';
 
 const TEST_DB_URL =
   process.env.DATABASE_URL ??
@@ -53,6 +54,7 @@ async function main(): Promise<void> {
   const test = connect(TEST_DB_URL);
   await test.$connect();
   await runSeed(test);
+  await ensureCommonUser(test);
   await test.$disconnect();
 }
 

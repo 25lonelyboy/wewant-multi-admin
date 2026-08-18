@@ -5,7 +5,7 @@ import { RequirePermissions } from '../../src/common/decorators/require-permissi
 @Controller('__test/protected')
 export class TestProtectedController {
   @Get()
-  @RequirePermissions('system:user:query')
+  @RequirePermissions('system:role:edit')
   get() {
     return { ok: true };
   }
