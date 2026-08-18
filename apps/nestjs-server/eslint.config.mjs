@@ -14,7 +14,10 @@ export default [
       'coverage/**',
       'src/generated/**',
       'eslint.config.mjs',
-      'test/strip-import-meta.cjs'
+      'test/strip-import-meta.cjs',
+      'jest.config.cjs',
+      'test/jest-e2e.cjs',
+      'test/jest.base.cjs'
     ]
   },
   // 仓库 Node 基线；tsconfigRootDir 用于类型感知规则定位本包的 tsconfig

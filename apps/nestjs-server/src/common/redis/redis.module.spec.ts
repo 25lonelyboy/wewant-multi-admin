@@ -114,7 +114,7 @@ describe('RedisModule', () => {
     client.quit.mockReturnValueOnce(new Promise(() => undefined)); // 永不 resolve
     client.status = 'connecting';
     await moduleRef.close(); // jest 默认 5s 超时内必须返回
-     
+
     expect(client.disconnect).toHaveBeenCalled();
   });
 });

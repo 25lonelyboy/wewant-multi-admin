@@ -7,7 +7,7 @@ covers:
   - apps/pure-web/Dockerfile
   - apps/nestjs-server/Dockerfile
   - docker-compose.yml
-last_verified: 2026-08-17
+last_verified: 2026-08-18
 ---
 
 # 构建与验证
@@ -47,3 +47,10 @@ last_verified: 2026-08-17
 
 - Windows 下 Electron 打包期可能出现 `dist-electron/` EPERM 文件锁：确保无残留 electron 进程后重跑。
 - pnpm 安装含构建脚本的依赖受 `pnpm-workspace.yaml` 的 `allowBuilds` 白名单控制，新增需构建的原生依赖时要登记。
+
+## nestjs-server e2e 测试
+
+- e2e 配置 `test/jest-e2e.cjs`（与单测 `jest.config.cjs` 共享 `test/jest.base.cjs` 基座，Task 4 P3 抽公共配置）。
+- 前置：`docker compose up -d postgres redis`，再跑 `pnpm --filter @multi-admin/nestjs-server run test:e2e`。
+- 全局 setup（`test/global-setup.ts` → `test/e2e-env.ts`）幂等建库 `multi_admin_test` + migrate deploy + seed；全局 teardown（`test/global-teardown.ts` → `test/helpers/cleanup.ts`）全表 truncate + FLUSHDB。
+- 测试 env 默认值由 `test/setup-env.ts` 注入（DATABASE_URL / REDIS_URL / ADMIN_INIT_PASSWORD / JWT_ACCESS_SECRET / JWT_REFRESH_SECRET），支持真机 env 覆盖。
