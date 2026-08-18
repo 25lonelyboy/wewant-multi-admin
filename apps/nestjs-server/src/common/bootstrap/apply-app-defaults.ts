@@ -1,19 +1,22 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Logger } from 'nestjs-pino';
+import helmet from 'helmet';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppConfigService } from '../../config/app-config.service.js';
 import { requestIdMiddleware } from '../middleware/request-id.middleware.js';
 
 /**
- * main.ts 与 e2e 共用的应用装配（P1 残留 B 项收尾）：
- * 全局前缀 / requestId 中间件 / ValidationPipe / CORS / shutdown 钩子。
- * 新增 e2e 直接复用，消除装配漂移。
+ * main.ts 与 e2e 共用的应用装配：
+ * 全局前缀 / requestId 中间件 / helmet / ValidationPipe / CORS / Swagger / shutdown 钩子。
  */
 export function applyAppDefaults(app: INestApplication): void {
   const config = app.get(AppConfigService);
 
   app.useLogger(app.get(Logger));
   app.use(requestIdMiddleware);
+  // helmet：非生产关 CSP（Swagger UI 依赖内联脚本，默认 CSP 致文档页白屏）；生产保持默认
+  app.use(helmet(config.isProduction ? {} : { contentSecurityPolicy: false }));
   app.setGlobalPrefix('api/v1', { exclude: ['health'] });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   // 逗号分隔允许多来源；trim + 过滤空串，容忍 "a, b" 与尾逗号等手写配置
@@ -23,5 +26,16 @@ export function applyAppDefaults(app: INestApplication): void {
       .map(s => s.trim())
       .filter(Boolean)
   });
+  // Swagger：仅非生产启用
+  if (!config.isProduction) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('多端管理后台 API')
+      .setDescription('P3 认证与 RBAC 端点域；信封 {code,message,data}')
+      .setVersion('v1')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document);
+  }
   app.enableShutdownHooks();
 }

@@ -1,4 +1,5 @@
 import { Controller, Get, HttpException, HttpStatus } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { DatabaseHealthIndicator } from './database-health.indicator.js';
 import { RedisHealthIndicator } from './redis-health.indicator.js';
@@ -8,6 +9,7 @@ import { RedisHealthIndicator } from './redis-health.indicator.js';
  * 任一探针 down → 503，经全局过滤器派生 code 50300（status × 100，总 spec §5）。
  * 信封 {code:0, data:{status, details}} 契约保持不变（e2e 既有断言为验收基准）。
  */
+@ApiTags('Health')
 @Controller('health')
 export class HealthController {
   constructor(
