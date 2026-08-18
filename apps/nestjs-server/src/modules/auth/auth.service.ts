@@ -15,13 +15,21 @@ export class AuthService {
     private readonly tokens: TokenService
   ) {}
 
-  /** LocalStrategy 入口：密码错误/用户不存在同码不泄露 */
+  /**
+   * LocalStrategy 入口：始终执行 argon2 verify 消除时序差异，
+   * 防止攻击者通过响应耗时区分「用户名有效」与「用户名不存在」。
+   */
   async validateUser(username: string, password: string) {
     const user = await this.prisma.user.findUnique({
       where: { username },
       include: { roles: { include: { role: true } } }
     });
-    if (!user || !(await argon2.verify(user.password, password))) {
+    // dummy hash 与真实 hash 结构一致，拉平 argon2 计算耗时
+    const DUMMY_HASH =
+      '$argon2id$v=19$m=65536,t=3,p=4$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    const hashToVerify = user?.password ?? DUMMY_HASH;
+    const valid = await argon2.verify(hashToVerify, password);
+    if (!user || !valid) {
       throw new BizException(BizCode.UNAUTHORIZED, '用户名或密码错误');
     }
     if (user.status !== 'ACTIVE') {

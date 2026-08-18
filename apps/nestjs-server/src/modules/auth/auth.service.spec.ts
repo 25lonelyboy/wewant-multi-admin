@@ -52,17 +52,22 @@ describe('AuthService', () => {
   });
 
   describe('validateUser', () => {
-    it('用户不存在与密码错误同为 40101', async () => {
+    it('用户不存在与密码错误同为 40101，且均调用 argon2.verify（时序拉平）', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
+      (argon2.verify as jest.Mock).mockResolvedValue(false);
       await expect(service.validateUser('ghost', 'x')).rejects.toMatchObject({
         code: 40101
       });
+      // 用户不存在时仍然调用了 argon2.verify（dummy hash）
+      expect(argon2.verify).toHaveBeenCalledTimes(1);
 
+      (argon2.verify as jest.Mock).mockClear();
       prisma.user.findUnique.mockResolvedValue(ADMIN_ROW);
       (argon2.verify as jest.Mock).mockResolvedValue(false);
       await expect(
         service.validateUser('admin', 'wrong')
       ).rejects.toMatchObject({ code: 40101 });
+      expect(argon2.verify).toHaveBeenCalledTimes(1);
     });
 
     it('DISABLED 拒绝 40101；成功返回用户', async () => {

@@ -38,9 +38,12 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @Post('refresh-token')
-  @ApiOperation({ summary: '刷新令牌（轮换，旧 refresh 立即失效）' })
+  @ApiOperation({
+    summary: '刷新令牌（轮换，旧 refresh 立即失效；同 IP 10 次/分）'
+  })
   refresh(@Body() dto: RefreshTokenDto) {
     return this.auth.refresh(dto.refreshToken);
   }
