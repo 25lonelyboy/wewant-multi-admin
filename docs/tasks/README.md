@@ -6,7 +6,7 @@
 
 | 任务 | 说明 |
 |---|---|
-| NestJS 后端基架补全 | 总体设计见 [2026-08-16-nestjs-backend-foundation/](2026-08-16-nestjs-backend-foundation/)，总-分结构，分 P1~P5 五阶段；P1/P2/P3 已完成，P4（system CRUD + 覆盖率门槛）待启动 |
+| NestJS 后端基架补全 | 总体设计见 [2026-08-16-nestjs-backend-foundation/](2026-08-16-nestjs-backend-foundation/)，总-分结构，分 P1~P5 五阶段；P1/P2/P3 已完成，P4（system 三域 CRUD + 合并覆盖率门槛）设计已落盘、进行中 |
 
 ## 最近已完成
 
