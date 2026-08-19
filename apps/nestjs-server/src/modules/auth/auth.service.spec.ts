@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { AuthService } from './auth.service.js';
 import type { TokenService } from './token.service.js';
 import type { PrismaService } from '../../database/prisma.service.js';
@@ -12,6 +13,7 @@ const ADMIN_ROW = {
   nickname: '超级管理员',
   password: 'hash',
   status: 'ACTIVE',
+  deletedAt: null,
   roles: [{ roleId: 'r1', role: { code: 'admin' } }]
 };
 
@@ -85,6 +87,19 @@ describe('AuthService', () => {
         ADMIN_ROW
       );
     });
+
+    it('查询带软删过滤：已删用户按不存在处理', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+      (argon2.verify as jest.Mock).mockResolvedValue(false);
+      await expect(service.validateUser('ghost', 'x')).rejects.toMatchObject({
+        code: 40101
+      });
+      expect(prisma.user.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ username: 'ghost', deletedAt: null })
+        })
+      );
+    });
   });
 
   it('login：profile + 令牌对的契约形态', async () => {
@@ -150,6 +165,21 @@ describe('AuthService', () => {
         code: 40103
       });
     });
+
+    it('用户已软删 → 40103', async () => {
+      tokens.verifyRefreshToken.mockResolvedValue({
+        sub: 'u1',
+        sid: 's1',
+        jti: 'j1'
+      });
+      prisma.user.findUnique.mockResolvedValue({
+        ...ADMIN_ROW,
+        deletedAt: new Date()
+      });
+      await expect(service.refresh('rt')).rejects.toMatchObject({
+        code: 40103
+      });
+    });
   });
 
   it('logout：黑名单 access jti（TTL=剩余寿命）+ DEL sid 键', async () => {
@@ -193,6 +223,63 @@ describe('AuthService', () => {
         roles: ['admin'],
         permissions: ['*:*:*']
       });
+      expect(prisma.role.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: { in: ['r1'] },
+            deletedAt: null
+          })
+        })
+      );
+      expect(prisma.menu.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ deletedAt: null })
+        })
+      );
+    });
+
+    it('用户已软删 → 40101（旧令牌即时失效）', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        ...ADMIN_ROW,
+        deletedAt: new Date()
+      });
+      await expect(service.resolveSessionUser(payload)).rejects.toMatchObject({
+        code: 40101
+      });
+    });
+
+    it('用户-角色关联查询过滤已删角色', async () => {
+      prisma.user.findUnique.mockResolvedValue(ADMIN_ROW);
+      await service.resolveSessionUser(payload);
+      expect(prisma.user.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: {
+            roles: {
+              where: { role: { deletedAt: null } },
+              include: { role: true }
+            }
+          }
+        })
+      );
+    });
+  });
+
+  describe('getAsyncRoutes 软删过滤', () => {
+    it('角色与菜单查询均带 deletedAt: null', async () => {
+      prisma.role.findMany.mockResolvedValue([{ id: 'r1', code: 'admin' }]);
+      prisma.menu.findMany.mockResolvedValue([]);
+      const user = { userId: 'u1', roles: ['admin'] } as AuthUser;
+      await service.getAsyncRoutes(user);
+      expect(prisma.role.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ deletedAt: null })
+        })
+      );
+      expect(prisma.menu.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ deletedAt: null })
+        })
+      );
     });
   });
 });

@@ -58,7 +58,7 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { id: claims.sub }
     });
-    if (!user || user.status !== 'ACTIVE') {
+    if (!user || user.deletedAt !== null || user.status !== 'ACTIVE') {
       throw new BizException(BizCode.REFRESH_TOKEN_INVALID, '会话用户不可用');
     }
     return this.tokens.rotate(claims, { id: user.id, username: user.username });
@@ -85,7 +85,7 @@ export class AuthService {
       throw new BizException(BizCode.UNAUTHORIZED, '令牌已失效');
     }
     const user = await this.findUserWithRoles(payload.sub);
-    if (!user || user.status !== 'ACTIVE') {
+    if (!user || user.deletedAt !== null || user.status !== 'ACTIVE') {
       throw new BizException(BizCode.UNAUTHORIZED, '用户不存在或已禁用');
     }
     const roleCodes = user.roles.map(ur => ur.role.code);
@@ -109,11 +109,14 @@ export class AuthService {
   /** get-async-routes：角色可见 MENU 树 */
   async getAsyncRoutes(user: AuthUser) {
     const roles = await this.prisma.role.findMany({
-      where: { code: { in: user.roles } },
+      where: { code: { in: user.roles }, deletedAt: null },
       select: { id: true, code: true }
     });
     const menus = await this.prisma.menu.findMany({
-      where: { roles: { some: { roleId: { in: roles.map(r => r.id) } } } }
+      where: {
+        deletedAt: null,
+        roles: { some: { roleId: { in: roles.map(r => r.id) } } }
+      }
     });
     return buildRouteTree(menus, user.roles);
   }
@@ -133,12 +136,15 @@ export class AuthService {
   private async permissionsOf(roleIds: string[]): Promise<string[]> {
     const roleCodes = (
       await this.prisma.role.findMany({
-        where: { id: { in: roleIds } },
+        where: { id: { in: roleIds }, deletedAt: null },
         select: { code: true }
       })
     ).map(r => r.code);
     const menus = await this.prisma.menu.findMany({
-      where: { roles: { some: { roleId: { in: roleIds } } } },
+      where: {
+        deletedAt: null,
+        roles: { some: { roleId: { in: roleIds } } }
+      },
       select: { type: true, permission: true }
     });
     return derivePermissions(menus, roleCodes);
@@ -147,7 +153,12 @@ export class AuthService {
   private findUserWithRoles(userId: string) {
     return this.prisma.user.findUnique({
       where: { id: userId },
-      include: { roles: { include: { role: true } } }
+      include: {
+        roles: {
+          where: { role: { deletedAt: null } },
+          include: { role: true }
+        }
+      }
     });
   }
 }
