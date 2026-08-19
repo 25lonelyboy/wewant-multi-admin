@@ -18,11 +18,11 @@
     "lint": "eslint . --cache --max-warnings 0 --fix",
     "typecheck": "tsc --noEmit",
     "pretest": "prisma generate",
-    "test": "jest",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
+    "test:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.cjs"
+    "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-e2e.cjs"
   },
   "dependencies": {
     "@nestjs/common": "catalog:",
