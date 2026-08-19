@@ -72,7 +72,12 @@ describe('UserService', () => {
         expect.objectContaining({
           where: expect.objectContaining({ deletedAt: null }),
           skip: 0,
-          take: 10
+          take: 10,
+          include: expect.objectContaining({
+            roles: expect.objectContaining({
+              where: { role: { deletedAt: null } }
+            })
+          })
         })
       );
       expect(result).toEqual({
@@ -237,6 +242,16 @@ describe('UserService', () => {
         where: { userId: 'u1', role: { deletedAt: null } },
         select: { roleId: true }
       });
+    });
+
+    it('setRoles 对 admin 用户 → 40900（护栏 1）', async () => {
+      prisma.user.findFirst.mockResolvedValue({
+        ...USER_ROW,
+        username: 'admin'
+      });
+      await expect(
+        service.setRoles('u1', [], OPERATOR_ID)
+      ).rejects.toMatchObject({ code: BizCode.CONFLICT });
     });
 
     it('setRoles 对自己 → 40900（护栏 3）', async () => {

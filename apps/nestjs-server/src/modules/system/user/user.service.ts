@@ -53,7 +53,12 @@ export class UserService {
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.user.findMany({
         where,
-        include: { roles: { include: { role: true } } },
+        include: {
+          roles: {
+            where: { role: { deletedAt: null } },
+            include: { role: true }
+          }
+        },
         orderBy: { createdAt: 'desc' },
         skip,
         take
@@ -91,7 +96,9 @@ export class UserService {
         remark: dto.remark ?? null,
         roles: { create: roleIds.map(roleId => ({ roleId })) }
       },
-      include: { roles: { include: { role: true } } }
+      include: {
+        roles: { where: { role: { deletedAt: null } }, include: { role: true } }
+      }
     });
     return this.toView(user);
   }
@@ -141,7 +148,12 @@ export class UserService {
       return tx.user.update({
         where: { id },
         data,
-        include: { roles: { include: { role: true } } }
+        include: {
+          roles: {
+            where: { role: { deletedAt: null } },
+            include: { role: true }
+          }
+        }
       });
     });
     return this.toView(updated);
@@ -179,6 +191,9 @@ export class UserService {
     operatorId: string
   ): Promise<string[]> {
     const target = await this.findAliveUser(id);
+    if (target.username === ADMIN_USERNAME) {
+      throw new BizException(BizCode.CONFLICT, '不能修改超级管理员的角色分配');
+    }
     if (target.id === operatorId) {
       throw new BizException(BizCode.CONFLICT, '不能修改自己的角色分配');
     }
@@ -196,7 +211,9 @@ export class UserService {
   private async findAliveUser(id: string): Promise<UserWithRoles> {
     const user = await this.prisma.user.findFirst({
       where: { id, ...alive() },
-      include: { roles: { include: { role: true } } }
+      include: {
+        roles: { where: { role: { deletedAt: null } }, include: { role: true } }
+      }
     });
     if (!user) {
       throw new BizException(BizCode.NOT_FOUND, '用户不存在或已删除');
