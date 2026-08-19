@@ -157,7 +157,10 @@ export async function runSeed(prisma: PrismaClient): Promise<void> {
   const adminRole = await prisma.role.findFirstOrThrow({
     where: { code: 'admin', deletedAt: null }
   });
-  const allMenus = await prisma.menu.findMany({ select: { id: true } });
+  const allMenus = await prisma.menu.findMany({
+    where: { deletedAt: null },
+    select: { id: true }
+  });
   await prisma.roleMenu.createMany({
     data: allMenus.map(m => ({ roleId: adminRole.id, menuId: m.id })),
     skipDuplicates: true
