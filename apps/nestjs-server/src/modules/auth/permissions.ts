@@ -1,5 +1,5 @@
 export interface MenuPermissionRow {
-  type: 'MENU' | 'BUTTON';
+  type: 'MENU' | 'IFRAME' | 'EXTERNAL' | 'BUTTON';
   permission: string | null;
 }
 

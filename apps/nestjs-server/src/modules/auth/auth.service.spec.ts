@@ -18,7 +18,7 @@ const ADMIN_ROW = {
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: {
-    user: { findUnique: jest.Mock };
+    user: { findUnique: jest.Mock; findFirst: jest.Mock };
     role: { findMany: jest.Mock };
     menu: { findMany: jest.Mock };
   };
@@ -33,7 +33,7 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     prisma = {
-      user: { findUnique: jest.fn() },
+      user: { findUnique: jest.fn(), findFirst: jest.fn() },
       role: { findMany: jest.fn().mockResolvedValue([{ code: 'admin' }]) },
       menu: { findMany: jest.fn().mockResolvedValue([]) }
     };
@@ -53,7 +53,7 @@ describe('AuthService', () => {
 
   describe('validateUser', () => {
     it('用户不存在与密码错误同为 40101，且均调用 argon2.verify（时序拉平）', async () => {
-      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.findFirst.mockResolvedValue(null);
       (argon2.verify as jest.Mock).mockResolvedValue(false);
       await expect(service.validateUser('ghost', 'x')).rejects.toMatchObject({
         code: 40101
@@ -62,7 +62,7 @@ describe('AuthService', () => {
       expect(argon2.verify).toHaveBeenCalledTimes(1);
 
       (argon2.verify as jest.Mock).mockClear();
-      prisma.user.findUnique.mockResolvedValue(ADMIN_ROW);
+      prisma.user.findFirst.mockResolvedValue(ADMIN_ROW);
       (argon2.verify as jest.Mock).mockResolvedValue(false);
       await expect(
         service.validateUser('admin', 'wrong')
@@ -71,7 +71,7 @@ describe('AuthService', () => {
     });
 
     it('DISABLED 拒绝 40101；成功返回用户', async () => {
-      prisma.user.findUnique.mockResolvedValue({
+      prisma.user.findFirst.mockResolvedValue({
         ...ADMIN_ROW,
         status: 'DISABLED'
       });
@@ -80,7 +80,7 @@ describe('AuthService', () => {
         code: 40101
       });
 
-      prisma.user.findUnique.mockResolvedValue(ADMIN_ROW);
+      prisma.user.findFirst.mockResolvedValue(ADMIN_ROW);
       await expect(service.validateUser('admin', 'ok')).resolves.toBe(
         ADMIN_ROW
       );

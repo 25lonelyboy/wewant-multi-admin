@@ -12,22 +12,32 @@ generator client {
 
 model User {
   id        String     @id @default(cuid())
-  username  String     @unique
+  username  String
   password  String // argon2 hash，永不落日志
   nickname  String
   status    UserStatus @default(ACTIVE)
+  avatar    String?
+  phone     String?
+  email     String?
+  sex       Int? // 0|1；DTO 层 @IsIn([0, 1])
+  remark    String?
   roles     UserRole[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+  deletedAt DateTime?
 }
 
 model Role {
-  id     String     @id @default(cuid())
-  code   String     @unique // admin / common
-  name   String
-  status RoleStatus @default(ACTIVE)
-  users  UserRole[]
-  menus  RoleMenu[]
+  id        String     @id @default(cuid())
+  code      String
+  name      String
+  status    RoleStatus @default(ACTIVE)
+  remark    String?
+  users     UserRole[]
+  menus     RoleMenu[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  deletedAt DateTime?
 }
 
 model Menu {
@@ -35,16 +45,18 @@ model Menu {
   parentId   String?
   parent     Menu?      @relation("MenuTree", fields: [parentId], references: [id])
   children   Menu[]     @relation("MenuTree")
-  type       MenuType // MENU | BUTTON
-  name       String     @unique // 路由名 / 权限点宿主标识
+  type       MenuType // MENU | IFRAME | EXTERNAL | BUTTON
+  name       String // 路由名 / 权限点宿主标识
   title      String // i18n key，对齐 pure-web locales
   icon       String?
   path       String?
   component  String?
-  permission String?    @unique // BUTTON 型权限点，如 system:user:add
+  permission String? // BUTTON 型权限点，如 system:user:add
   sort       Int        @default(0)
   visible    Boolean    @default(true)
+  meta       Json? // 前端路由元数据（12 个纯展示字段，分设计 §3.3）
   roles      RoleMenu[]
+  deletedAt  DateTime?
 
   @@index([parentId])
 }
@@ -79,5 +91,7 @@ enum RoleStatus {
 
 enum MenuType {
   MENU
+  IFRAME
+  EXTERNAL
   BUTTON
 }

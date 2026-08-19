@@ -20,8 +20,8 @@ export class AuthService {
    * 防止攻击者通过响应耗时区分「用户名有效」与「用户名不存在」。
    */
   async validateUser(username: string, password: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { username },
+    const user = await this.prisma.user.findFirst({
+      where: { username, deletedAt: null },
       include: { roles: { include: { role: true } } }
     });
     // dummy hash 与真实 hash 结构一致，拉平 argon2 计算耗时

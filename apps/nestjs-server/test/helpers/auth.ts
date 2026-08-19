@@ -5,15 +5,18 @@ export const COMMON_PASSWORD = 'e2e-common-password';
 
 /** 幂等准备 common 用户：common 角色 + System 组/SystemUser 页/system:user:query 权限点 */
 export async function ensureCommonUser(prisma: PrismaClient): Promise<void> {
-  const commonRole = await prisma.role.findUniqueOrThrow({
-    where: { code: 'common' }
+  const commonRole = await prisma.role.findFirstOrThrow({
+    where: { code: 'common', deletedAt: null }
   });
   const password = await argon2.hash(COMMON_PASSWORD);
-  const user = await prisma.user.upsert({
-    where: { username: 'common' },
-    update: {},
-    create: { username: 'common', password, nickname: '普通用户' }
+  const existing = await prisma.user.findFirst({
+    where: { username: 'common', deletedAt: null }
   });
+  const user =
+    existing ??
+    (await prisma.user.create({
+      data: { username: 'common', password, nickname: '普通用户' }
+    }));
   await prisma.userRole.upsert({
     where: { userId_roleId: { userId: user.id, roleId: commonRole.id } },
     update: {},

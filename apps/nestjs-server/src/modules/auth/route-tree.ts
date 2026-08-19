@@ -1,7 +1,7 @@
 export interface MenuRouteRow {
   id: string;
   parentId: string | null;
-  type: 'MENU' | 'BUTTON';
+  type: 'MENU' | 'IFRAME' | 'EXTERNAL' | 'BUTTON';
   name: string;
   title: string;
   icon: string | null;
@@ -32,7 +32,7 @@ export function buildRouteTree(
   roleCodes: string[]
 ): RouteNode[] {
   const nodes = menus
-    .filter(m => m.type === 'MENU')
+    .filter(m => m.type !== 'BUTTON')
     .sort((a, b) => a.sort - b.sort);
   const byParent = new Map<string | null, MenuRouteRow[]>();
   for (const node of nodes) {
