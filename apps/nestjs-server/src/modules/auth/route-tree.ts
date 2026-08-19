@@ -1,3 +1,5 @@
+import type { MenuMeta } from '../system/shared/system-shared.js';
+
 export interface MenuRouteRow {
   id: string;
   parentId: string | null;
@@ -8,6 +10,8 @@ export interface MenuRouteRow {
   path: string | null;
   component: string | null;
   sort: number;
+  visible: boolean;
+  meta: MenuMeta | null;
 }
 
 export interface RouteNode {
@@ -19,13 +23,15 @@ export interface RouteNode {
     title: string;
     rank?: number;
     roles?: string[];
-  };
+    showLink?: boolean;
+  } & Partial<MenuMeta>;
   children?: RouteNode[];
 }
 
 /**
- * MENU 型节点按 parentId 组装树：
+ * 路由型节点（MENU/IFRAME/EXTERNAL）按 parentId 组装树：
  * 顶层组带 rank（sort），叶子带 name/component 与可见角色集；按 sort 升序。
+ * showLink = visible（单一语义源，分设计 §3.3）；meta Json 写时校验、读时透传。
  */
 export function buildRouteTree(
   menus: MenuRouteRow[],
@@ -43,11 +49,15 @@ export function buildRouteTree(
 
   const toNode = (menu: MenuRouteRow, isTop: boolean): RouteNode => {
     const children = (byParent.get(menu.id) ?? []).map(c => toNode(c, false));
+    // meta 透传先展开，内置字段（title/rank/roles/showLink/icon）后置写入防覆盖
     const node: RouteNode = {
       path: menu.path ?? '',
-      meta: isTop
-        ? { rank: menu.sort, title: menu.title }
-        : { title: menu.title, roles: roleCodes }
+      meta: {
+        ...(menu.meta ?? {}),
+        title: menu.title,
+        showLink: menu.visible,
+        ...(isTop ? { rank: menu.sort } : { roles: roleCodes })
+      }
     };
     if (menu.icon) node.meta.icon = menu.icon;
     if (!isTop) {

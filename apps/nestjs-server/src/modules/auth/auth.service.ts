@@ -5,7 +5,7 @@ import { BizCode } from '../../common/errors/biz-code.js';
 import { BizException } from '../../common/errors/biz.exception.js';
 import { TokenService, type TokenPair } from './token.service.js';
 import { derivePermissions } from './permissions.js';
-import { buildRouteTree } from './route-tree.js';
+import { buildRouteTree, type MenuRouteRow } from './route-tree.js';
 import type { AuthUser } from './auth-user.js';
 
 @Injectable()
@@ -118,7 +118,8 @@ export class AuthService {
         roles: { some: { roleId: { in: roles.map(r => r.id) } } }
       }
     });
-    return buildRouteTree(menus, user.roles);
+    // meta 为写路径已校验的 MenuMeta（读时信任，分设计 §3.3）
+    return buildRouteTree(menus as MenuRouteRow[], user.roles);
   }
 
   private async profileOf(userId: string, roleCodes: string[]) {
