@@ -22,7 +22,12 @@ export class AuthService {
   async validateUser(username: string, password: string) {
     const user = await this.prisma.user.findFirst({
       where: { username, deletedAt: null },
-      include: { roles: { include: { role: true } } }
+      include: {
+        roles: {
+          where: { role: { deletedAt: null } },
+          include: { role: true }
+        }
+      }
     });
     // dummy hash 与真实 hash 结构一致，拉平 argon2 计算耗时
     const DUMMY_HASH =
