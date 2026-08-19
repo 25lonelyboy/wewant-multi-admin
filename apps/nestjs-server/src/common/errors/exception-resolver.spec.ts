@@ -4,6 +4,7 @@ import {
   HttpException,
   NotFoundException
 } from '@nestjs/common';
+import { Prisma } from '../../generated/prisma/client.js';
 import { BizCode } from './biz-code.js';
 import { BizException } from './biz.exception.js';
 import { resolveException } from './exception-resolver.js';
@@ -54,5 +55,41 @@ describe('resolveException', () => {
       message: '服务器内部错误'
     });
     expect(resolveException('string error').code).toBe(BizCode.INTERNAL_ERROR);
+  });
+});
+
+describe('resolveException · Prisma 已知错误分支', () => {
+  const known = (code: string) =>
+    new Prisma.PrismaClientKnownRequestError('mock', {
+      code,
+      clientVersion: '7.0.0'
+    });
+
+  it('P2002 唯一冲突 → 409 CONFLICT(40900)', () => {
+    expect(resolveException(known('P2002'))).toEqual({
+      status: 409,
+      code: BizCode.CONFLICT,
+      message: '资源唯一约束冲突'
+    });
+  });
+
+  it('P2025 目标不存在 → 404 NOT_FOUND(40404)', () => {
+    expect(resolveException(known('P2025'))).toEqual({
+      status: 404,
+      code: BizCode.NOT_FOUND,
+      message: '资源不存在或已删除'
+    });
+  });
+
+  it('P2003 FK 约束 → 400 VALIDATION_FAILED(40001)', () => {
+    expect(resolveException(known('P2003'))).toEqual({
+      status: 400,
+      code: BizCode.VALIDATION_FAILED,
+      message: '关联资源不存在或无效'
+    });
+  });
+
+  it('其余 Prisma 已知错误仍归 50000', () => {
+    expect(resolveException(known('P2010')).code).toBe(BizCode.INTERNAL_ERROR);
   });
 });

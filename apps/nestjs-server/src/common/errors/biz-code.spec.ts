@@ -8,6 +8,8 @@ describe('BizCode', () => {
     expect(BizCode.ACCESS_TOKEN_EXPIRED).toBe(40102);
     expect(BizCode.REFRESH_TOKEN_INVALID).toBe(40103);
     expect(BizCode.FORBIDDEN).toBe(40301);
+    expect(BizCode.NOT_FOUND).toBe(40404);
+    expect(BizCode.CONFLICT).toBe(40900);
     expect(BizCode.RATE_LIMITED).toBe(42901);
     expect(BizCode.INTERNAL_ERROR).toBe(50000);
   });
