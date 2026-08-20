@@ -74,6 +74,7 @@ apps/nestjs-server/
 | `40102` | access token 过期 |
 | `40103` | refresh token 无效 |
 | `40301` | 无权限 |
+| `40404` | 业务资源不存在或已软删（NOT_FOUND） |
 | `42901` | 触发限流 |
 | `50000` | 内部错误 |
 
@@ -151,8 +152,8 @@ RoleMenu(roleId, menuId)
 | e2e 示范用例 | 认证全链路：登录成功/失败、限流、刷新轮换、登出后 access 失效、无权限 40301 |
 | 数据库策略 | e2e 连独立测试库 `multi_admin_test`（同实例独立 DB，由 e2e globalSetup 幂等建库 + migrate + seed，不依赖 compose init 脚本），套件间 truncate；不引入 testcontainers |
 | 状态隔离 | 套件间清理必须同时覆盖 **Postgres truncate 与 Redis FLUSH**（限流计数、refresh 注册表、黑名单均为 Redis 状态，不清会导致用例间污染） |
-| 覆盖率门槛 | statements/branches/functions/lines 均 80%，jest `coverageThreshold` |
-| 门禁接入 | 根 `scripts/check.mjs` test 阶段已全 workspace 跑 `pnpm test`，门槛自动生效（实施时验证无需改 check 脚本） |
+| 覆盖率门槛 | statements/branches/functions/lines 均 80%；载体为独立 `test:coverage` 合并流水线（单测+e2e，istanbul 官方库合并 + 双报表，P4 落地）——原「jest coverageThreshold 随 pnpm check 自动生效」口径作废 |
+| 门禁接入 | `pnpm check` 的 test 门维持单测不变；合并覆盖率门禁独立命令 `pnpm --filter @multi-admin/nestjs-server run test:coverage`（前置 compose postgres/redis） |
 
 ## 10. 跨 workspace 影响面
 
@@ -170,7 +171,7 @@ RoleMenu(roleId, menuId)
 | P1 骨架与横切 | 目录结构、config 模块（zod 校验）、信封/错误码/异常过滤、requestId、nestjs-pino、`/health` 骨架 | `pnpm dev:server` 启动，`/health` 200，错误响应符合信封，日志带 requestId |
 | P2 Prisma + Redis + compose | schema 五表 + migration + seed、PrismaService、RedisModule、compose/env 变更、Dockerfile 启动链 | compose up 全绿，seed 可跑，健康检查双探针通过 |
 | P3 认证与 RBAC | passport 策略、JWT 双令牌 + Redis 吊销/轮换、全局守卫链、权限端点、限流、helmet/CORS、Swagger、**认证链路 e2e 示范用例随本阶段落地** | 认证链路 e2e 全绿（登录/刷新轮换/登出失效/越权 40301），Swagger 可见 |
-| P4 测试门禁 | 补齐全余示范用例（system 端点等）、测试库与 Redis 隔离策略固化、覆盖率门槛 80% | `pnpm --filter @multi-admin/nestjs-server test` 达标，`pnpm check` 全绿 |
+| P4 测试门禁 + system RBAC CRUD | 三域 CRUD（全局软删除）+ 两类分配端点、错误契约扩展（40404/40900）、护栏 8 项、system e2e 四类示范用例、单测+e2e 合并覆盖率 ≥80% 双报表门禁；dept/监控域不在基架阶段（备案 3） | `test:coverage` 合并四指标 ≥80%，system/auth/health e2e 全绿，`pnpm check` 全绿 |
 | P5 contracts 与前端对齐 | `packages/contracts` 建包、nestjs/pure-web 消费、mock 升级、文档收尾（architecture/ADR-004/AGENTS.md）。**迁移清单**：BizCode/ApiResponse（P1 产物）与 Auth DTO（P3 产物）从 server 内部迁入 contracts，修正全部 import 路径，双端 typecheck + e2e 复验 | pure-web mock 态运行正常，类型双端编译通过，文档齐 |
 
 ### P2 完成判定（已完成，2026-08-17）
@@ -206,3 +207,15 @@ P2 修订备案 1-9（登记于 P2「分」设计 `...-phase2-design.md` §11）
 | packages/contracts 被 Nest（ESM，`"type": "module"`）与 vite 双消费 | tsdown 配 dual（cjs+esm）输出 + package.json exports 双入口，P5 优先验证消费链路 |
 | e2e 依赖本机 postgres 可用性 | 测试前置检查 compose postgres 健康；文档写明 e2e 前置条件 |
 | 覆盖率门槛被基架样板代码稀释 | 门槛只约束 src，排除 main.ts/bootstrap 类胶水文件（collectCoverageFrom 精调） |
+
+### P4 修订备案（已完成，2026-08-19）
+
+P4 分设计（`...-phase4-design.md`）§12 的 7 项修订已逐条落实：
+
+1. 覆盖率门禁载体改为独立 `test:coverage` 合并流水线 + 双报表（§9 两行已改，备案 1）✅
+2. system 端点完全 RESTful + 字段全面标准化；auth 域已交付端点形态不动；P5 适配清单（api 层路径/字段/分页/menuType 映射/rank↔sort）登记于分设计 §12 备案 2 ✅
+3. P4 范围收窄：dept 域与监控域不实施，`system:dept:*` seed 点保留不消费（§11 P4 行已改，备案 3）✅
+4. 数据模型：User/Role 补列、MenuType 扩 IFRAME/EXTERNAL、Menu meta Json 单列，一次 migration（§6.2 事实已被 P4 migration 覆盖，备案 4）✅
+5. 高级密码策略登记 backlog（备案 5）✅
+6. 错误码表新增 `NOT_FOUND: 40404`（§5 错误码段，备案 6）✅
+7. 三表软删除全局改造（deletedAt + 部分唯一索引 + 全查询过滤 + 认证链波及适配）；restore 端点/超管标志位化/单测覆盖率下限棘轮/防环 DB 层加固登记 backlog（备案 7）✅

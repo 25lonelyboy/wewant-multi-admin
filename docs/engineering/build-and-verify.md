@@ -7,7 +7,7 @@ covers:
   - apps/pure-web/Dockerfile
   - apps/nestjs-server/Dockerfile
   - docker-compose.yml
-last_verified: 2026-08-18
+last_verified: 2026-08-20
 ---
 
 # 构建与验证
@@ -54,3 +54,10 @@ last_verified: 2026-08-18
 - 前置：`docker compose up -d postgres redis`，再跑 `pnpm --filter @multi-admin/nestjs-server run test:e2e`。
 - 全局 setup（`test/global-setup.ts` → `test/e2e-env.ts`）幂等建库 `multi_admin_test` + migrate deploy + seed；全局 teardown（`test/global-teardown.ts` → `test/helpers/cleanup.ts`）全表 truncate + FLUSHDB。
 - 测试 env 默认值由 `test/setup-env.ts` 注入（DATABASE_URL / REDIS_URL / ADMIN_INIT_PASSWORD / JWT_ACCESS_SECRET / JWT_REFRESH_SECRET），支持真机 env 覆盖。
+
+## nestjs-server 合并覆盖率流水线
+
+- 命令：`pnpm --filter @multi-admin/nestjs-server run test:coverage`，链路：单测 `--coverage`（coverage/）→ e2e `--coverage`（coverage-e2e/）→ `test/merge-coverage.cjs`（istanbul 官方库合并 + 双报表 + 合并四指标 ≥80% 硬门槛，失败非零退出）。
+- 前置与 e2e 相同：`docker compose up -d postgres redis`；合并报表产物在 `coverage-merged/`。
+- 收集范围与排除清单为 `test/jest.base.cjs` 共享常量（单测 rootDir=src、e2e rootDir=应用根 各自组装）；`*.module.ts` 装配胶水不排除（e2e 运行期真实实例化）。
+- `pnpm check` 口径不变（test 门仍只跑单测），覆盖率门禁是独立命令不并入日常门禁。

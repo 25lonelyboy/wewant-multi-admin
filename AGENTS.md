@@ -6,14 +6,14 @@ This file provides guidance to Lingma (lingma.aliyun.com) when working with code
 
 多端管理后台 pnpm monorepo，由四应用 + 两类共享包组成：
 
-| Workspace               | 说明                                                                                                                                                                                                                                                                                    |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/pure-web`         | Vue3 管理后台（vue-pure-admin 基底：Element Plus + Tailwind + Pinia），当前用 vite-plugin-fake-server mock 数据，尚未接入真实后端                                                                                                                                                       |
-| `apps/nestjs-server`    | NestJS 后端，认证与 RBAC 完成（JWT 双令牌 + sid 会话注册表 + Lua CAS 轮换、passport 双策略、守卫链、Redis 限流、helmet + Swagger），system CRUD 待 P4；Prisma 7（adapter-pg，client 生成于 `src/generated`）+ Redis（ioredis 自研薄壳）+ compose 启动链（migrate deploy → seed → node） |
-| `apps/uni-mobile`       | uni-app 多端应用（H5 + 各家小程序），基于 Vue3                                                                                                                                                                                                                                          |
-| `apps/electron-desktop` | Electron 桌面端，托管 pure-web 构建产物作为渲染层                                                                                                                                                                                                                                       |
-| `packages/common`       | 跨端共享 TS 代码（tsdown 构建），暂无应用实际引用                                                                                                                                                                                                                                       |
-| `internal/*`            | 仓库内部工具：`eslint-config` / `stylelint-config` / `tsconfig` / `node-utils`                                                                                                                                                                                                          |
+| Workspace               | 说明                                                                                                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/pure-web`         | Vue3 管理后台（vue-pure-admin 基底：Element Plus + Tailwind + Pinia），当前用 vite-plugin-fake-server mock 数据，尚未接入真实后端                                   |
+| `apps/nestjs-server`    | NestJS 后端：骨架与横切基建、Prisma + Redis、认证链（JWT 双令牌轮换 + RBAC 守卫链）、system RBAC CRUD（全局软删除）与单测/e2e 合并覆盖率门禁均已交付，前端联调待 P5 |
+| `apps/uni-mobile`       | uni-app 多端应用（H5 + 各家小程序），基于 Vue3                                                                                                                      |
+| `apps/electron-desktop` | Electron 桌面端，托管 pure-web 构建产物作为渲染层                                                                                                                   |
+| `packages/common`       | 跨端共享 TS 代码（tsdown 构建），暂无应用实际引用                                                                                                                   |
+| `internal/*`            | 仓库内部工具：`eslint-config` / `stylelint-config` / `tsconfig` / `node-utils`                                                                                      |
 
 环境约束：Node >=24、pnpm >=11（`engines` 字段 + 根 `.npmrc` 的 `engine-strict=true` 强制）；registry 与 Electron 二进制镜像已在根 `.npmrc` 配置，无需额外设置。
 
@@ -40,6 +40,7 @@ pnpm --filter @multi-admin/nestjs-server run prisma:seed      # 显式 seed（Pr
 # 运行单个测试文件（目前仅 nestjs-server 有 jest 基建）
 pnpm --filter @multi-admin/nestjs-server run test -- src/config/env.schema.spec.ts
 pnpm --filter @multi-admin/nestjs-server run test:e2e   # e2e 测试（jest-e2e.cjs，需 docker compose up -d postgres redis）
+pnpm --filter @multi-admin/nestjs-server run test:coverage  # 单测+e2e 合并覆盖率（≥80% 门禁），前置 compose postgres/redis
 ```
 
 ## 架构要点
