@@ -88,6 +88,19 @@ describe('UserService', () => {
       });
       expect(result.items[0]).not.toHaveProperty('password');
     });
+
+    it('条件查询：username 模糊 + status 精确均进 where', async () => {
+      prisma.$transaction.mockResolvedValue([[USER_ROW], 1]);
+      await service.list({ username: 'zhang', status: 'ACTIVE' });
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            username: { contains: 'zhang', mode: 'insensitive' },
+            status: 'ACTIVE'
+          })
+        })
+      );
+    });
   });
 
   describe('create', () => {
@@ -194,6 +207,60 @@ describe('UserService', () => {
         data: [{ userId: 'u1', roleId: 'r1' }]
       });
       expect(view.nickname).toBe('新名');
+    });
+
+    it('全字段更新成功：各可选字段逐一写入 data', async () => {
+      prisma.user.findFirst.mockResolvedValue(USER_ROW);
+      prisma.$transaction.mockImplementation(
+        async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)
+      );
+      prisma.user.update.mockResolvedValue(USER_ROW);
+      (argon2.hash as jest.Mock).mockClear();
+      await service.update(
+        'u1',
+        {
+          nickname: '新名',
+          status: 'DISABLED',
+          avatar: 'a.png',
+          phone: '13800000000',
+          email: 'a@b.c',
+          sex: 1,
+          remark: '备注'
+        },
+        OPERATOR_ID
+      );
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'u1' },
+          data: {
+            nickname: '新名',
+            status: 'DISABLED',
+            avatar: 'a.png',
+            phone: '13800000000',
+            email: 'a@b.c',
+            sex: 1,
+            remark: '备注'
+          }
+        })
+      );
+      expect(argon2.hash).not.toHaveBeenCalled();
+    });
+
+    it('最小更新：仅 nickname 时不触碰角色关联也不重哈希密码', async () => {
+      prisma.user.findFirst.mockResolvedValue(USER_ROW);
+      prisma.$transaction.mockImplementation(
+        async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)
+      );
+      prisma.user.update.mockResolvedValue(USER_ROW);
+      await service.update('u1', { nickname: '仅昵称' }, OPERATOR_ID);
+      expect(prisma.userRole.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.userRole.createMany).not.toHaveBeenCalled();
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'u1' },
+          data: { nickname: '仅昵称' }
+        })
+      );
     });
   });
 

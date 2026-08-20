@@ -2,6 +2,8 @@
 import { MenuService } from './menu.service.js';
 import type { PrismaService } from '../../../database/prisma.service.js';
 import { BizCode } from '../../../common/errors/biz-code.js';
+import { Prisma as PrismaNamespace } from '../../../generated/prisma/client.js';
+import type { MenuMetaDto } from '../shared/menu-meta.dto.js';
 
 const MENU_ROW = {
   id: 'm1',
@@ -153,6 +155,94 @@ describe('MenuService', () => {
       await expect(
         service.update('m1', { parentId: 'm2' })
       ).rejects.toMatchObject({ code: BizCode.CONFLICT });
+    });
+
+    it('全字段更新成功：name/permission 查重带 excludeId + 父存活校验 + meta 置空写 JsonNull', async () => {
+      prisma.menu.findFirst
+        .mockResolvedValueOnce(MENU_ROW) // findAliveMenu 目标存活
+        .mockResolvedValueOnce(null) // name 查重（带 excludeId 排除自身）
+        .mockResolvedValueOnce(null) // permission 查重（带 excludeId 排除自身）
+        .mockResolvedValueOnce({ id: 'm9' }); // 新父存活
+      prisma.$transaction.mockImplementation(
+        async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)
+      );
+      // assertNoCycle：自身无父 → 链终止，不检出环
+      prisma.menu.findFirst.mockResolvedValueOnce({ parentId: null });
+      prisma.menu.update.mockResolvedValue(MENU_ROW);
+      await service.update('m1', {
+        type: 'BUTTON',
+        parentId: 'm9',
+        name: 'Renamed',
+        title: '新标题',
+        icon: 'i',
+        path: '/p',
+        component: 'c',
+        permission: 'sys:x',
+        sort: 3,
+        visible: false,
+        // 运行期 HTTP body 可传 null（DTO 类型未含 null，此处显式断言模拟真实载荷）
+        meta: null as unknown as MenuMetaDto
+      });
+      // name 查重带 excludeId 排除自身
+      expect(prisma.menu.findFirst).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          where: expect.objectContaining({
+            name: 'Renamed',
+            id: { not: 'm1' }
+          })
+        })
+      );
+      expect(prisma.menu.update).toHaveBeenCalledWith({
+        where: { id: 'm1' },
+        data: expect.objectContaining({
+          type: 'BUTTON',
+          parentId: 'm9',
+          name: 'Renamed',
+          title: '新标题',
+          icon: 'i',
+          path: '/p',
+          component: 'c',
+          permission: 'sys:x',
+          sort: 3,
+          visible: false,
+          meta: PrismaNamespace.JsonNull
+        })
+      });
+    });
+
+    it('空 DTO 更新成功：不触发任何查重，data 为空对象', async () => {
+      prisma.menu.findFirst
+        .mockResolvedValueOnce(MENU_ROW) // findAliveMenu
+        .mockResolvedValueOnce({ parentId: null }); // assertNoCycle 链终止
+      prisma.$transaction.mockImplementation(
+        async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)
+      );
+      prisma.menu.update.mockResolvedValue(MENU_ROW);
+      await service.update('m1', {});
+      // findAliveMenu + assertNoCycle 共 2 次，无任何查重调用
+      expect(prisma.menu.findFirst).toHaveBeenCalledTimes(2);
+      expect(prisma.menu.update).toHaveBeenCalledWith({
+        where: { id: 'm1' },
+        data: {}
+      });
+    });
+
+    it('改名提交同名：name 与现状一致时跳过 name 查重', async () => {
+      prisma.menu.findFirst
+        .mockResolvedValueOnce(MENU_ROW) // findAliveMenu
+        .mockResolvedValueOnce({ parentId: null }); // assertNoCycle 链终止
+      prisma.$transaction.mockImplementation(
+        async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)
+      );
+      prisma.menu.update.mockResolvedValue(MENU_ROW);
+      await service.update('m1', { name: MENU_ROW.name });
+      // 未发生 name 查重（同名无需校验）
+      expect(prisma.menu.findFirst).toHaveBeenCalledTimes(2);
+      expect(prisma.menu.update).toHaveBeenCalledWith({
+        where: { id: 'm1' },
+        data: { name: MENU_ROW.name }
+      });
     });
   });
 

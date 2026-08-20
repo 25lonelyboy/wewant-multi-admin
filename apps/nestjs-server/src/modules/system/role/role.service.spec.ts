@@ -65,6 +65,20 @@ describe('RoleService', () => {
       expect(result.total).toBe(1);
     });
 
+    it('list 条件查询：name/code 模糊 + status 精确均进 where', async () => {
+      prisma.$transaction.mockResolvedValue([[ROLE_ROW], 1]);
+      await service.list({ name: '编', code: 'ed', status: 'ACTIVE' });
+      expect(prisma.role.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            name: { contains: '编', mode: 'insensitive' },
+            code: { contains: 'ed', mode: 'insensitive' },
+            status: 'ACTIVE'
+          })
+        })
+      );
+    });
+
     it('all 不分页返回 {id,name,code}', async () => {
       prisma.role.findMany.mockImplementation(
         (args?: { select?: Record<string, boolean> }) => {
@@ -138,6 +152,47 @@ describe('RoleService', () => {
         service.update('ghost', { name: 'x' })
       ).rejects.toMatchObject({
         code: BizCode.NOT_FOUND
+      });
+    });
+
+    it('全字段更新成功：name/status/remark 写入 + menuIds 事务内整体替换', async () => {
+      prisma.role.findFirst.mockResolvedValue(ROLE_ROW);
+      prisma.menu.findMany.mockResolvedValue([{ id: 'm1' }]);
+      prisma.$transaction.mockImplementation(
+        async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)
+      );
+      prisma.role.update.mockResolvedValue({ ...ROLE_ROW, name: '新名' });
+      const view = await service.update('r1', {
+        name: '新名',
+        status: 'DISABLED',
+        remark: '备注',
+        menuIds: ['m1']
+      });
+      expect(prisma.roleMenu.deleteMany).toHaveBeenCalledWith({
+        where: { roleId: 'r1' }
+      });
+      expect(prisma.roleMenu.createMany).toHaveBeenCalledWith({
+        data: [{ roleId: 'r1', menuId: 'm1' }]
+      });
+      expect(prisma.role.update).toHaveBeenCalledWith({
+        where: { id: 'r1' },
+        data: { name: '新名', status: 'DISABLED', remark: '备注' }
+      });
+      expect(view.name).toBe('新名');
+    });
+
+    it('部分字段更新：menuIds 未提供时不触碰关联，data 只含提交字段', async () => {
+      prisma.role.findFirst.mockResolvedValue(ROLE_ROW);
+      prisma.$transaction.mockImplementation(
+        async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)
+      );
+      prisma.role.update.mockResolvedValue(ROLE_ROW);
+      await service.update('r1', { remark: '仅备注' });
+      expect(prisma.roleMenu.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.roleMenu.createMany).not.toHaveBeenCalled();
+      expect(prisma.role.update).toHaveBeenCalledWith({
+        where: { id: 'r1' },
+        data: { remark: '仅备注' }
       });
     });
   });

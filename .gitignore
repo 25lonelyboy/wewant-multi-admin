@@ -21,6 +21,8 @@ target
 **/tests/**/coverage/
 # jest coverage 输出（各 app/package 的 coverageDirectory 产物）
 **/coverage/
+**/coverage-e2e/
+**/coverage-merged/
 
 # OS
 .DS_Store
