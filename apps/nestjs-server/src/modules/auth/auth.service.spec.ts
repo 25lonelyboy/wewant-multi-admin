@@ -128,7 +128,7 @@ describe('AuthService', () => {
   });
 
   describe('refresh', () => {
-    it('验 claims → 查用户 → rotate（sid 不变）', async () => {
+    it('验 claims → 查用户 → rotate（对外剥离 sid）', async () => {
       const claims = { sub: 'u1', sid: 's1', jti: 'j1' };
       tokens.verifyRefreshToken.mockResolvedValue(claims);
       prisma.user.findUnique.mockResolvedValue(ADMIN_ROW);
@@ -139,7 +139,11 @@ describe('AuthService', () => {
         sid: 's1'
       });
 
-      await expect(service.refresh('rt')).resolves.toMatchObject({ sid: 's1' });
+      await expect(service.refresh('rt')).resolves.toEqual({
+        accessToken: 'a2',
+        refreshToken: 'r2',
+        expires: 2
+      });
       expect(tokens.rotate).toHaveBeenCalledWith(claims, {
         id: 'u1',
         username: 'admin'

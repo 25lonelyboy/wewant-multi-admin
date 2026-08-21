@@ -119,6 +119,7 @@ describe('认证链路 (e2e)', () => {
       }>
     ).data;
     expect(pair.refreshToken).not.toBe(session.refreshToken);
+    expect(pair).not.toHaveProperty('sid');
 
     await server()
       .get('/api/v1/auth/get-user-info')

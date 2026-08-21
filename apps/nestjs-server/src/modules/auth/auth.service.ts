@@ -2,8 +2,9 @@ import { Injectable } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { PrismaService } from '../../database/prisma.service.js';
 import { BizCode } from '@multi-admin/contracts';
+import type { RefreshResponse } from '@multi-admin/contracts';
 import { BizException } from '../../common/errors/biz.exception.js';
-import { TokenService, type TokenPair } from './token.service.js';
+import { TokenService } from './token.service.js';
 import { derivePermissions } from './permissions.js';
 import { buildRouteTree, type MenuRouteRow } from './route-tree.js';
 import type { AuthUser } from './auth-user.js';
@@ -57,8 +58,8 @@ export class AuthService {
     };
   }
 
-  /** 轮换：旧 refresh 立即失效；用户已删/禁用 → 40103 */
-  async refresh(refreshToken: string): Promise<TokenPair> {
+  /** 轮换：旧 refresh 立即失效；用户已删/禁用 → 40103；对外剥离内部 sid */
+  async refresh(refreshToken: string): Promise<RefreshResponse> {
     const claims = await this.tokens.verifyRefreshToken(refreshToken);
     const user = await this.prisma.user.findUnique({
       where: { id: claims.sub }
@@ -66,7 +67,15 @@ export class AuthService {
     if (!user || user.deletedAt !== null || user.status !== 'ACTIVE') {
       throw new BizException(BizCode.REFRESH_TOKEN_INVALID, '会话用户不可用');
     }
-    return this.tokens.rotate(claims, { id: user.id, username: user.username });
+    const pair = await this.tokens.rotate(claims, {
+      id: user.id,
+      username: user.username
+    });
+    return {
+      accessToken: pair.accessToken,
+      refreshToken: pair.refreshToken,
+      expires: pair.expires
+    };
   }
 
   /** 严格校验登出：黑名单 access jti + DEL sid 注册键 */
