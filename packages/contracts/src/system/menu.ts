@@ -60,6 +60,7 @@ export interface CreateMenuRequest {
   meta?: MenuMeta;
 }
 
+/** 可选字段不传即不更新；仅 permission / meta 支持传 null 清空（server DTO 现状） */
 export interface UpdateMenuRequest {
   type?: MenuTypeValue;
   parentId?: EntityId | null;

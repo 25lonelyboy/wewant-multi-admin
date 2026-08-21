@@ -34,7 +34,7 @@ export interface CreateRoleRequest {
   menuIds?: EntityId[];
 }
 
-/** 护栏：不含 code（不可改） */
+/** 护栏：不含 code（不可改）；可选字段不传即不更新 */
 export interface UpdateRoleRequest {
   name?: string;
   status?: RoleStatus;

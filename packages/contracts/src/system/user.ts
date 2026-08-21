@@ -38,7 +38,7 @@ export interface CreateUserRequest {
   roleIds?: EntityId[];
 }
 
-/** 护栏 6：不含 username（不可改） */
+/** 护栏：不含 username（不可改）；可选字段不传即不更新，不支持传 null 清空（server DTO 现状） */
 export interface UpdateUserRequest {
   nickname?: string;
   status?: UserStatus;
