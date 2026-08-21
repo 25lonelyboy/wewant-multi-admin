@@ -6,7 +6,7 @@
 
 | 任务 | 说明 |
 |---|---|
-| NestJS 后端基架补全 | 总体设计见 [2026-08-16-nestjs-backend-foundation/](2026-08-16-nestjs-backend-foundation/)，总-分结构，分 P1~P5 五阶段；P1~P4 已完成，P5（contracts 与前端对齐）待启动 |
+| NestJS 后端基架补全 | 总体设计见 [2026-08-16-nestjs-backend-foundation/](2026-08-16-nestjs-backend-foundation/)，总-分结构，分 P1~P5 五阶段；P1~P4 已完成，P5 分设计已产出（[phase5-design](2026-08-16-nestjs-backend-foundation/2026-08-21-nestjs-backend-foundation-phase5-design.md)，直连真实后端口径），待实施 |
 
 ## 最近已完成
 
