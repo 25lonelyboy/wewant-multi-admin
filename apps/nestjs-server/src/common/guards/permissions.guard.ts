@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { REQUIRE_PERMISSIONS_KEY } from '../decorators/require-permissions.decorator.js';
-import { BizCode } from '../errors/biz-code.js';
+import { BizCode } from '@multi-admin/contracts';
 import { BizException } from '../errors/biz.exception.js';
 import type { AuthUser } from '../../modules/auth/auth-user.js';
 

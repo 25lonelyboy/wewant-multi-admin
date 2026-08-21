@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { RoleService } from './role.service.js';
 import type { PrismaService } from '../../../database/prisma.service.js';
-import { BizCode } from '../../../common/errors/biz-code.js';
+import { BizCode } from '@multi-admin/contracts';
 
 const ROLE_ROW = {
   id: 'r1',

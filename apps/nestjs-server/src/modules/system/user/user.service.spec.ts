@@ -2,7 +2,7 @@
 import * as argon2 from 'argon2';
 import { UserService } from './user.service.js';
 import type { PrismaService } from '../../../database/prisma.service.js';
-import { BizCode } from '../../../common/errors/biz-code.js';
+import { BizCode } from '@multi-admin/contracts';
 
 jest.mock('argon2', () => ({ hash: jest.fn() }));
 

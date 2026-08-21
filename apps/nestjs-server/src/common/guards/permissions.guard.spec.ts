@@ -2,7 +2,7 @@ import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PermissionsGuard } from './permissions.guard.js';
 import { BizException } from '../errors/biz.exception.js';
-import { BizCode } from '../errors/biz-code.js';
+import { BizCode } from '@multi-admin/contracts';
 import type { AuthUser } from '../../modules/auth/auth-user.js';
 
 const mockContext = (user?: AuthUser) =>

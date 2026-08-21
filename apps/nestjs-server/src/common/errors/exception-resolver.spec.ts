@@ -5,7 +5,7 @@ import {
   NotFoundException
 } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client.js';
-import { BizCode } from './biz-code.js';
+import { BizCode } from '@multi-admin/contracts';
 import { BizException } from './biz.exception.js';
 import { resolveException } from './exception-resolver.js';
 

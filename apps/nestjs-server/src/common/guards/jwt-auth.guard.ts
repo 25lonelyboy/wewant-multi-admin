@@ -3,7 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import type { ExecutionContext } from '@nestjs/common';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
-import { BizCode } from '../errors/biz-code.js';
+import { BizCode } from '@multi-admin/contracts';
 import { BizException } from '../errors/biz.exception.js';
 
 @Injectable()

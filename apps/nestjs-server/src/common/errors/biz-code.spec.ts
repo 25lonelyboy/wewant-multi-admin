@@ -1,4 +1,4 @@
-import { BizCode } from './biz-code.js';
+import { BizCode } from '@multi-admin/contracts';
 
 describe('BizCode', () => {
   it('成功码为 0 且关键错误码符合契约', () => {

@@ -2,7 +2,7 @@ import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
 import { BizException } from '../errors/biz.exception.js';
-import { BizCode } from '../errors/biz-code.js';
+import { BizCode } from '@multi-admin/contracts';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
 
 const mockContext = (user?: unknown) =>

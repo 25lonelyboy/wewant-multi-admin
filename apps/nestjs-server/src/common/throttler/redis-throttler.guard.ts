@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
-import { BizCode } from '../errors/biz-code.js';
+import { BizCode } from '@multi-admin/contracts';
 import { BizException } from '../errors/biz.exception.js';
 
 @Injectable()

@@ -3,7 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { Redis } from 'ioredis';
 import { REDIS_CLIENT } from '../../common/redis/redis.constants.js';
-import { BizCode } from '../../common/errors/biz-code.js';
+import { BizCode } from '@multi-admin/contracts';
 import { BizException } from '../../common/errors/biz.exception.js';
 import { AppConfigService } from '../../config/app-config.service.js';
 

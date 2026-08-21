@@ -1,4 +1,4 @@
-import { BizCode } from './biz-code.js';
+import { BizCode } from '@multi-admin/contracts';
 import { BizException } from './biz.exception.js';
 
 describe('BizException', () => {

@@ -1,6 +1,6 @@
 import type { CallHandler, ExecutionContext } from '@nestjs/common';
 import { lastValueFrom, of } from 'rxjs';
-import { BizCode } from '../errors/biz-code.js';
+import { BizCode } from '@multi-admin/contracts';
 import { ResponseEnvelopeInterceptor } from './response-envelope.interceptor.js';
 
 describe('ResponseEnvelopeInterceptor', () => {

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service.js';
-import { BizCode } from '../../../common/errors/biz-code.js';
+import { BizCode } from '@multi-admin/contracts';
 import { BizException } from '../../../common/errors/biz.exception.js';
 import type { Prisma } from '../../../generated/prisma/client.js';
 import {

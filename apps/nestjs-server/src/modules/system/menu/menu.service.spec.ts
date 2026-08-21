@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { MenuService } from './menu.service.js';
 import type { PrismaService } from '../../../database/prisma.service.js';
-import { BizCode } from '../../../common/errors/biz-code.js';
+import { BizCode } from '@multi-admin/contracts';
 import { Prisma as PrismaNamespace } from '../../../generated/prisma/client.js';
 import type { MenuMetaDto } from '../shared/menu-meta.dto.js';
 
