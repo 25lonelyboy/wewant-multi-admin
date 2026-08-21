@@ -204,7 +204,7 @@ describe('认证链路 (e2e)', () => {
   });
 
   // 用例 8：用户信息 + 路由树
-  it('get-user-info 实时查库；get-async-routes admin 全量两组树', async () => {
+  it('get-user-info 实时查库；get-async-routes admin 全量单组树', async () => {
     const admin = await loginAdmin();
     const info = await server()
       .get('/api/v1/auth/get-user-info')
@@ -221,9 +221,8 @@ describe('认证链路 (e2e)', () => {
     const data = (
       routes.body as Envelope<Array<{ path: string; children?: unknown[] }>>
     ).data;
-    expect(data.map(n => n.path)).toEqual(['/system', '/monitor']);
-    expect(data[0].children).toHaveLength(4);
-    expect(data[1].children).toHaveLength(4);
+    expect(data.map(n => n.path)).toEqual(['/system']);
+    expect(data[0].children).toHaveLength(3);
   });
 
   // 用例 9：mine 域个人信息（决策 #10）

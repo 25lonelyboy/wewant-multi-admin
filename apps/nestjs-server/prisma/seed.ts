@@ -1,5 +1,6 @@
 // prisma/seed.ts
-// 幂等 seed：upsert / createMany+skipDuplicates；超管 create-only 绝不覆盖已改密码。
+// 幂等 seed：upsert / createMany+skipDuplicates + 软删不在 seed 集合中的存量菜单；
+// 超管 create-only 绝不覆盖已改密码。
 // 载体：tsx 直跑（prisma.config.ts migrations.seed）；e2e globalSetup 复用 runSeed。
 import { pathToFileURL } from 'node:url';
 import * as argon2 from 'argon2';
@@ -49,7 +50,7 @@ export interface ButtonSeed {
   sort: number;
 }
 
-/** 由菜单树推导 16 个按钮权限点（纯函数） */
+/** 由菜单树推导 12 个按钮权限点（纯函数） */
 export function buildButtonSeeds(tree: MenuSeedItem[]): ButtonSeed[] {
   const buttons: ButtonSeed[] = [];
   for (const group of tree) {
@@ -96,6 +97,10 @@ export async function runSeed(prisma: PrismaClient): Promise<void> {
   // 两轮包在交互式事务内：回填中途失败整体回滚，不残留无父链菜单，
   // 与超管块事务口径一致；幂等 upsert 保证重跑自愈。
   const flat = flattenMenus(MENU_TREE);
+  const buttons = buildButtonSeeds(MENU_TREE);
+  // seed 全集（MENU 节点 + BUTTON 权限点）：清理步骤的排除口径，凡不在集合内的
+  // 存量活跃行视为被裁剪项（如 P5 裁掉的 SystemDept/Monitor），软删之。
+  const seedMenuNames = [...flat.map(m => m.name), ...buttons.map(b => b.name)];
   await prisma.$transaction(async tx => {
     for (const menu of flat) {
       const existing = await tx.menu.findFirst({
@@ -111,10 +116,22 @@ export async function runSeed(prisma: PrismaClient): Promise<void> {
       if (existing) {
         await tx.menu.update({ where: { id: existing.id }, data });
       } else {
-        await tx.menu.create({
-          // exactOptionalPropertyTypes：可选字段收窄为 null（Prisma create 不接受 undefined）
-          data: { name: menu.name, ...data, type: 'MENU' }
+        // 同名软删行复活而非新建：避免裁剪后重新引入时产生重名活跃行，
+        // 保证「裁剪 → 再引入」双向幂等。
+        const tombstone = await tx.menu.findFirst({
+          where: { name: menu.name, deletedAt: { not: null } }
         });
+        if (tombstone) {
+          await tx.menu.update({
+            where: { id: tombstone.id },
+            data: { ...data, deletedAt: null }
+          });
+        } else {
+          await tx.menu.create({
+            // exactOptionalPropertyTypes：可选字段收窄为 null（Prisma create 不接受 undefined）
+            data: { name: menu.name, ...data, type: 'MENU' }
+          });
+        }
       }
     }
     for (const menu of flat.filter(
@@ -131,10 +148,18 @@ export async function runSeed(prisma: PrismaClient): Promise<void> {
         data: { parentId: parent.id }
       });
     }
+    // 清理：软删不在 seed 集合中的存量菜单/权限点（P5 裁决裁掉了 SystemDept 页与
+    // Monitor 整组，纯 upsert 不会移除存量行，靠此步让开发/测试库同步裁剪）。
+    // 软删而非物删：保留可追溯性；查询侧统一按 deletedAt IS NULL 过滤，
+    // 裁剪项即时不可见；残留的 RoleMenu 关联随菜单软删自然失效。
+    await tx.menu.updateMany({
+      where: { deletedAt: null, name: { notIn: seedMenuNames } },
+      data: { deletedAt: new Date() }
+    });
   });
 
   // 3. 按钮权限点
-  for (const btn of buildButtonSeeds(MENU_TREE)) {
+  for (const btn of buttons) {
     const parent = await prisma.menu.findFirstOrThrow({
       where: { name: btn.parentName, deletedAt: null }
     });
@@ -145,15 +170,31 @@ export async function runSeed(prisma: PrismaClient): Promise<void> {
     if (existing) {
       await prisma.menu.update({ where: { id: existing.id }, data });
     } else {
-      await prisma.menu.create({
-        data: {
-          name: btn.name,
-          title: btn.title,
-          ...data,
-          sort: btn.sort,
-          type: 'BUTTON'
-        }
+      // 同名软删行复活（与 MENU 块同口径）
+      const tombstone = await prisma.menu.findFirst({
+        where: { name: btn.name, deletedAt: { not: null } }
       });
+      if (tombstone) {
+        await prisma.menu.update({
+          where: { id: tombstone.id },
+          data: {
+            title: btn.title,
+            ...data,
+            sort: btn.sort,
+            deletedAt: null
+          }
+        });
+      } else {
+        await prisma.menu.create({
+          data: {
+            name: btn.name,
+            title: btn.title,
+            ...data,
+            sort: btn.sort,
+            type: 'BUTTON'
+          }
+        });
+      }
     }
   }
 

@@ -1,5 +1,6 @@
 // prisma/seed-data.ts
-// 菜单/权限点种子静态数据：与 apps/pure-web/mock/asyncRoutes.ts 一一对齐；
+// 菜单/权限点种子静态数据：与 apps/pure-web/mock/asyncRoutes.ts 对齐（P5 裁决裁剪后：
+// dept 域后端不实现、监控四类日志端点后端不实现，故不含 SystemDept 页与 Monitor 整组）；
 // 纯数据无副作用，供 seed.ts 与单测共用。
 
 export interface MenuSeedItem {
@@ -40,68 +41,19 @@ export const MENU_TREE: MenuSeedItem[] = [
         icon: 'ep:menu',
         path: '/system/menu/index',
         sort: 2
-      },
-      {
-        name: 'SystemDept',
-        title: 'menus.pureDept',
-        icon: 'ri:git-branch-line',
-        path: '/system/dept/index',
-        sort: 3
-      }
-    ]
-  },
-  {
-    name: 'Monitor',
-    title: 'menus.pureSysMonitor',
-    icon: 'ep:monitor',
-    path: '/monitor',
-    sort: 1,
-    children: [
-      {
-        name: 'OnlineUser',
-        title: 'menus.pureOnlineUser',
-        icon: 'ri:user-voice-line',
-        path: '/monitor/online-user',
-        component: 'monitor/online/index',
-        sort: 0
-      },
-      {
-        name: 'LoginLog',
-        title: 'menus.pureLoginLog',
-        icon: 'ri:window-line',
-        path: '/monitor/login-logs',
-        component: 'monitor/logs/login/index',
-        sort: 1
-      },
-      {
-        name: 'OperationLog',
-        title: 'menus.pureOperationLog',
-        icon: 'ri:history-fill',
-        path: '/monitor/operation-logs',
-        component: 'monitor/logs/operation/index',
-        sort: 2
-      },
-      {
-        name: 'SystemLog',
-        title: 'menus.pureSystemLog',
-        icon: 'ri:file-search-line',
-        path: '/monitor/system-logs',
-        component: 'monitor/logs/system/index',
-        sort: 3
       }
     ]
   }
 ];
 
-/** system 组 4 页 × 4 动作 = 16 个按钮权限点（P3 端点按此粒度对齐） */
+/** system 组 3 页 × 4 动作 = 12 个按钮权限点（P3 端点按此粒度对齐） */
 export const BUTTON_ACTIONS = ['query', 'add', 'update', 'delete'] as const;
 
 /** 页面路由名 → 权限点前缀（system:user:add 形态） */
 export const PAGE_PERMISSION_PREFIX: Record<string, string> = {
   SystemUser: 'system:user',
   SystemRole: 'system:role',
-  SystemMenu: 'system:menu',
-  SystemDept: 'system:dept'
+  SystemMenu: 'system:menu'
 };
 
 export const ROLES = [
