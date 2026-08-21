@@ -48,4 +48,13 @@ export class MenuController {
     await this.menus.remove(id);
     return null;
   }
+
+  @Get(':id')
+  @RequirePermissions('system:menu:query')
+  @ApiOperation({
+    summary: '菜单详情（父链断链按 40404；软删 → 40404）'
+  })
+  findOne(@Param('id') id: string) {
+    return this.menus.findOne(id);
+  }
 }

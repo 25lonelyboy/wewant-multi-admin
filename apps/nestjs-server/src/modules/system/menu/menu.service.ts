@@ -101,6 +101,27 @@ export class MenuService {
   }
 
   /**
+   * 详情（P5 分设计 §4.2）：不存在/已软删 → 40404；
+   * 附加父链完整性校验：沿 parentId 上行须全部 alive 至根，
+   * 断链（逻辑孤儿）按 40404（与 P4 §4.3 孤儿子树隐身语义对齐）。
+   */
+  async findOne(id: string): Promise<Menu> {
+    const target = await this.findAliveMenu(id);
+    let cursor = target.parentId;
+    while (cursor !== null) {
+      const parent = await this.prisma.menu.findFirst({
+        where: { id: cursor, ...alive() },
+        select: { parentId: true }
+      });
+      if (!parent) {
+        throw new BizException(BizCode.NOT_FOUND, '菜单不存在或已删除');
+      }
+      cursor = parent.parentId;
+    }
+    return target;
+  }
+
+  /**
    * 回溯祖先链检环：visited 从自身出发，若链上重遇已访问节点即成环。
    * 遍历不过滤软删节点（parentId 物理指针仍存在，环检测看物理链）。
    */

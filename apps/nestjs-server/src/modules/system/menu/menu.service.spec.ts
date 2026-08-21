@@ -257,4 +257,37 @@ describe('MenuService', () => {
       });
     });
   });
+
+  describe('findOne', () => {
+    it('活跃且父链完整返回 Menu 行', async () => {
+      prisma.menu.findFirst
+        .mockResolvedValueOnce({ ...MENU_ROW, parentId: 'p1' }) // findAliveMenu 目标
+        .mockResolvedValueOnce({ parentId: null }); // 父节点 → 链终止
+      const menu = await service.findOne('m1');
+      expect(menu.id).toBe('m1');
+      // 父链上行带存活过滤（deletedAt: null）
+      expect(prisma.menu.findFirst).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          where: { id: 'p1', deletedAt: null }
+        })
+      );
+    });
+
+    it('目标不存在/已软删抛 40404', async () => {
+      prisma.menu.findFirst.mockResolvedValue(null);
+      await expect(service.findOne('ghost')).rejects.toMatchObject({
+        code: BizCode.NOT_FOUND
+      });
+    });
+
+    it('父链断链（父已软删）抛 40404', async () => {
+      prisma.menu.findFirst
+        .mockResolvedValueOnce({ ...MENU_ROW, parentId: 'p1' }) // 目标命中
+        .mockResolvedValueOnce(null); // 父节点查询返回 null → 断链
+      await expect(service.findOne('orphan')).rejects.toMatchObject({
+        code: BizCode.NOT_FOUND
+      });
+    });
+  });
 });

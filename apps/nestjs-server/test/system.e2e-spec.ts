@@ -301,6 +301,39 @@ describe('system RBAC CRUD (e2e)', () => {
       expect(child?.deletedAt).toBeNull();
       expect(child?.parentId).toBe(group.id);
     });
+
+    it('GET /system/menus/:id 详情 200；软删父后子节点断链 40404', async () => {
+      const parent = await expectData<{ id: string }>(
+        api('post', '/system/menus').set(bearer(adminToken)).send({
+          type: 'MENU',
+          name: 'ChainParent',
+          title: '断链父',
+          path: '/chain-parent'
+        })
+      );
+      const child = await expectData<{ id: string }>(
+        api('post', '/system/menus').set(bearer(adminToken)).send({
+          type: 'MENU',
+          parentId: parent.id,
+          name: 'ChainChild',
+          title: '断链子',
+          path: '/chain-child'
+        })
+      );
+      const detail = await expectData<{ id: string }>(
+        api('get', `/system/menus/${child.id}`).set(bearer(adminToken))
+      );
+      expect(detail.id).toBe(child.id);
+      // 软删父 → 子成为逻辑孤儿，详情按断链 40404（与树隐身口径对齐）
+      await expectData(
+        api('delete', `/system/menus/${parent.id}`).set(bearer(adminToken))
+      );
+      await expectError(
+        api('get', `/system/menus/${child.id}`).set(bearer(adminToken)),
+        404,
+        40404
+      );
+    });
   });
 
   // ---------- 类 2：授权矩阵 ----------
