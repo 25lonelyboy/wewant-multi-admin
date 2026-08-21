@@ -407,6 +407,9 @@ importers:
 
   apps/nestjs-server:
     dependencies:
+      '@multi-admin/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@nestjs/common':
         specifier: 'catalog:'
         version: 11.1.28(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.1)(supports-color@10.2.2)
@@ -567,6 +570,9 @@ importers:
       '@howdyjs/mouse-menu':
         specifier: ^2.1.7
         version: 2.1.7(vue@3.5.41(typescript@5.9.3))
+      '@multi-admin/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@pureadmin/descriptions':
         specifier: ^1.2.1
         version: 1.2.1(echarts@6.1.0)(element-plus@2.14.4(vue@3.5.41(typescript@5.9.3)))(typescript@5.9.3)

@@ -11,6 +11,7 @@
     "report": "rimraf dist && cross-env NODE_OPTIONS=--max-old-space-size=8192 vite build",
     "preview": "vite preview",
     "preview:build": "pnpm build && vite preview",
+    "pretypecheck": "pnpm --filter @multi-admin/contracts run build",
     "typecheck": "tsc --noEmit --skipLibCheck && vue-tsc --noEmit --skipLibCheck",
     "svgo": "svgo -f . -r",
     "lint": "eslint --cache --max-warnings 0 src mock build --fix",
@@ -32,6 +33,7 @@
   "dependencies": {
     "@howdyjs/mouse-menu": "^2.1.7",
     "@pureadmin/descriptions": "^1.2.1",
+    "@multi-admin/contracts": "workspace:*",
     "@pureadmin/table": "^3.3.0",
     "@pureadmin/utils": "^2.6.4",
     "@vueuse/core": "^14.3.0",
