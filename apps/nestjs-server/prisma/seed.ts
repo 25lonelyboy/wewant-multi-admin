@@ -93,41 +93,45 @@ export async function runSeed(prisma: PrismaClient): Promise<void> {
   }
 
   // 2. 菜单（两轮：先无父节点全建，再回填 parentId）
+  // 两轮包在交互式事务内：回填中途失败整体回滚，不残留无父链菜单，
+  // 与超管块事务口径一致；幂等 upsert 保证重跑自愈。
   const flat = flattenMenus(MENU_TREE);
-  for (const menu of flat) {
-    const existing = await prisma.menu.findFirst({
-      where: { name: menu.name, deletedAt: null }
-    });
-    const data = {
-      title: menu.title,
-      icon: menu.icon ?? null,
-      path: menu.path ?? null,
-      component: menu.component ?? null,
-      sort: menu.sort
-    };
-    if (existing) {
-      await prisma.menu.update({ where: { id: existing.id }, data });
-    } else {
-      await prisma.menu.create({
-        // exactOptionalPropertyTypes：可选字段收窄为 null（Prisma create 不接受 undefined）
-        data: { name: menu.name, ...data, type: 'MENU' }
+  await prisma.$transaction(async tx => {
+    for (const menu of flat) {
+      const existing = await tx.menu.findFirst({
+        where: { name: menu.name, deletedAt: null }
+      });
+      const data = {
+        title: menu.title,
+        icon: menu.icon ?? null,
+        path: menu.path ?? null,
+        component: menu.component ?? null,
+        sort: menu.sort
+      };
+      if (existing) {
+        await tx.menu.update({ where: { id: existing.id }, data });
+      } else {
+        await tx.menu.create({
+          // exactOptionalPropertyTypes：可选字段收窄为 null（Prisma create 不接受 undefined）
+          data: { name: menu.name, ...data, type: 'MENU' }
+        });
+      }
+    }
+    for (const menu of flat.filter(
+      (m): m is FlatMenu & { parentName: string } => m.parentName !== undefined
+    )) {
+      const parent = await tx.menu.findFirstOrThrow({
+        where: { name: menu.parentName, deletedAt: null }
+      });
+      const self = await tx.menu.findFirstOrThrow({
+        where: { name: menu.name, deletedAt: null }
+      });
+      await tx.menu.update({
+        where: { id: self.id },
+        data: { parentId: parent.id }
       });
     }
-  }
-  for (const menu of flat.filter(
-    (m): m is FlatMenu & { parentName: string } => m.parentName !== undefined
-  )) {
-    const parent = await prisma.menu.findFirstOrThrow({
-      where: { name: menu.parentName, deletedAt: null }
-    });
-    const self = await prisma.menu.findFirstOrThrow({
-      where: { name: menu.name, deletedAt: null }
-    });
-    await prisma.menu.update({
-      where: { id: self.id },
-      data: { parentId: parent.id }
-    });
-  }
+  });
 
   // 3. 按钮权限点
   for (const btn of buildButtonSeeds(MENU_TREE)) {
