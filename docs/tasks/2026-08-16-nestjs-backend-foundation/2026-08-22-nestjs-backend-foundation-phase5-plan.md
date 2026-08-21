@@ -2381,16 +2381,18 @@ export const getMenuDetail = (id: EntityId) => {
   );
 };
 
-/** 新增菜单 */
+/** 新增菜单（服务端返回裸 Menu 行，不带 children） */
 export const createMenu = (data: CreateMenuRequest) => {
-  return http.request<ApiResponse<MenuVO>>('post', '/api/v1/system/menus', {
-    data
-  });
+  return http.request<ApiResponse<Omit<MenuVO, 'children'>>>(
+    'post',
+    '/api/v1/system/menus',
+    { data }
+  );
 };
 
-/** 编辑菜单 */
+/** 编辑菜单（同上，不带 children） */
 export const updateMenu = (id: EntityId, data: UpdateMenuRequest) => {
-  return http.request<ApiResponse<MenuVO>>(
+  return http.request<ApiResponse<Omit<MenuVO, 'children'>>>(
     'put',
     `/api/v1/system/menus/${id}`,
     { data }
