@@ -103,12 +103,18 @@ export class MenuService {
   /**
    * 详情（P5 分设计 §4.2）：不存在/已软删 → 40404；
    * 附加父链完整性校验：沿 parentId 上行须全部 alive 至根，
-   * 断链（逻辑孤儿）按 40404（与 P4 §4.3 孤儿子树隐身语义对齐）。
+   * 断链（逻辑孤儿）按 40404（与 P4 §4.3 孤儿子树隐身语义对齐）；
+   * 上行带环按断链 40404（脏数据防挂死）。
    */
   async findOne(id: string): Promise<Menu> {
     const target = await this.findAliveMenu(id);
+    const visited = new Set<string>([id]);
     let cursor = target.parentId;
     while (cursor !== null) {
+      if (visited.has(cursor)) {
+        throw new BizException(BizCode.NOT_FOUND, '菜单不存在或已删除');
+      }
+      visited.add(cursor);
       const parent = await this.prisma.menu.findFirst({
         where: { id: cursor, ...alive() },
         select: { parentId: true }

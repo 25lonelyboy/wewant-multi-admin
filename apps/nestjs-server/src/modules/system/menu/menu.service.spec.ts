@@ -289,5 +289,15 @@ describe('MenuService', () => {
         code: BizCode.NOT_FOUND
       });
     });
+
+    it('父链成环（m1 → p1 → m1）按断链抛 40404（脏数据防挂死）', async () => {
+      prisma.menu.findFirst
+        .mockResolvedValueOnce({ ...MENU_ROW, parentId: 'p1' }) // 目标命中
+        .mockResolvedValueOnce({ parentId: 'm1' }); // p1 的父指回 m1 → 环，无需第 3 次查询
+      await expect(service.findOne('m1')).rejects.toMatchObject({
+        code: BizCode.NOT_FOUND
+      });
+      expect(prisma.menu.findFirst).toHaveBeenCalledTimes(2);
+    });
   });
 });

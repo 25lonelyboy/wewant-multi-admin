@@ -333,6 +333,10 @@ describe('system RBAC CRUD (e2e)', () => {
         404,
         40404
       );
+      // 卫生收尾：软删子节点，避免留下 alive 孤儿
+      await expectData(
+        api('delete', `/system/menus/${child.id}`).set(bearer(adminToken))
+      );
     });
   });
 
