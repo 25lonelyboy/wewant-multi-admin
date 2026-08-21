@@ -1,7 +1,7 @@
 // prisma/seed-data.ts
-// 菜单/权限点种子静态数据：与 apps/pure-web/mock/asyncRoutes.ts 对齐（P5 裁决裁剪后：
-// dept 域后端不实现、监控四类日志端点后端不实现，故不含 SystemDept 页与 Monitor 整组）；
-// 纯数据无副作用，供 seed.ts 与单测共用。
+// 菜单/权限点种子静态数据：为 apps/pure-web/mock/asyncRoutes.ts 的真子集（P5 裁剪：
+// Dept/Monitor 域后端未实现；asyncRoutes 仍含 SystemDept/Monitor，seed 不含）；
+// 纯数据无副作用，供 seed.ts 与单测共享。
 
 export interface MenuSeedItem {
   name: string;

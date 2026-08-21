@@ -2,6 +2,10 @@
 // 幂等 seed：upsert / createMany+skipDuplicates + 软删不在 seed 集合中的存量菜单；
 // 超管 create-only 绝不覆盖已改密码。
 // 载体：tsx 直跑（prisma.config.ts migrations.seed）；e2e globalSetup 复用 runSeed。
+//
+// ⚠️ 爆炸半径警示：清理步骤以 seed 集合（MENU_TREE 展开）为唯一事实来源，
+// 不区分行来源（种子/手工）。含手工创建菜单的库（如生产）不得直接重跑本脚本，
+// 否则手工菜单将被软删。开发/测试库是本口径的唯一适用场景，故不设开关。
 import { pathToFileURL } from 'node:url';
 import * as argon2 from 'argon2';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -117,9 +121,11 @@ export async function runSeed(prisma: PrismaClient): Promise<void> {
         await tx.menu.update({ where: { id: existing.id }, data });
       } else {
         // 同名软删行复活而非新建：避免裁剪后重新引入时产生重名活跃行，
-        // 保证「裁剪 → 再引入」双向幂等。
+        // 保证「裁剪 → 再引入」双向幂等。orderBy 固定取最旧行，
+        // 同名多 tombstone 时结果确定。
         const tombstone = await tx.menu.findFirst({
-          where: { name: menu.name, deletedAt: { not: null } }
+          where: { name: menu.name, deletedAt: { not: null } },
+          orderBy: { id: 'asc' }
         });
         if (tombstone) {
           await tx.menu.update({
@@ -150,6 +156,8 @@ export async function runSeed(prisma: PrismaClient): Promise<void> {
     }
     // 清理：软删不在 seed 集合中的存量菜单/权限点（P5 裁决裁掉了 SystemDept 页与
     // Monitor 整组，纯 upsert 不会移除存量行，靠此步让开发/测试库同步裁剪）。
+    // ⚠️ 爆炸半径：清理以 seed 集合（MENU_TREE 展开）为唯一事实来源，不区分行来源；
+    // 含手工创建菜单的库（如生产）不得直接重跑本脚本，否则手工菜单将被软删。
     // 软删而非物删：保留可追溯性；查询侧统一按 deletedAt IS NULL 过滤，
     // 裁剪项即时不可见；残留的 RoleMenu 关联随菜单软删自然失效。
     await tx.menu.updateMany({
@@ -170,9 +178,11 @@ export async function runSeed(prisma: PrismaClient): Promise<void> {
     if (existing) {
       await prisma.menu.update({ where: { id: existing.id }, data });
     } else {
-      // 同名软删行复活（与 MENU 块同口径）
+      // 同名软删行复活（与 MENU 块同口径）；orderBy 固定取最旧行，
+      // 同名多 tombstone 时结果确定。
       const tombstone = await prisma.menu.findFirst({
-        where: { name: btn.name, deletedAt: { not: null } }
+        where: { name: btn.name, deletedAt: { not: null } },
+        orderBy: { id: 'asc' }
       });
       if (tombstone) {
         await prisma.menu.update({
