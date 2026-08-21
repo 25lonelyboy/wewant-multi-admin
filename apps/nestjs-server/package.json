@@ -23,7 +23,7 @@
     "test:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-e2e.cjs",
-    "test:coverage": "pnpm run test:cov && pnpm run test:e2e --coverage && node test/merge-coverage.cjs"
+    "test:coverage": "prisma generate && pnpm --filter @multi-admin/contracts run build && pnpm run test:cov && pnpm run test:e2e --coverage && node test/merge-coverage.cjs"
   },
   "dependencies": {
     "@multi-admin/contracts": "workspace:*",
