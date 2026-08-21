@@ -6,6 +6,7 @@ import type {
   UserProfile
 } from '@multi-admin/contracts';
 import type { TokenPair } from './token.service.js';
+import type { AuthService } from './auth.service.js';
 
 /** JSON 序列化后的类型映射：Date → string（与 HTTP 响应体一致） */
 type Serialized<T> = T extends Date
@@ -52,6 +53,12 @@ describe('auth 域契约一致性', () => {
       description: null
     };
     expect(profile.description).toBeNull();
+  });
+
+  it('getProfile 返回形状 = UserProfile（编译期）', () => {
+    type GetProfileReturn = Awaited<ReturnType<AuthService['getProfile']>>;
+    const check: UserProfile = null as unknown as GetProfileReturn;
+    expect(check).toBeNull();
   });
 
   it('Serialized 映射自检（Date → string）', () => {

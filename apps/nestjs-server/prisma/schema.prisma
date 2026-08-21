@@ -21,6 +21,7 @@ model User {
   email     String?
   sex       Int? // 0|1；DTO 层 @IsIn([0, 1])
   remark    String?
+  description String? // 个人简介（mine profile，P5 决策 #10）
   roles     UserRole[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt

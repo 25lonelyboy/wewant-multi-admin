@@ -62,6 +62,12 @@ export class AuthController {
     return this.auth.getUserInfo(user);
   }
 
+  @Get('profile')
+  @ApiOperation({ summary: '当前用户个人信息（mine 域，决策 #10）' })
+  getProfile(@CurrentUser() user: AuthUser) {
+    return this.auth.getProfile(user);
+  }
+
   @Get('get-async-routes')
   @ApiOperation({ summary: '角色可见动态路由树' })
   getAsyncRoutes(@CurrentUser() user: AuthUser) {

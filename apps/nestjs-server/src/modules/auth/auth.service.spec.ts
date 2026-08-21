@@ -268,6 +268,38 @@ describe('AuthService', () => {
     });
   });
 
+  describe('getProfile', () => {
+    it('返回 UserProfile 形状（四可空字段）', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        avatar: null,
+        username: 'admin',
+        nickname: '超级管理员',
+        email: null,
+        phone: null,
+        description: null
+      });
+      const profile = await service.getProfile({
+        userId: 'u1',
+        username: 'admin',
+        nickname: '超级管理员'
+      } as never);
+      expect(profile).toEqual({
+        avatar: null,
+        username: 'admin',
+        nickname: '超级管理员',
+        email: null,
+        phone: null,
+        description: null
+      });
+      expect(prisma.user.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'u1' },
+          select: expect.objectContaining({ description: true })
+        })
+      );
+    });
+  });
+
   describe('getAsyncRoutes 软删过滤', () => {
     it('角色与菜单查询均带 deletedAt: null', async () => {
       prisma.role.findMany.mockResolvedValue([{ id: 'r1', code: 'admin' }]);

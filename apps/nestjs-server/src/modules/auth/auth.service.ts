@@ -120,6 +120,29 @@ export class AuthService {
     return this.profileOf(user.userId, user.roles);
   }
 
+  /** mine 域个人信息（决策 #10）：与 get-user-info 不同，不含 roles/permissions，含四可空字段 */
+  async getProfile(user: AuthUser) {
+    const row = await this.prisma.user.findUnique({
+      where: { id: user.userId },
+      select: {
+        avatar: true,
+        username: true,
+        nickname: true,
+        email: true,
+        phone: true,
+        description: true
+      }
+    });
+    return {
+      avatar: row?.avatar ?? null,
+      username: row?.username ?? user.username,
+      nickname: row?.nickname ?? user.nickname,
+      email: row?.email ?? null,
+      phone: row?.phone ?? null,
+      description: row?.description ?? null
+    };
+  }
+
   /** get-async-routes：角色可见 MENU 树 */
   async getAsyncRoutes(user: AuthUser) {
     const roles = await this.prisma.role.findMany({

@@ -225,4 +225,21 @@ describe('认证链路 (e2e)', () => {
     expect(data[0].children).toHaveLength(4);
     expect(data[1].children).toHaveLength(4);
   });
+
+  // 用例 9：mine 域个人信息（决策 #10）
+  it('GET /auth/profile 返回 UserProfile（四可空字段）', async () => {
+    const admin = await loginAdmin();
+    const res = await server()
+      .get('/api/v1/auth/profile')
+      .set(bearer(admin.accessToken))
+      .expect(200);
+    expect((res.body as Envelope<unknown>).data).toEqual({
+      avatar: null,
+      username: 'admin',
+      nickname: '超级管理员',
+      email: null,
+      phone: null,
+      description: null
+    });
+  });
 });
