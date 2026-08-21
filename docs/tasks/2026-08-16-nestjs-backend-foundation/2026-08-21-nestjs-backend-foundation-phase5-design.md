@@ -23,7 +23,7 @@
 | 7 | 实施策略 | 方案 A 横向分层 | 方案 B 纵向域切片（公共件仍需先铺、server 横切迁移拆不干净）；方案 C mock-first（单人会话无并行收益） |
 | 8 | 高级密码策略（P4 记录 5） | 当前不做、**不关闭**，迁移至全局 backlog；触发条件：多用户/多端真实接入场景出现 | 直接关闭（用户明确要求保留登记）；P5 实施（argon2 成本参数已是强度底线，当前 ROI 低） |
 | 9 | 未处置 backlog 归宿 | 任务域收口时迁移至 `docs/governance/backlog.md`（见 §7.2） | 留守 tasks/archive（退出默认读取路径等于活埋）；进事实源层（违反「事实只写已验证行为」红线）；进 decisions/（不满足 ADR 准入） |
-| 10 | mine 域（审查新增） | P5 只补 profile：migration 补 User 四列 + 新增 `GET /auth/profile`；mine-logs 与头像上传登记 backlog | 全补（SecurityLog 表 + 三处埋点 + UA 解析约一个迷你域体量，且提前破备案 3 排除的日志域口子）；不补（账户设置页静态可达，直连后坏页体验不一致） |
+| 10 | mine 域（审查新增） | P5 只补 profile：migration 补 User 简介列（其余三列已存在，见 §4.4）+ 新增 `GET /auth/profile`；mine-logs 与头像上传登记 backlog | 全补（SecurityLog 表 + 三处埋点 + UA 解析约一个迷你域体量，且提前破备案 3 排除的日志域口子）；不补（账户设置页静态可达，直连后坏页体验不一致） |
 
 ## 3. contracts 包设计（`packages/contracts`，`@multi-admin/contracts`）
 
@@ -108,8 +108,8 @@ packages/contracts/src/
 
 ### 4.4 mine profile 端点（决策 #10）
 
-- 一次 migration 为 User 表补 4 个 nullable 列：`avatar String?` / `email String?` / `phone String?` / `description String?`（存量数据零破坏；e2e globalSetup migrate 链自动应用）；
-- 新增 `GET /api/v1/auth/profile`：返回 UserProfile `{avatar, username, nickname, email, phone, description}`（四新字段均可空）；已交付的 `get-user-info` 端点不动；
+- 一次 migration 为 User 表补 1 个 nullable 列：`description String?`（个人简介；**实施计划取证修正**：初版「补 avatar/email/phone/description 四列」有误，schema.prisma 中 User 已有 avatar/phone/email/sex/remark，仅缺 description；存量数据零破坏，e2e globalSetup migrate 链自动应用）；
+- 新增 `GET /api/v1/auth/profile`：返回 UserProfile `{avatar, username, nickname, email, phone, description}`（均可空）；已交付的 `get-user-info` 端点不动；
 - 头像上传/文件存储本轮不做：avatar 仅字符串字段（未来置入 URL），上传链路登记 backlog（§7.3）。
 
 ### 4.5 回归门禁
@@ -235,7 +235,7 @@ pure-web typecheck（`strict: false` 现状不动，消费 contracts 编译必�
 - [ ] contracts 建包，通用层/域层落位，双端 `workspace:*` 消费且 typecheck 通过
 - [ ] BizCode/ApiResponse/Auth 契约类型迁移完成（refresh 剥离 sid），server 原址删除、import 修正
 - [ ] 三域 `GET /:id` 交付（含菜单父链校验），单测 + e2e 覆盖
-- [ ] User 补四列 migration + `GET /auth/profile` 交付（mine profile），account-settings 适配
+- [ ] User 补 description 列 migration + `GET /auth/profile` 交付（mine profile），account-settings 适配
 - [ ] seed 菜单树裁剪（Dept/Monitor），连带测试更新
 - [ ] 契约一致性单测每域一条 + e2e 引用契约常量
 - [ ] pure-web api 层按端点集重写 + 页面适配 + 拦截器 BizCode 化
@@ -260,4 +260,6 @@ pure-web typecheck（`strict: false` 现状不动，消费 contracts 编译必�
 | M2 | 表述 | proxy 目标端口未写实 | env.schema PORT 默认 3000；VITE_PORT 8848 = CORS_ORIGIN 默认 | §5.1 写实 `http://localhost:3000` 与同源依据 |
 | M3 | 表述 | 分页适用范围不精确 | menu 全量树、roles /all 均不分页 | §4.1/§5.4 限定 PageResult 仅 user/role 列表 |
 
-**决策 #10（审查中新增）**：mine 域 P5 只补 profile（User 补四列 + `GET /auth/profile`）；mine-logs 需 SecurityLog 表 + 埋点 + UA 解析约一个迷你域体量且提前破备案 3 口子，头像上传依赖文件存储基建，二者登记 backlog（§7.3）。
+**决策 #10（审查中新增）**：mine 域 P5 只补 profile（User 补简介列 + `GET /auth/profile`）；mine-logs 需 SecurityLog 表 + 埋点 + UA 解析约一个迷你域体量且提前破备案 3 口子，头像上传依赖文件存储基建，二者登记 backlog（§7.3）。
+
+**实施计划取证修正（2026-08-22）**：写实施计划时核实 schema.prisma，User 表已有 avatar/phone/email/sex/remark 列，仅缺 `description`——§4.4 初版「补四列」修正为「补 description 一列」，决策 #10 与 §9 同步。
