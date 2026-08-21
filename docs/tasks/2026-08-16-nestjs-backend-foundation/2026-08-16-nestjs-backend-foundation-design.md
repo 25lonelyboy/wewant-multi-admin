@@ -17,7 +17,7 @@
 | 认证范围 | JWT access + refresh 双令牌；passport 多策略即 provider 扩展位，本轮只实现账密 | 多端登录一步到位（范围膨胀）；不留扩展位（返工风险） |
 | RBAC 深度 | 用户-角色-菜单/按钮三级模型；数据权限作正交预留（见 §6.3） | 仅角色级（vue-pure-admin 按钮级 v-auth 无法对接）；含数据权限（当前性价比低） |
 | 接口契约 | 继承 pure-web mock 结构 + 升级：`/api/v1` 前缀、端域分组、`{code,message,data}` 数字错误码信封、契约类型入 `packages/contracts` | 原样沿用（欠版本化/错误码/多端三笔债）；推迟决策（错过零业务窗口） |
-| 测试深度 | 基架 + 认证链路示范用例 + 覆盖率门槛 80% 入 `pnpm check` | 只搭基建（无示范用例后续风格漂移） |
+| 测试深度 | 基架 + 认证链路示范用例 + 覆盖率门槛 80%（载体已由 P4 修订备案 1 改为独立 `test:coverage` 合并流水线，不随 `pnpm check`） | 只搭基建（无示范用例后续风格漂移） |
 | 中间件边界 | 引入 Redis：限流存储、refresh token 注册表、access 黑名单、权限缓存 | 纯内存 throttler（既然决定引入 Redis 一次到位） |
 | 共享包策略 | 新建 `packages/contracts`（纯类型+常量契约包）；`packages/common` 维持现状留给未来通用工具 | 全塞 common（契约与工具演进节奏不同） |
 | 任务文档组织 | 总-分结构：本文档为总，各阶段各自 design→impl 文档 | 单文档单任务（任务过大） |
@@ -75,6 +75,7 @@ apps/nestjs-server/
 | `40103` | refresh token 无效 |
 | `40301` | 无权限 |
 | `40404` | 业务资源不存在或已软删（NOT_FOUND） |
+| `40900` | 业务冲突（CONFLICT）：唯一值重复、护栏拦截等 |
 | `42901` | 触发限流 |
 | `50000` | 内部错误 |
 
@@ -90,7 +91,7 @@ apps/nestjs-server/
 - `PrismaService extends PrismaClient`，全局模块，与 Nest 优雅关闭联动。
 - migration：本地 `prisma migrate dev`；生产 `prisma migrate deploy` 写入 Dockerfile 启动链（失败即容器退出，compose 重启策略兜底）。
 - 本地 seed：Prisma 7 起 `migrate dev` 不再自动 seed，迁移后需显式执行 `prisma db seed`（P2 备案 9 已落实）。
-- seed：超管账号（口令经环境变量注入，不写死明文）、默认角色、与 vue-pure-admin 菜单结构对齐的初始菜单/权限点。范围为全量一次到位：超管 1 + 默认角色 2 + 菜单/权限点 26（10 MENU 节点 + 16 按钮权限点）；幂等语义 = upsert / createMany skipDuplicates / 超管 create-only（已存在即跳过，绝不覆盖已改密码），生产环境由启动链幂等执行（P2 备案 6 已落实）。
+- seed：超管账号（口令经环境变量注入，不写死明文）、默认角色、与 vue-pure-admin 菜单结构对齐的初始菜单/权限点。范围为全量一次到位：超管 1 + 默认角色 2 + 菜单/权限点 26（10 MENU 节点 + 16 按钮权限点）；幂等语义 = upsert / createMany skipDuplicates / 超管 create-only（已存在即跳过，绝不覆盖已改密码），生产环境由启动链幂等执行（P2 备案 6 已落实）；菜单两轮回填与超管创建均包在交互式事务内，部分失败整体回滚、重跑自愈（P4 复盘清偿）。
 - 敏感字段：密码 hash 永不落日志；DTO 序列化剔除。
 
 ### 6.2 数据模型（三级 RBAC）
@@ -171,7 +172,7 @@ RoleMenu(roleId, menuId)
 | P1 骨架与横切 | 目录结构、config 模块（zod 校验）、信封/错误码/异常过滤、requestId、nestjs-pino、`/health` 骨架 | `pnpm dev:server` 启动，`/health` 200，错误响应符合信封，日志带 requestId |
 | P2 Prisma + Redis + compose | schema 五表 + migration + seed、PrismaService、RedisModule、compose/env 变更、Dockerfile 启动链 | compose up 全绿，seed 可跑，健康检查双探针通过 |
 | P3 认证与 RBAC | passport 策略、JWT 双令牌 + Redis 吊销/轮换、全局守卫链、权限端点、限流、helmet/CORS、Swagger、**认证链路 e2e 示范用例随本阶段落地** | 认证链路 e2e 全绿（登录/刷新轮换/登出失效/越权 40301），Swagger 可见 |
-| P4 测试门禁 + system RBAC CRUD | 三域 CRUD（全局软删除）+ 两类分配端点、错误契约扩展（40404/40900）、护栏 8 项、system e2e 四类示范用例、单测+e2e 合并覆盖率 ≥80% 双报表门禁；dept/监控域不在基架阶段（备案 3） | `test:coverage` 合并四指标 ≥80%，system/auth/health e2e 全绿，`pnpm check` 全绿 |
+| P4 测试门禁 + system RBAC CRUD | 三域 CRUD（全局软删除）+ 两类分配端点、错误契约扩展（40404/40900）、护栏 8 项、system e2e 四类示范用例、单测+e2e 合并覆盖率 ≥80% 双报表门禁；dept/监控域不在基架阶段（备案 3） | `test:coverage` 合并四指标 ≥80%，app/auth/system e2e 全绿（health 断言在 app 套件），`pnpm check` 全绿 |
 | P5 contracts 与前端对齐 | `packages/contracts` 建包、nestjs/pure-web 消费、mock 升级、文档收尾（architecture/ADR-004/AGENTS.md）。**迁移清单**：BizCode/ApiResponse（P1 产物）与 Auth DTO（P3 产物）从 server 内部迁入 contracts，修正全部 import 路径，双端 typecheck + e2e 复验 | pure-web mock 态运行正常，类型双端编译通过，文档齐 |
 
 ### P2 完成判定（已完成，2026-08-17）

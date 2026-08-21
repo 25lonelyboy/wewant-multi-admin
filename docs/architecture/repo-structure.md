@@ -5,7 +5,7 @@ covers:
   - internal/
   - packages/
   - pnpm-workspace.yaml
-last_verified: 2026-08-16
+last_verified: 2026-08-21
 ---
 
 # Monorepo 结构与边界
@@ -17,7 +17,7 @@ last_verified: 2026-08-16
 | Workspace | 角色 | 关键事实 |
 |---|---|---|
 | `apps/pure-web`（`@multi-admin/pure-web`） | Vue3 管理后台 | vue-pure-admin 基底（Element Plus + Tailwind 4 + Pinia）；开发期数据来自 `vite-plugin-fake-server`（`mock/` 目录），尚未接真实后端；`build` 产物注入 `version.json`（generate-version-file） |
-| `apps/nestjs-server`（`@multi-admin/nestjs-server`） | 后端服务 | 脚手架状态；jest 单测/e2e 是仓库唯一测试基建 |
+| `apps/nestjs-server`（`@multi-admin/nestjs-server`） | 后端服务 | 骨架与横切基建、Prisma + Redis、认证链（JWT 双令牌轮换 + RBAC 守卫链）、system RBAC CRUD（全局软删除）与单测/e2e 合并覆盖率门禁均已交付，前端联调待 P5；jest 单测/e2e 是仓库唯一测试基建 |
 | `apps/uni-mobile`（`@multi-admin/uni-mobile`） | uni-app 多端 | Vue3；Vite 版本被 named catalog `uni-app` 隔离为 5.2.8（uni-app 编译链与主仓 Vite 8 不兼容） |
 | `apps/electron-desktop`（`@multi-admin/electron-desktop`） | 桌面端 | 无自身 UI，devDependencies 声明 `@multi-admin/pure-web: workspace:*`，打包时消费其 `dist` 产物；详见 [desktop-app.md](desktop-app.md) |
 | `packages/common`（`@multi-admin/common`） | 跨端共享 TS 代码 | tsdown 构建；暂无应用引用 |
@@ -63,5 +63,5 @@ flowchart LR
 ## 当前已知的结构事实（非缺陷清单，供决策参考）
 
 - 无 CI/CD；质量门禁 = 根 `pnpm check` + husky 钩子（详见 `docs/engineering/build-and-verify.md`）。
-- 前后端尚未打通：pure-web 走 mock，NestJS 为脚手架，阶段二计划接入 Prisma + PostgreSQL（`docker-compose.yml` 已预置 postgres 服务）。
+- 前后端尚未打通：pure-web 仍走 mock（前端联调待 P5）；NestJS 已完成 Prisma + PostgreSQL + Redis 接入（`docker-compose.yml` 含 postgres/redis 服务，P1~P4 已交付）。
 - 三端 TS 严格度不一致：pure-web `strict: false`（pure-admin 模板存量），uni-mobile extends `@vue/tsconfig`，nestjs-server 走内部基线。

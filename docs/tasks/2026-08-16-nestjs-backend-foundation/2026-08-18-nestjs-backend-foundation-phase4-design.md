@@ -289,14 +289,14 @@ test/merge-coverage.cjs
 
 ## 11. P4 完成判定
 
-- [ ] 一次 migration 落地（三表 deletedAt、User 加列、Menu 枚举扩展 + meta Json、Role 补列、四处部分唯一索引），`migrate deploy` 幂等回归通过
-- [ ] 三域 CRUD + 两类分配端点全量可用（标准字段名 + `{items,total,page,pageSize}`），Swagger `System` tag 可见（非生产）
-- [ ] 软删除语义全链路正确（§4，含 P3 认证链波及适配与 e2e 断言）
-- [ ] exception-resolver Prisma 分支落地（P2002→40900 / P2025→40404 / P2003→40001）
-- [ ] 护栏 8 项（§6）单测 + e2e 双层覆盖
-- [ ] system e2e 四类示范用例全绿（§8）；auth/health e2e 回归不破坏
-- [ ] `test:coverage` 双报表输出，合并四指标 ≥80%；`pnpm check` 全绿
-- [ ] 文档同步：AGENTS.md、总 spec 修订备案（§12）、build-and-verify.md
+- [x] 一次 migration 落地（三表 deletedAt、User 加列、Menu 枚举扩展 + meta Json、Role 补列、四处部分唯一索引），`migrate deploy` 幂等回归通过
+- [x] 三域 CRUD + 两类分配端点全量可用（标准字段名 + `{items,total,page,pageSize}`），Swagger `System` tag 可见（非生产）
+- [x] 软删除语义全链路正确（§4，含 P3 认证链波及适配与 e2e 断言）
+- [x] exception-resolver Prisma 分支落地（P2002→40900 / P2025→40404 / P2003→40001）
+- [x] 护栏 8 项（§6）单测 + e2e 双层覆盖
+- [x] system e2e 四类示范用例全绿（§8）；auth/health e2e 回归不破坏
+- [x] `test:coverage` 双报表输出，合并四指标 ≥80%；`pnpm check` 全绿
+- [x] 文档同步：AGENTS.md、总 spec 修订备案（§12）、build-and-verify.md
 
 ## 12. 对总 spec 的修订备案
 

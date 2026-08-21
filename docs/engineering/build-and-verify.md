@@ -7,7 +7,7 @@ covers:
   - apps/pure-web/Dockerfile
   - apps/nestjs-server/Dockerfile
   - docker-compose.yml
-last_verified: 2026-08-20
+last_verified: 2026-08-21
 ---
 
 # 构建与验证
@@ -28,7 +28,7 @@ last_verified: 2026-08-20
 | 端 | 构建 | 说明 |
 |---|---|---|
 | pure-web | `vite build`（NODE_OPTIONS 加大内存） | 产物 `dist/` + `version.json`；staging 模式 `build:staging` |
-| nestjs-server | `nest build` | 产物 `dist/` |
+| nestjs-server | `prisma generate && nest build` | 产物 `dist/`（Prisma Client 由 generate 先行产出） |
 | uni-mobile | `uni build`（按平台加 `-p`） | H5 / 小程序多目标 |
 | electron-desktop | prebuild（触发 pure-web build）→ esbuild → electron-builder | 链路细节见 `docs/architecture/desktop-app.md` |
 
