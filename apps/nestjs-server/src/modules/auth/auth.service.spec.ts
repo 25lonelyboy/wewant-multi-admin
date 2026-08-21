@@ -298,6 +298,26 @@ describe('AuthService', () => {
         })
       );
     });
+
+    it('查不到行时回退 AuthUser 上的值（可空字段为 null）', async () => {
+      // mock prisma.user.findUnique 返回 null（同请求两次查询间的删除竞态）
+      // 注意：与上一条用例期望输出恰好相同（mock 行四可空字段也全 null），
+      // 但走的是不同代码路径（透传 vs 兜底）——这是有意的，保留两条。
+      prisma.user.findUnique.mockResolvedValue(null);
+      const profile = await service.getProfile({
+        userId: 'u1',
+        username: 'admin',
+        nickname: '超级管理员'
+      } as never);
+      expect(profile).toEqual({
+        avatar: null,
+        username: 'admin',
+        nickname: '超级管理员',
+        email: null,
+        phone: null,
+        description: null
+      });
+    });
   });
 
   describe('getAsyncRoutes 软删过滤', () => {

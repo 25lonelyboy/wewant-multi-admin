@@ -4,28 +4,28 @@ datasource db {
 }
 
 generator client {
-  provider           = "prisma-client"
-  output             = "../src/generated/prisma"
-  moduleFormat       = "esm"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
   importFileExtension = "js"
 }
 
 model User {
-  id        String     @id @default(cuid())
-  username  String
-  password  String // argon2 hash，永不落日志
-  nickname  String
-  status    UserStatus @default(ACTIVE)
-  avatar    String?
-  phone     String?
-  email     String?
-  sex       Int? // 0|1；DTO 层 @IsIn([0, 1])
-  remark    String?
+  id          String     @id @default(cuid())
+  username    String
+  password    String // argon2 hash，永不落日志
+  nickname    String
+  status      UserStatus @default(ACTIVE)
+  avatar      String?
+  phone       String?
+  email       String?
+  sex         Int? // 0|1；DTO 层 @IsIn([0, 1])
+  remark      String?
   description String? // 个人简介（mine profile，P5 决策 #10）
-  roles     UserRole[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  deletedAt DateTime?
+  roles       UserRole[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
 }
 
 model Role {
@@ -65,8 +65,8 @@ model Menu {
 model UserRole {
   userId String
   roleId String
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@id([userId, roleId])
 }
@@ -74,8 +74,8 @@ model UserRole {
 model RoleMenu {
   roleId String
   menuId String
-  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  menu   Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
 
   @@id([roleId, menuId])
 }
