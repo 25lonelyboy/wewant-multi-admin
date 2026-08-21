@@ -60,6 +60,13 @@ export class RoleController {
     return null;
   }
 
+  @Get(':id')
+  @RequirePermissions('system:role:query')
+  @ApiOperation({ summary: '角色详情（不存在/已软删 → 40404）' })
+  findOne(@Param('id') id: string) {
+    return this.roles.findOne(id);
+  }
+
   @Get(':id/menus')
   @RequirePermissions('system:role:query')
   @ApiOperation({ summary: '角色已分配的活跃菜单 id 列表' })

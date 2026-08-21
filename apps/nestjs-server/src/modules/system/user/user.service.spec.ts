@@ -297,6 +297,26 @@ describe('UserService', () => {
     });
   });
 
+  describe('findOne', () => {
+    it('活跃用户返回 UserView（剔 password、roles 为 code 数组）', async () => {
+      prisma.user.findFirst.mockResolvedValue({
+        ...USER_ROW,
+        roles: [{ roleId: 'r1', role: { code: 'common' } }]
+      });
+      const view = await service.findOne('u1');
+      expect(view.id).toBe('u1');
+      expect(view.roles).toEqual(['common']);
+      expect(view).not.toHaveProperty('password');
+    });
+
+    it('不存在/已软删抛 40404', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+      await expect(service.findOne('ghost')).rejects.toMatchObject({
+        code: BizCode.NOT_FOUND
+      });
+    });
+  });
+
   describe('roles 子资源', () => {
     it('rolesOf 只返回活跃角色且先校验主体存活', async () => {
       prisma.user.findFirst.mockResolvedValue(USER_ROW);

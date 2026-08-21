@@ -146,6 +146,11 @@ export class RoleService {
     });
   }
 
+  /** 详情（P5 分设计 §4.2）：不存在/已软删 → 40404 */
+  async findOne(id: string): Promise<RoleView> {
+    return this.toView(await this.findAliveRole(id));
+  }
+
   /** 角色已分配的菜单 id 列表（仅活跃菜单） */
   async menuIdsOf(id: string): Promise<string[]> {
     await this.findAliveRole(id);

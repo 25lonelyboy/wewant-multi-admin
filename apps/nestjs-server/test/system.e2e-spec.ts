@@ -220,6 +220,48 @@ describe('system RBAC CRUD (e2e)', () => {
       expect(all.map(r => r.code)).not.toContain('e2e-crud-role');
     });
 
+    it('GET /system/users/:id 详情 200 / 软删后 40404', async () => {
+      const created = await expectData<{ id: string }>(
+        api('post', '/system/users').set(bearer(adminToken)).send({
+          username: 'detail-probe',
+          password: COMMON_PASSWORD,
+          nickname: '详情探针'
+        })
+      );
+      const detail = await expectData<{ id: string; username: string }>(
+        api('get', `/system/users/${created.id}`).set(bearer(adminToken))
+      );
+      expect(detail.username).toBe('detail-probe');
+      await expectData(
+        api('delete', `/system/users/${created.id}`).set(bearer(adminToken))
+      );
+      await expectError(
+        api('get', `/system/users/${created.id}`).set(bearer(adminToken)),
+        404,
+        40404
+      );
+    });
+
+    it('GET /system/roles/:id 详情 200 / 软删后 40404', async () => {
+      const created = await expectData<{ id: string }>(
+        api('post', '/system/roles')
+          .set(bearer(adminToken))
+          .send({ code: 'detail-probe-role', name: '详情探针角色' })
+      );
+      const detail = await expectData<{ id: string; code: string }>(
+        api('get', `/system/roles/${created.id}`).set(bearer(adminToken))
+      );
+      expect(detail.code).toBe('detail-probe-role');
+      await expectData(
+        api('delete', `/system/roles/${created.id}`).set(bearer(adminToken))
+      );
+      await expectError(
+        api('get', `/system/roles/${created.id}`).set(bearer(adminToken)),
+        404,
+        40404
+      );
+    });
+
     it('菜单域：建树 → 树可见 → 软删后树不可见且子树物理保留', async () => {
       const group = await expectData<{ id: string }>(
         api('post', '/system/menus').set(bearer(adminToken)).send({

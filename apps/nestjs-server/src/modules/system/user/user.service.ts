@@ -174,6 +174,11 @@ export class UserService {
     });
   }
 
+  /** 详情（P5 分设计 §4.2）：不存在/已软删 → 40404（findAliveUser 既有口径） */
+  async findOne(id: string): Promise<UserView> {
+    return this.toView(await this.findAliveUser(id));
+  }
+
   /** 用户已分配的角色 id 列表（仅活跃角色） */
   async roleIdsOf(id: string): Promise<string[]> {
     await this.findAliveUser(id);

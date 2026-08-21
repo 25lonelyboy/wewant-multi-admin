@@ -59,6 +59,13 @@ export class UserController {
     return null;
   }
 
+  @Get(':id')
+  @RequirePermissions('system:user:query')
+  @ApiOperation({ summary: '用户详情（不存在/已软删 → 40404）' })
+  findOne(@Param('id') id: string) {
+    return this.users.findOne(id);
+  }
+
   @Get(':id/roles')
   @RequirePermissions('system:user:query')
   @ApiOperation({ summary: '用户已分配的活跃角色 id 列表' })

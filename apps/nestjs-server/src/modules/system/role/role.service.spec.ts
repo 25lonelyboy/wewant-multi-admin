@@ -218,6 +218,23 @@ describe('RoleService', () => {
     });
   });
 
+  describe('findOne', () => {
+    it('活跃角色返回 RoleView（code/name 原样透出）', async () => {
+      prisma.role.findFirst.mockResolvedValue(ROLE_ROW);
+      const view = await service.findOne('r1');
+      expect(view.id).toBe('r1');
+      expect(view.code).toBe('editor');
+      expect(view.name).toBe('编辑');
+    });
+
+    it('不存在/已软删抛 40404', async () => {
+      prisma.role.findFirst.mockResolvedValue(null);
+      await expect(service.findOne('ghost')).rejects.toMatchObject({
+        code: BizCode.NOT_FOUND
+      });
+    });
+  });
+
   describe('menus 子资源', () => {
     it('menusOf 只返回活跃菜单', async () => {
       prisma.role.findFirst.mockResolvedValue(ROLE_ROW);
