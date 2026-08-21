@@ -1015,6 +1015,15 @@ importers:
         specifier: 'catalog:'
         version: 0.22.14(@volar/typescript@2.4.28)(tsx@4.23.12)(typescript@5.9.3)(vue-tsc@3.3.9(typescript@5.9.3))
 
+  packages/contracts:
+    devDependencies:
+      '@multi-admin/tsconfig':
+        specifier: workspace:*
+        version: link:../../internal/tsconfig
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.22.14(@volar/typescript@2.4.28)(tsx@4.23.12)(typescript@5.9.3)(vue-tsc@3.3.9(typescript@5.9.3))
+
 packages:
 
   '@ampproject/remapping@2.3.0':
