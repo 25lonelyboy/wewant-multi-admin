@@ -1,11 +1,10 @@
 import { http } from '@/utils/http';
+import type { ApiResponse, AsyncRouteNode } from '@multi-admin/contracts';
 
-type Result = {
-  code: number;
-  message: string;
-  data: Array<any>;
-};
-
+/** 获取动态路由 */
 export const getAsyncRoutes = () => {
-  return http.request<Result>('get', '/get-async-routes');
+  return http.request<ApiResponse<AsyncRouteNode[]>>(
+    'get',
+    '/api/v1/auth/get-async-routes'
+  );
 };
