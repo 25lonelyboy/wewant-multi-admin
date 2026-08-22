@@ -1,13 +1,15 @@
 interface FormItemProps {
+  /** 菜单 id（编辑态存在） */
+  id?: string;
   /** 菜单类型（0代表菜单、1代表iframe、2代表外链、3代表按钮）*/
   menuType: number;
   higherMenuOptions: Record<string, unknown>[];
-  parentId: number;
+  parentId: string;
   title: string;
   name: string;
   path: string;
   component: string;
-  rank: number;
+  sort: number;
   redirect: string;
   icon: string;
   extraIcon: string;

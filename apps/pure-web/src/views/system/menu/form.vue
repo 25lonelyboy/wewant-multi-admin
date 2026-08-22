@@ -26,7 +26,7 @@ const props = withDefaults(defineProps<FormProps>(), {
     name: '',
     path: '',
     component: '',
-    rank: 99,
+    sort: 99,
     redirect: '',
     icon: '',
     extraIcon: '',
@@ -141,7 +141,7 @@ defineExpose({ getRef });
       <re-col :value="12" :xs="24" :sm="24">
         <el-form-item label="菜单排序">
           <el-input-number
-            v-model="newFormInline.rank"
+            v-model="newFormInline.sort"
             class="w-full!"
             :min="1"
             :max="9999"
