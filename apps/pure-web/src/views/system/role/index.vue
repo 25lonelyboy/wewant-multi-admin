@@ -118,8 +118,8 @@ onMounted(() => {
           clearable
           class="w-45!"
         >
-          <el-option label="已启用" value="1" />
-          <el-option label="已停用" value="0" />
+          <el-option label="已启用" value="ACTIVE" />
+          <el-option label="已停用" value="DISABLED" />
         </el-select>
       </el-form-item>
       <el-form-item>
@@ -144,7 +144,7 @@ onMounted(() => {
       <PureTableBar
         :class="[isShow && !deviceDetection() ? 'w-[60vw]!' : 'w-full']"
         style="transition: width 220ms cubic-bezier(0.4, 0, 0.2, 1)"
-        title="角色管理（仅演示，操作后不生效）"
+        title="角色管理"
         :columns="columns"
         @refresh="onSearch"
       >

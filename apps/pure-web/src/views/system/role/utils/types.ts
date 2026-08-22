@@ -1,6 +1,12 @@
+import type { EntityId } from '@multi-admin/contracts';
+
 // 虽然字段很少 但是抽离出来 后续有扩展字段需求就很方便了
 
 interface FormItemProps {
+  /** 角色 id（编辑态存在） */
+  id?: EntityId;
+  /** 用于判断是`新增`还是`修改` */
+  title: string;
   /** 角色名称 */
   name: string;
   /** 角色编号 */
