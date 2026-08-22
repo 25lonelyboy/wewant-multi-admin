@@ -6,12 +6,13 @@
 
 | 任务 | 说明 |
 |---|---|
-| NestJS 后端基架补全 | 总体设计见 [2026-08-16-nestjs-backend-foundation/](2026-08-16-nestjs-backend-foundation/)，总-分结构，分 P1~P5 五阶段；P1~P4 已完成，P5 分设计已产出（[phase5-design](2026-08-16-nestjs-backend-foundation/2026-08-21-nestjs-backend-foundation-phase5-design.md)，直连真实后端口径），待实施 |
+| （暂无） | — |
 
 ## 最近已完成
 
 | 任务 | 收口说明 |
 |---|---|
+| NestJS 后端基架补全（P1-P5） | 五阶段全部完成；契约包事实源 → [contracts.md](../architecture/contracts.md)，技术选型 → [ADR-004](../decisions/ADR-004-contracts-and-backend-stack.md)，待跟进项 → [governance/backlog.md](../governance/backlog.md)；过程原件已移入 [archive/2026-08-16-nestjs-backend-foundation/](archive/2026-08-16-nestjs-backend-foundation/) |
 | 仓库基架与桌面端阶段 1 | 结论已提升至 `docs/architecture/` 与 `docs/engineering/`，稳定决策落为 ADR-001/002/003；过程原件已移入 [archive/2026-08-12-repo-foundation-and-desktop/](archive/2026-08-12-repo-foundation-and-desktop/) |
 
 ## 规则

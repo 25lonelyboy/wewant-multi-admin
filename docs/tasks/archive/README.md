@@ -13,3 +13,22 @@
 结论去向：可复用结论在 `docs/architecture/` 与 `docs/engineering/`；稳定决策落为 [ADR-001](../decisions/ADR-001-electron-desktop.md) / [ADR-002](../decisions/ADR-002-dependency-catalog.md) / [ADR-003](../decisions/ADR-003-electron-toolchain-pin.md)。
 
 归档日期：2026-08-16（结论提升完毕）。
+
+## 2026-08-16-nestjs-backend-foundation —— NestJS 后端基架补全（P1-P5）
+
+| 文件 | 说明 |
+|---|---|
+| `2026-08-16-nestjs-backend-foundation-design.md` | 总体设计（后端选型 / 目录规划 / 横切基建） |
+| `2026-08-16-nestjs-backend-foundation-phase1-plan.md` | P1 实施计划（骨架 + 健康检查） |
+| `2026-08-16-nestjs-backend-foundation-phase2-design.md` | P2 设计（配置校验 / 信封 / 日志） |
+| `2026-08-16-nestjs-backend-foundation-phase2-plan.md` | P2 实施计划 |
+| `2026-08-17-nestjs-backend-foundation-phase3-design.md` | P3 设计（Prisma + Redis） |
+| `2026-08-17-nestjs-backend-foundation-phase3-plan.md` | P3 实施计划 |
+| `2026-08-18-nestjs-backend-foundation-phase4-design.md` | P4 设计（认证模块 + JWT） |
+| `2026-08-19-nestjs-backend-foundation-phase4-plan.md` | P4 实施计划 |
+| `2026-08-21-nestjs-backend-foundation-phase5-design.md` | P5 设计（前端契约对接 + 直连切换） |
+| `2026-08-22-nestjs-backend-foundation-phase5-plan.md` | P5 实施计划（Task 1-21） |
+
+结论去向：契约包事实源 → [contracts.md](../architecture/contracts.md)；技术选型 → [ADR-004](../decisions/ADR-004-contracts-and-backend-stack.md)；仓库结构 → [repo-structure.md](../architecture/repo-structure.md)；构建与验证 → [build-and-verify.md](../engineering/build-and-verify.md)；待跟进项 → [governance/backlog.md](../governance/backlog.md)。
+
+归档日期：2026-08-22（P5 全部门禁通过，结论提升完毕）。
