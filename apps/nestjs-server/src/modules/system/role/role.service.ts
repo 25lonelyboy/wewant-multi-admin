@@ -70,7 +70,7 @@ export class RoleService {
     );
   }
 
-  /** 不分页全量（用户页下拉，分设计 §5.2） */
+  /** 不分页全量（用户页下拉） */
   async all(): Promise<Array<{ id: string; name: string; code: string }>> {
     const rows = await this.prisma.role.findMany({
       where: { ...alive() },
@@ -146,7 +146,7 @@ export class RoleService {
     });
   }
 
-  /** 详情（P5 分设计 §4.2）：不存在/已软删 → 40404 */
+  /** 详情：不存在/已软删 → 40404 */
   async findOne(id: string): Promise<RoleView> {
     return this.toView(await this.findAliveRole(id));
   }

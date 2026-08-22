@@ -1,4 +1,4 @@
-// auth 域契约一致性（分设计 §3.3 第 3 件）：
+// auth 域契约一致性：
 // 编译期钉住 server 产物形状与 contracts 一致，漂移即红。
 import type {
   LoginResponse,

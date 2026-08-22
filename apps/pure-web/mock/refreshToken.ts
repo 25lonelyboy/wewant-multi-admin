@@ -2,7 +2,7 @@ import { defineFakeRoute } from 'vite-plugin-fake-server/client';
 import { BizCode } from '@multi-admin/contracts';
 import type { ApiResponse, RefreshResponse } from '@multi-admin/contracts';
 
-// 模拟刷新token接口（契约同形：RefreshResponse，对外不含 sid——分设计 §4.1）
+// 模拟刷新token接口（契约同形：RefreshResponse，对外不含 sid）
 export default defineFakeRoute([
   {
     url: '/api/v1/auth/refresh-token',

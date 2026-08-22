@@ -1,4 +1,4 @@
-// 模拟后端动态生成路由（离线态保留 system + monitor 两组树全功能；直连态由真实后端只供 System 组——分设计决策 #2）
+// 模拟后端动态生成路由（离线态保留 system + monitor 两组树全功能；直连态由真实后端只供 System 组）
 import { defineFakeRoute } from 'vite-plugin-fake-server/client';
 import { system, monitor } from '@/router/enums';
 import type { ApiResponse, AsyncRouteNode } from '@multi-admin/contracts';

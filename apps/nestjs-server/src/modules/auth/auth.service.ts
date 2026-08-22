@@ -155,7 +155,7 @@ export class AuthService {
         roles: { some: { roleId: { in: roles.map(r => r.id) } } }
       }
     });
-    // meta 为写路径已校验的 MenuMeta（读时信任，分设计 §3.3）
+    // meta 为写路径已校验的 MenuMeta（读时信任）
     return buildRouteTree(menus as MenuRouteRow[], user.roles);
   }
 

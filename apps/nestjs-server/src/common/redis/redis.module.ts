@@ -27,7 +27,7 @@ import { REDIS_CLIENT } from './redis.constants.js';
           lazyConnect: true,
           maxRetriesPerRequest: null
         });
-        // 债 #2：按连接状态迁移去重，重连风暴下不再刷屏；ready 后复位允许再报
+        // 按连接状态迁移去重，重连风暴下不再刷屏；ready 后复位允许再报
         let errorLogged = false;
         client.on('error', (err: unknown) => {
           if (!errorLogged) {
@@ -54,7 +54,7 @@ export class RedisModule
     await this.redis.ping();
   }
 
-  /** 债 #2：quit 3s 竞速超时，超时强制 disconnect，防 shutdown 悬挂 */
+  /** quit 3s 竞速超时，超时强制 disconnect，防 shutdown 悬挂 */
   async onApplicationShutdown(): Promise<void> {
     await Promise.race([
       this.redis.quit().catch(() => undefined),

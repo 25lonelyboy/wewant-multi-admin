@@ -21,7 +21,7 @@ type UserWithRoles = Prisma.UserGetPayload<{
   include: { roles: { include: { role: true } } };
 }>;
 
-/** 响应视图：剔除 password，roles 为角色 code 数组（分设计 §3.6/§5.1） */
+/** 响应视图：剔除 password，roles 为角色 code 数组 */
 export interface UserView {
   id: string;
   username: string;
@@ -159,7 +159,7 @@ export class UserService {
     return this.toView(updated);
   }
 
-  /** 软删除（分设计 §4）：写 deletedAt 时间戳，无硬删除 */
+  /** 软删除：写 deletedAt 时间戳，无硬删除 */
   async remove(id: string, operatorId: string): Promise<void> {
     const target = await this.findAliveUser(id);
     if (target.username === ADMIN_USERNAME) {
@@ -174,7 +174,7 @@ export class UserService {
     });
   }
 
-  /** 详情（P5 分设计 §4.2）：不存在/已软删 → 40404（findAliveUser 既有口径） */
+  /** 详情：不存在/已软删 → 40404（findAliveUser 既有口径） */
   async findOne(id: string): Promise<UserView> {
     return this.toView(await this.findAliveUser(id));
   }
@@ -212,7 +212,7 @@ export class UserService {
     return unique;
   }
 
-  /** 主体校验统一口径（分设计 §4.1）：不存在或已软删 → 40404 */
+  /** 主体校验统一口径：不存在或已软删 → 40404 */
   private async findAliveUser(id: string): Promise<UserWithRoles> {
     const user = await this.prisma.user.findFirst({
       where: { id, ...alive() },

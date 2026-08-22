@@ -5,8 +5,8 @@ import { DatabaseHealthIndicator } from './database-health.indicator.js';
 import { RedisHealthIndicator } from './redis-health.indicator.js';
 
 /**
- * 双探针健康检查（债 #4：自研轻量编排替换 terminus）：
- * 任一探针 down → 503，经全局过滤器派生 code 50300（status × 100，总 spec §5）。
+ * 双探针健康检查（自研轻量编排，未引入 terminus）：
+ * 任一探针 down → 503，经全局过滤器派生 code 50300（status × 100）。
  * 信封 {code:0, data:{status, details}} 契约保持不变（e2e 既有断言为验收基准）。
  */
 @ApiTags('Health')

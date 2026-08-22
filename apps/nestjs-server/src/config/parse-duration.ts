@@ -6,7 +6,7 @@ const UNIT_SECONDS: Record<string, number> = {
 };
 
 /**
- * 短时长文法解析：数字 + s|m|h|d 后缀 → 秒（分设计 §3.4）。
+ * 短时长文法解析：数字 + s|m|h|d 后缀 → 秒。
  * 不引入 ms 依赖；非法输入直接抛错（env 校验期快速失败）。
  */
 export function parseDurationToSeconds(input: string): number {

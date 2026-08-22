@@ -34,7 +34,7 @@ const config = {
 } as unknown as AppConfigService;
 
 // 模块封装：REDIS_CLIENT useFactory 的 inject 在 RedisModule 作用域解析，
-// 根测试模块的 providers 对其不可见，需用全局模块提供 mock（同 Task 5 实证）。
+// 根测试模块的 providers 对其不可见，需用全局模块提供 mock。
 @Global()
 @Module({
   providers: [

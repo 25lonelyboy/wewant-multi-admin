@@ -10,7 +10,7 @@ export interface ProbeResult {
 }
 
 /**
- * 自写 DB 探针（债 #4：脱离 terminus HealthIndicator 弃用基类，
+ * 自写 DB 探针（脱离 terminus HealthIndicator 弃用基类，
  * 改纯 Injectable + ProbeResult；/health 信封契约保持不变）。
  */
 @Injectable()

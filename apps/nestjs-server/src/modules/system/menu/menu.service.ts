@@ -14,7 +14,7 @@ export type MenuTreeNode = MenuTreeNodeOf<Menu>;
 export class MenuService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** 全量活跃树（无分页），按 sort 升序（分设计 §5.3） */
+  /** 全量活跃树（无分页），按 sort 升序 */
   async tree(): Promise<MenuTreeNode[]> {
     const rows = await this.prisma.menu.findMany({
       where: { ...alive() },
@@ -91,7 +91,7 @@ export class MenuService {
     });
   }
 
-  /** 软删只标当前节点：不级联、不因有子菜单拒绝（分设计 §4.3） */
+  /** 软删只标当前节点：不级联、不因有子菜单拒绝 */
   async remove(id: string): Promise<void> {
     await this.findAliveMenu(id);
     await this.prisma.menu.update({
@@ -101,9 +101,9 @@ export class MenuService {
   }
 
   /**
-   * 详情（P5 分设计 §4.2）：不存在/已软删 → 40404；
+   * 详情：不存在/已软删 → 40404；
    * 附加父链完整性校验：沿 parentId 上行须全部 alive 至根，
-   * 断链（逻辑孤儿）按 40404（与 P4 §4.3 孤儿子树隐身语义对齐）；
+   * 断链（逻辑孤儿）按 40404（与孤儿子树隐身语义对齐）；
    * 上行带环按断链 40404（脏数据防挂死）。
    */
   async findOne(id: string): Promise<Menu> {

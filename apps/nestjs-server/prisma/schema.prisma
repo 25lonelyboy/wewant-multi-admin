@@ -1,4 +1,4 @@
-// 五表 + 三级 RBAC（总 spec §6.2）；v7：datasource url 移入 prisma.config.ts
+// 五表 + 三级 RBAC；v7：datasource url 移入 prisma.config.ts
 datasource db {
   provider = "postgresql"
 }
@@ -21,7 +21,7 @@ model User {
   email       String?
   sex         Int? // 0|1；DTO 层 @IsIn([0, 1])
   remark      String?
-  description String? // 个人简介（mine profile，P5 决策 #10）
+  description String? // 个人简介（mine profile）
   roles       UserRole[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -55,7 +55,7 @@ model Menu {
   permission String? // BUTTON 型权限点，如 system:user:add
   sort       Int        @default(0)
   visible    Boolean    @default(true)
-  meta       Json? // 前端路由元数据（12 个纯展示字段，分设计 §3.3）
+  meta       Json? // 前端路由元数据（12 个纯展示字段）
   roles      RoleMenu[]
   deletedAt  DateTime?
 

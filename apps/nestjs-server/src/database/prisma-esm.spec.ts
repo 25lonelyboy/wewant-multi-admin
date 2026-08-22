@@ -1,4 +1,4 @@
-// Prisma 7 ESM 兼容冒烟（总 spec §12 修订口径）：
+// Prisma 7 ESM 兼容冒烟：
 // ESM import 生成 client + adapter 构造成功即通过。
 import { PrismaClient } from '../generated/prisma/client.js';
 import { PrismaPg } from '@prisma/adapter-pg';

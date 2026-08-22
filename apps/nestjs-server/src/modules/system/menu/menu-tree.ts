@@ -11,7 +11,7 @@ export type MenuTreeNodeOf<T extends MenuTreeRow> = T & {
 
 /**
  * 全量活跃菜单组装树：按 sort 升序；仅从根（parentId=null）出发，
- * 已软删父节点的孤儿子树自然不可见（分设计 §4.3）。
+ * 已软删父节点的孤儿子树自然不可见。
  */
 export function buildMenuTree<T extends MenuTreeRow>(
   rows: T[]

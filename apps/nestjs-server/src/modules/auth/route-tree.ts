@@ -31,7 +31,7 @@ export interface RouteNode {
 /**
  * 路由型节点（MENU/IFRAME/EXTERNAL）按 parentId 组装树：
  * 顶层组带 rank（sort），叶子带 name/component 与可见角色集；按 sort 升序。
- * showLink = visible（单一语义源，分设计 §3.3）；meta Json 写时校验、读时透传。
+ * showLink = visible（单一语义源）；meta Json 写时校验、读时透传。
  */
 export function buildRouteTree(
   menus: MenuRouteRow[],

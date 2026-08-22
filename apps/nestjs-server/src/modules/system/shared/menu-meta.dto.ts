@@ -4,7 +4,7 @@ import type { MenuMeta } from './system-shared.js';
 
 /**
  * meta Json 写路径校验：菜单域 DTO 以 @ValidateNested() + @Type(() => MenuMetaDto) 挂载。
- * 读路径不反序列化校验（写时校验、读时信任，分设计 §3.3）。
+ * 读路径不反序列化校验（写时校验、读时信任）。
  */
 export class MenuMetaDto implements MenuMeta {
   @ApiPropertyOptional({ description: '重定向路由' })

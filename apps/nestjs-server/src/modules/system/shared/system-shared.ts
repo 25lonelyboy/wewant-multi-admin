@@ -6,7 +6,7 @@ export const DEFAULT_PAGE_SIZE = 10;
 
 /**
  * 软删除过滤片段：system 域所有列表/详情/子资源查询必须追加。
- * 统一走本工厂，防止过滤遗漏产生幽灵数据（分设计 §4.2/§10）。
+ * 统一走本工厂，防止过滤遗漏产生幽灵数据。
  */
 export function alive(): { deletedAt: null } {
   return { deletedAt: null };

@@ -18,7 +18,7 @@ import { MenuMetaDto } from '../../shared/menu-meta.dto.js';
 export class CreateMenuDto {
   @ApiProperty({
     enum: MenuType,
-    description: 'P5 前端负责 mock 数字 ↔ 枚举映射（分设计 §12 备案 2）'
+    description: '前端负责数字 ↔ 枚举映射'
   })
   @IsEnum(MenuType)
   type!: MenuType;

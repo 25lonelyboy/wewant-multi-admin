@@ -1,5 +1,5 @@
 /**
- * 统一业务错误码（总 spec §5）。码段规则：前 3 位对齐 HTTP 语义，
+ * 统一业务错误码。码段规则：前 3 位对齐 HTTP 语义，
  * httpStatus = Math.floor(code / 100)。
  */
 export const BizCode = {

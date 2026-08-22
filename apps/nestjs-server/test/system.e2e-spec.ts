@@ -53,7 +53,7 @@ describe('system RBAC CRUD (e2e)', () => {
     applyAppDefaults(app);
     await app.init();
     redis = app.get(REDIS_CLIENT);
-    // 套件级 FLUSHDB：重置限流计数，防跨 spec 文件同分钟累积击穿限额（分设计 §8）
+    // 套件级 FLUSHDB：重置限流计数，防跨 spec 文件同分钟累积击穿限额
     await redis.flushdb();
     // 预登录缓存令牌：登录限额 5 次/分，全套件只登录 admin/common 各一次
     adminToken = await loginToken('admin', ADMIN_PASSWORD);

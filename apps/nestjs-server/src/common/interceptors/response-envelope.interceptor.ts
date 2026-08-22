@@ -10,7 +10,7 @@ import { BizCode } from '@multi-admin/contracts';
 import type { ApiResponse } from '@multi-admin/contracts';
 
 /**
- * 统一响应信封：{ code: 0, message: 'ok', data }（总 spec §5）。
+ * 统一响应信封：{ code: 0, message: 'ok', data }。
  */
 @Injectable()
 export class ResponseEnvelopeInterceptor<T> implements NestInterceptor<
