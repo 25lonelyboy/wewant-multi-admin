@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsString } from 'class-validator';
+import type { LoginRequest } from '@multi-admin/contracts';
 
 export class LoginDto {
   @ApiProperty({ example: 'admin', description: '用户名' })
@@ -12,8 +13,6 @@ export class LoginDto {
   @IsNotEmpty()
   password!: string;
 }
-
-import type { LoginRequest } from '@multi-admin/contracts';
 
 /** 编译期契约一致性：DTO 形状漂移即编译失败 */
 type _LoginDtoSatisfies = LoginDto extends LoginRequest ? true : never;
