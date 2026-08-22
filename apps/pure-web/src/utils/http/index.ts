@@ -14,6 +14,7 @@ import { message } from '@/utils/message';
 import { $t, transformI18n } from '@/plugins/i18n';
 import { getToken, formatToken } from '@/utils/auth';
 import { useUserStoreHook } from '@/store/modules/user';
+import { BizCode } from '@multi-admin/contracts';
 
 // 相关配置请参考：www.axios-js.com/zh-cn/docs/#axios-request-config-1
 const defaultConfig: AxiosRequestConfig = {
@@ -56,6 +57,35 @@ class PureHttp {
         resolve(config);
       });
     });
+  }
+
+  /** 40102：刷新后重试原请求（单飞复用 requests/isRefreshing） */
+  private static refreshAndRetry(config: PureHttpRequestConfig) {
+    if (!PureHttp.isRefreshing) {
+      PureHttp.isRefreshing = true;
+      const data = getToken();
+      useUserStoreHook()
+        .handRefreshToken({ refreshToken: data?.refreshToken })
+        .then(res => {
+          const token = res.data.accessToken;
+          PureHttp.requests.forEach(cb => cb(token));
+          PureHttp.requests = [];
+        })
+        .catch(_err => {
+          PureHttp.requests = [];
+          useUserStoreHook().logOut();
+          message(transformI18n($t('login.pureLoginExpired')), {
+            type: 'warning'
+          });
+        })
+        .finally(() => {
+          PureHttp.isRefreshing = false;
+        });
+    }
+    return PureHttp.retryOriginalRequest(config).then(
+      (retryConfig: PureHttpRequestConfig) =>
+        PureHttp.axiosInstance.request(retryConfig)
+    );
   }
 
   /** 请求拦截 */
@@ -142,6 +172,17 @@ class PureHttp {
         const $error = error;
         $error.isCancelRequest = Axios.isCancel($error);
         // 所有的响应异常 区分来源为取消请求/非取消请求
+        if ($error.isCancelRequest) {
+          return Promise.reject($error);
+        }
+        const body = $error.response?.data;
+        // 信封非 0 码（server 按码段返 HTTP 4xx/5xx）：40102 无感刷新重试，其余 toast 后端 message
+        if (body?.code === BizCode.ACCESS_TOKEN_EXPIRED) {
+          return PureHttp.refreshAndRetry($error.config);
+        }
+        if (body?.message) {
+          message(body.message, { type: 'error' });
+        }
         return Promise.reject($error);
       }
     );

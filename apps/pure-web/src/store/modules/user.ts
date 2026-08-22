@@ -7,12 +7,12 @@ import {
   routerArrays,
   storageLocal
 } from '../utils';
-import {
-  type UserResult,
-  type RefreshTokenResult,
-  getLogin,
-  refreshTokenApi
-} from '@/api/user';
+import type {
+  ApiResponse,
+  LoginResponse,
+  RefreshResponse
+} from '@multi-admin/contracts';
+import { getLogin, refreshTokenApi, logoutApi } from '@/api/user';
 import { useMultiTagsStoreHook } from './multiTags';
 import { type DataInfo, setToken, removeToken, userKey } from '@/utils/auth';
 
@@ -77,7 +77,7 @@ export const useUserStore = defineStore('pure-user', {
     },
     /** 登入 */
     async loginByUsername(data) {
-      return new Promise<UserResult>((resolve, reject) => {
+      return new Promise<ApiResponse<LoginResponse>>((resolve, reject) => {
         getLogin(data)
           .then(data => {
             if (data.code === 0) {
@@ -92,8 +92,11 @@ export const useUserStore = defineStore('pure-user', {
           });
       });
     },
-    /** 前端登出（不调用接口） */
+    /** 登出（fire-and-forget：服务端失效失败不阻塞本地清理） */
     logOut() {
+      logoutApi().catch(() => {
+        // 服务端失效失败时本地照常登出；refresh 自然过期兜底
+      });
       this.username = '';
       this.roles = [];
       this.permissions = [];
@@ -104,7 +107,7 @@ export const useUserStore = defineStore('pure-user', {
     },
     /** 刷新`token` */
     async handRefreshToken(data) {
-      return new Promise<RefreshTokenResult>((resolve, reject) => {
+      return new Promise<ApiResponse<RefreshResponse>>((resolve, reject) => {
         refreshTokenApi(data)
           .then(data => {
             if (data.code === 0) {
