@@ -1,905 +1,561 @@
 import { defineFakeRoute } from 'vite-plugin-fake-server/client';
 import { faker } from '@faker-js/faker/locale/zh_CN';
+import { BizCode } from '@multi-admin/contracts';
+import type {
+  ApiResponse,
+  MenuVO,
+  PageResult,
+  RoleOption,
+  RoleVO,
+  UserVO
+} from '@multi-admin/contracts';
+
+/** 统一 fixture 时间（固定值：mock 输出确定性） */
+const NOW_ISO = '2026-08-22T00:00:00.000Z';
+
+// ===== user fixture =====
+const USERS: UserVO[] = [
+  {
+    id: 'user-mock-admin',
+    username: 'admin',
+    nickname: '小铭',
+    status: 'ACTIVE',
+    avatar: 'https://avatars.githubusercontent.com/u/44761321',
+    phone: '15888886789',
+    email: 'admin@example.com',
+    sex: 0,
+    remark: '管理员',
+    roles: ['admin'],
+    createdAt: NOW_ISO,
+    updatedAt: NOW_ISO
+  },
+  {
+    id: 'user-mock-common',
+    username: 'common',
+    nickname: '小林',
+    status: 'ACTIVE',
+    avatar: 'https://avatars.githubusercontent.com/u/52823142',
+    phone: '18288882345',
+    email: 'common@example.com',
+    sex: 1,
+    remark: '普通用户',
+    roles: ['common'],
+    createdAt: NOW_ISO,
+    updatedAt: NOW_ISO
+  }
+];
+
+// ===== role fixture =====
+const ROLES: RoleVO[] = [
+  {
+    id: 'role-mock-admin',
+    code: 'admin',
+    name: '超级管理员',
+    status: 'ACTIVE',
+    remark: '超级管理员拥有最高权限',
+    createdAt: NOW_ISO,
+    updatedAt: NOW_ISO
+  },
+  {
+    id: 'role-mock-common',
+    code: 'common',
+    name: '普通角色',
+    status: 'ACTIVE',
+    remark: '普通角色拥有部分权限',
+    createdAt: NOW_ISO,
+    updatedAt: NOW_ISO
+  }
+];
+
+const ROLE_OPTIONS: RoleOption[] = ROLES.map(({ id, code, name }) => ({
+  id,
+  code,
+  name
+}));
+
+// ===== menu fixture（扁平行 → 树） =====
+type MenuRow = Omit<MenuVO, 'children'>;
+
+/** 按钮行生成器：3 页面 × 4 动作 = 12 按钮 */
+const buttonRow = (
+  page: 'user' | 'role' | 'menu',
+  action: string,
+  title: string,
+  sort: number
+): MenuRow => ({
+  id: `btn-${page}-${action}`,
+  parentId: `menu-${page}`,
+  type: 'BUTTON',
+  name: action,
+  title,
+  icon: null,
+  path: null,
+  component: null,
+  permission: `system:${page}:${action}`,
+  sort,
+  visible: true,
+  meta: null,
+  createdAt: NOW_ISO,
+  updatedAt: NOW_ISO,
+  deletedAt: null
+});
+
+const MENU_ROWS: MenuRow[] = [
+  // 系统管理组
+  {
+    id: 'menu-system',
+    parentId: null,
+    type: 'MENU',
+    name: 'System',
+    title: 'menus.pureSystem',
+    icon: 'ri:settings-3-line',
+    path: '/system',
+    component: 'layout',
+    permission: null,
+    sort: 1,
+    visible: true,
+    meta: null,
+    createdAt: NOW_ISO,
+    updatedAt: NOW_ISO,
+    deletedAt: null
+  },
+  {
+    id: 'menu-user',
+    parentId: 'menu-system',
+    type: 'MENU',
+    name: 'SystemUser',
+    title: 'menus.pureUser',
+    icon: 'ri:admin-line',
+    path: '/system/user/index',
+    component: 'system/user/index',
+    permission: null,
+    sort: 1,
+    visible: true,
+    meta: null,
+    createdAt: NOW_ISO,
+    updatedAt: NOW_ISO,
+    deletedAt: null
+  },
+  buttonRow('user', 'create', '新增用户', 1),
+  buttonRow('user', 'update', '编辑用户', 2),
+  buttonRow('user', 'delete', '删除用户', 3),
+  buttonRow('user', 'reset-password', '重置密码', 4),
+  {
+    id: 'menu-role',
+    parentId: 'menu-system',
+    type: 'MENU',
+    name: 'SystemRole',
+    title: 'menus.pureRole',
+    icon: 'ri:admin-fill',
+    path: '/system/role/index',
+    component: 'system/role/index',
+    permission: null,
+    sort: 2,
+    visible: true,
+    meta: null,
+    createdAt: NOW_ISO,
+    updatedAt: NOW_ISO,
+    deletedAt: null
+  },
+  buttonRow('role', 'create', '新增角色', 1),
+  buttonRow('role', 'update', '编辑角色', 2),
+  buttonRow('role', 'delete', '删除角色', 3),
+  buttonRow('role', 'assign-menu', '菜单权限', 4),
+  {
+    id: 'menu-menu',
+    parentId: 'menu-system',
+    type: 'MENU',
+    name: 'SystemMenu',
+    title: 'menus.pureMenu',
+    icon: 'ri:file-list-3-line',
+    path: '/system/menu/index',
+    component: 'system/menu/index',
+    permission: null,
+    sort: 3,
+    visible: true,
+    meta: null,
+    createdAt: NOW_ISO,
+    updatedAt: NOW_ISO,
+    deletedAt: null
+  },
+  buttonRow('menu', 'create', '新增菜单', 1),
+  buttonRow('menu', 'update', '编辑菜单', 2),
+  buttonRow('menu', 'delete', '删除菜单', 3),
+  buttonRow('menu', 'query', '查询菜单', 4),
+  // 外链样例组（覆盖 IFRAME/EXTERNAL 形态）
+  {
+    id: 'menu-iframe',
+    parentId: null,
+    type: 'MENU',
+    name: 'PureIframe',
+    title: 'menus.pureExternalPage',
+    icon: 'ri:links-fill',
+    path: '/iframe',
+    component: 'layout',
+    permission: null,
+    sort: 7,
+    visible: true,
+    meta: null,
+    createdAt: NOW_ISO,
+    updatedAt: NOW_ISO,
+    deletedAt: null
+  },
+  {
+    id: 'menu-iframe-doc',
+    parentId: 'menu-iframe',
+    type: 'IFRAME',
+    name: 'PureIframeExternal',
+    title: 'menus.pureExternalDoc',
+    icon: null,
+    path: '/iframe/external',
+    component: '',
+    permission: null,
+    sort: 1,
+    visible: true,
+    meta: { frameSrc: 'https://pure-admin.cn/', frameLoading: true },
+    createdAt: NOW_ISO,
+    updatedAt: NOW_ISO,
+    deletedAt: null
+  },
+  {
+    id: 'menu-external',
+    parentId: 'menu-iframe',
+    type: 'EXTERNAL',
+    name: 'https://pure-admin.cn/',
+    title: 'menus.pureExternalLink',
+    icon: null,
+    path: '/external',
+    component: '',
+    permission: null,
+    sort: 2,
+    visible: true,
+    meta: null,
+    createdAt: NOW_ISO,
+    updatedAt: NOW_ISO,
+    deletedAt: null
+  }
+];
+
+const buildMenuTree = (rows: MenuRow[]): MenuVO[] => {
+  const map = new Map<string, MenuVO>();
+  rows.forEach(row => map.set(row.id, { ...row, children: [] }));
+  const roots: MenuVO[] = [];
+  map.forEach(node => {
+    const parent = node.parentId === null ? undefined : map.get(node.parentId);
+    if (parent) {
+      parent.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+  return roots;
+};
+
+const MENU_TREE = buildMenuTree(MENU_ROWS);
+const ALL_MENU_IDS = MENU_ROWS.map(row => row.id);
 
 export default defineFakeRoute([
-  // 用户管理
+  // 用户管理-列表（GET query 分页）
   {
-    url: '/user',
-    method: 'post',
-    response: ({ body }) => {
-      let list = [
-        {
-          avatar: 'https://avatars.githubusercontent.com/u/44761321',
-          username: 'admin',
-          nickname: '小铭',
-          phone: '15888886789',
-          email: faker.internet.email(),
-          sex: 0,
-          id: 1,
-          status: 1,
-          dept: {
-            // 部门id
-            id: 103,
-            // 部门名称
-            name: '研发部门'
-          },
-          remark: '管理员',
-          createTime: 1605456000000
-        },
-        {
-          avatar: 'https://avatars.githubusercontent.com/u/52823142',
-          username: 'common',
-          nickname: '小林',
-          phone: '18288882345',
-          email: faker.internet.email(),
-          sex: 1,
-          id: 2,
-          status: 1,
-          dept: {
-            id: 105,
-            name: '测试部门'
-          },
-          remark: '普通用户',
-          createTime: 1605456000000
-        }
-      ];
-      list = list.filter(item => item.username.includes(body?.username));
-      list = list.filter(item =>
-        String(item.status).includes(String(body?.status))
-      );
-      if (body.phone) list = list.filter(item => item.phone === body.phone);
-      if (body.deptId) list = list.filter(item => item.dept.id === body.deptId);
-      return {
-        code: 0,
-        message: '操作成功',
-        data: {
-          list,
-          total: list.length, // 总条目数
-          pageSize: 10, // 每页显示条目个数
-          currentPage: 1 // 当前页数
-        }
-      };
-    }
-  },
-  // 用户管理-获取所有角色列表
-  {
-    url: '/list-all-role',
+    url: '/api/v1/system/users',
     method: 'get',
-    response: () => {
-      return {
-        code: 0,
-        message: '操作成功',
-        data: [
-          { id: 1, name: '超级管理员' },
-          { id: 2, name: '普通角色' }
-        ]
+    response: ({ query }) => {
+      const page = Number(query.page ?? 1);
+      const pageSize = Number(query.pageSize ?? 10);
+      let list = USERS;
+      if (query.username) {
+        list = list.filter(item =>
+          item.username.includes(String(query.username))
+        );
+      }
+      if (query.status) {
+        list = list.filter(item => item.status === query.status);
+      }
+      const data: PageResult<UserVO> = {
+        items: list.slice((page - 1) * pageSize, page * pageSize),
+        total: list.length,
+        page,
+        pageSize
       };
+      return {
+        code: BizCode.SUCCESS,
+        message: '操作成功',
+        data
+      } satisfies ApiResponse<PageResult<UserVO>>;
     }
   },
-  // 用户管理-根据 userId 获取对应角色 id 列表（userId：用户id）
+  // 用户管理-详情（不存在 → 40404，与 server findOne 同口径）
   {
-    url: '/list-role-ids',
-    method: 'post',
-    response: ({ body }) => {
-      if (body.userId) {
-        if (body.userId == 1) {
-          return {
-            code: 0,
-            message: '操作成功',
-            data: [1]
-          };
-        } else if (body.userId == 2) {
-          return {
-            code: 0,
-            message: '操作成功',
-            data: [2]
-          };
-        }
-      } else {
+    url: '/api/v1/system/users/:id',
+    method: 'get',
+    response: ({ params }) => {
+      const user = USERS.find(item => item.id === params.id);
+      if (!user) {
         return {
-          code: 10001,
-          message: '请求参数缺失或格式不正确',
-          data: []
+          code: BizCode.NOT_FOUND,
+          message: '用户不存在',
+          data: null
         };
       }
-    }
-  },
-  // 角色管理
-  {
-    url: '/role',
-    method: 'post',
-    response: ({ body }) => {
-      let list = [
-        {
-          createTime: 1605456000000, // 时间戳（毫秒ms）
-          updateTime: 1684512000000,
-          id: 1,
-          name: '超级管理员',
-          code: 'admin',
-          status: 1, // 状态 1 启用 0 停用
-          remark: '超级管理员拥有最高权限'
-        },
-        {
-          createTime: 1605456000000,
-          updateTime: 1684512000000,
-          id: 2,
-          name: '普通角色',
-          code: 'common',
-          status: 1,
-          remark: '普通角色拥有部分权限'
-        }
-      ];
-      list = list.filter(item => item.name.includes(body?.name));
-      list = list.filter(item =>
-        String(item.status).includes(String(body?.status))
-      );
-      if (body.code) list = list.filter(item => item.code === body.code);
       return {
-        code: 0,
+        code: BizCode.SUCCESS,
         message: '操作成功',
-        data: {
-          list,
-          total: list.length, // 总条目数
-          pageSize: 10, // 每页显示条目个数
-          currentPage: 1 // 当前页数
-        }
-      };
+        data: user
+      } satisfies ApiResponse<UserVO>;
     }
   },
-  // 角色管理-权限-菜单权限
+  // 用户管理-新增（回显 + 新 id）
   {
-    url: '/role-menu',
+    url: '/api/v1/system/users',
     method: 'post',
-    response: () => {
+    response: ({ body }) => ({
+      code: BizCode.SUCCESS,
+      message: '操作成功',
+      data: {
+        ...body,
+        id: 'user-mock-created',
+        roles: [],
+        createdAt: NOW_ISO,
+        updatedAt: NOW_ISO
+      }
+    })
+  },
+  // 用户管理-编辑（回显）
+  {
+    url: '/api/v1/system/users/:id',
+    method: 'put',
+    response: ({ params, body }) => ({
+      code: BizCode.SUCCESS,
+      message: '操作成功',
+      data: { ...body, id: params.id, updatedAt: NOW_ISO }
+    })
+  },
+  // 用户管理-删除
+  {
+    url: '/api/v1/system/users/:id',
+    method: 'delete',
+    response: () => ({
+      code: BizCode.SUCCESS,
+      message: '操作成功',
+      data: null
+    })
+  },
+  // 用户管理-查用户角色 id 列表
+  {
+    url: '/api/v1/system/users/:id/roles',
+    method: 'get',
+    response: ({ params }) => ({
+      code: BizCode.SUCCESS,
+      message: '操作成功',
+      data:
+        params.id === 'user-mock-admin'
+          ? ['role-mock-admin']
+          : ['role-mock-common']
+    })
+  },
+  // 用户管理-分配角色
+  {
+    url: '/api/v1/system/users/:id/roles',
+    method: 'put',
+    response: ({ body }) => ({
+      code: BizCode.SUCCESS,
+      message: '操作成功',
+      data: body?.roleIds ?? []
+    })
+  },
+  // 角色管理-全部角色（不分页；先于 :id 注册避免吞路由）
+  {
+    url: '/api/v1/system/roles/all',
+    method: 'get',
+    response: () =>
+      ({
+        code: BizCode.SUCCESS,
+        message: '操作成功',
+        data: ROLE_OPTIONS
+      }) satisfies ApiResponse<RoleOption[]>
+  },
+  // 角色管理-列表（GET query 分页）
+  {
+    url: '/api/v1/system/roles',
+    method: 'get',
+    response: ({ query }) => {
+      const page = Number(query.page ?? 1);
+      const pageSize = Number(query.pageSize ?? 10);
+      let list = ROLES;
+      if (query.name) {
+        list = list.filter(item => item.name.includes(String(query.name)));
+      }
+      if (query.code) list = list.filter(item => item.code === query.code);
+      if (query.status) {
+        list = list.filter(item => item.status === query.status);
+      }
+      const data: PageResult<RoleVO> = {
+        items: list.slice((page - 1) * pageSize, page * pageSize),
+        total: list.length,
+        page,
+        pageSize
+      };
       return {
-        code: 0,
+        code: BizCode.SUCCESS,
         message: '操作成功',
-        data: [
-          // 外部页面
-          {
-            parentId: 0,
-            id: 100,
-            menuType: 0, // 菜单类型（0代表菜单、1代表iframe、2代表外链、3代表按钮）
-            title: 'menus.pureExternalPage'
-          },
-          {
-            parentId: 100,
-            id: 101,
-            menuType: 0,
-            title: 'menus.pureExternalDoc'
-          },
-          {
-            parentId: 101,
-            id: 102,
-            menuType: 2,
-            title: 'menus.pureExternalLink'
-          },
-          {
-            parentId: 101,
-            id: 103,
-            menuType: 2,
-            title: 'menus.pureUtilsLink'
-          },
-          {
-            parentId: 100,
-            id: 104,
-            menuType: 1,
-            title: 'menus.pureEmbeddedDoc'
-          },
-          {
-            parentId: 104,
-            id: 105,
-            menuType: 1,
-            title: 'menus.pureEpDoc'
-          },
-          {
-            parentId: 104,
-            id: 106,
-            menuType: 1,
-            title: 'menus.pureTailwindcssDoc'
-          },
-          {
-            parentId: 104,
-            id: 107,
-            menuType: 1,
-            title: 'menus.pureVueDoc'
-          },
-          {
-            parentId: 104,
-            id: 108,
-            menuType: 1,
-            title: 'menus.pureViteDoc'
-          },
-          {
-            parentId: 104,
-            id: 109,
-            menuType: 1,
-            title: 'menus.purePiniaDoc'
-          },
-          {
-            parentId: 104,
-            id: 110,
-            menuType: 1,
-            title: 'menus.pureRouterDoc'
-          },
-          // 权限管理
-          {
-            parentId: 0,
-            id: 200,
-            menuType: 0,
-            title: 'menus.purePermission'
-          },
-          {
-            parentId: 200,
-            id: 201,
-            menuType: 0,
-            title: 'menus.purePermissionPage'
-          },
-          {
-            parentId: 200,
-            id: 202,
-            menuType: 0,
-            title: 'menus.purePermissionButton'
-          },
-          {
-            parentId: 202,
-            id: 203,
-            menuType: 3,
-            title: '添加'
-          },
-          {
-            parentId: 202,
-            id: 204,
-            menuType: 3,
-            title: '修改'
-          },
-          {
-            parentId: 202,
-            id: 205,
-            menuType: 3,
-            title: '删除'
-          },
-          // 系统管理
-          {
-            parentId: 0,
-            id: 300,
-            menuType: 0,
-            title: 'menus.pureSysManagement'
-          },
-          {
-            parentId: 300,
-            id: 301,
-            menuType: 0,
-            title: 'menus.pureUser'
-          },
-          {
-            parentId: 300,
-            id: 302,
-            menuType: 0,
-            title: 'menus.pureRole'
-          },
-          {
-            parentId: 300,
-            id: 303,
-            menuType: 0,
-            title: 'menus.pureSystemMenu'
-          },
-          {
-            parentId: 300,
-            id: 304,
-            menuType: 0,
-            title: 'menus.pureDept'
-          },
-          // 系统监控
-          {
-            parentId: 0,
-            id: 400,
-            menuType: 0,
-            title: 'menus.pureSysMonitor'
-          },
-          {
-            parentId: 400,
-            id: 401,
-            menuType: 0,
-            title: 'menus.pureOnlineUser'
-          },
-          {
-            parentId: 400,
-            id: 402,
-            menuType: 0,
-            title: 'menus.pureLoginLog'
-          },
-          {
-            parentId: 400,
-            id: 403,
-            menuType: 0,
-            title: 'menus.pureOperationLog'
-          },
-          {
-            parentId: 400,
-            id: 404,
-            menuType: 0,
-            title: 'menus.pureSystemLog'
-          },
-          // 标签页操作
-          {
-            parentId: 0,
-            id: 500,
-            menuType: 0,
-            title: 'menus.pureTabs'
-          },
-          {
-            parentId: 500,
-            id: 501,
-            menuType: 0,
-            title: 'menus.pureTabs'
-          },
-          {
-            parentId: 500,
-            id: 502,
-            menuType: 0,
-            title: 'query传参模式'
-          },
-          {
-            parentId: 500,
-            id: 503,
-            menuType: 0,
-            title: 'params传参模式'
-          }
-        ]
-      };
+        data
+      } satisfies ApiResponse<PageResult<RoleVO>>;
     }
   },
-  // 角色管理-权限-菜单权限-根据角色 id 查对应菜单
+  // 角色管理-详情
   {
-    url: '/role-menu-ids',
-    method: 'post',
-    response: ({ body }) => {
-      if (body.id == 1) {
+    url: '/api/v1/system/roles/:id',
+    method: 'get',
+    response: ({ params }) => {
+      const role = ROLES.find(item => item.id === params.id);
+      if (!role) {
         return {
-          code: 0,
-          message: '操作成功',
-          data: [
-            100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 200, 201,
-            202, 203, 204, 205, 300, 301, 302, 303, 304, 400, 401, 402, 403,
-            404, 500, 501, 502, 503
-          ]
-        };
-      } else if (body.id == 2) {
-        return {
-          code: 0,
-          message: '操作成功',
-          data: [
-            100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 404, 500,
-            501, 502, 503
-          ]
+          code: BizCode.NOT_FOUND,
+          message: '角色不存在',
+          data: null
         };
       }
+      return {
+        code: BizCode.SUCCESS,
+        message: '操作成功',
+        data: role
+      } satisfies ApiResponse<RoleVO>;
     }
   },
-  // 菜单管理
+  // 角色管理-新增（回显 + 新 id）
   {
-    url: '/menu',
+    url: '/api/v1/system/roles',
     method: 'post',
-    response: () => {
-      return {
-        code: 0,
+    response: ({ body }) => ({
+      code: BizCode.SUCCESS,
+      message: '操作成功',
+      data: {
+        ...body,
+        id: 'role-mock-created',
+        createdAt: NOW_ISO,
+        updatedAt: NOW_ISO
+      }
+    })
+  },
+  // 角色管理-编辑（回显）
+  {
+    url: '/api/v1/system/roles/:id',
+    method: 'put',
+    response: ({ params, body }) => ({
+      code: BizCode.SUCCESS,
+      message: '操作成功',
+      data: { ...body, id: params.id, updatedAt: NOW_ISO }
+    })
+  },
+  // 角色管理-删除
+  {
+    url: '/api/v1/system/roles/:id',
+    method: 'delete',
+    response: () => ({
+      code: BizCode.SUCCESS,
+      message: '操作成功',
+      data: null
+    })
+  },
+  // 角色管理-查角色菜单 id 列表
+  {
+    url: '/api/v1/system/roles/:id/menus',
+    method: 'get',
+    response: ({ params }) => ({
+      code: BizCode.SUCCESS,
+      message: '操作成功',
+      data:
+        params.id === 'role-mock-admin'
+          ? ALL_MENU_IDS
+          : ALL_MENU_IDS.filter(
+              id =>
+                id === 'menu-system' ||
+                id === 'menu-user' ||
+                id.startsWith('btn-user-')
+            )
+    })
+  },
+  // 角色管理-分配菜单权限
+  {
+    url: '/api/v1/system/roles/:id/menus',
+    method: 'put',
+    response: ({ body }) => ({
+      code: BizCode.SUCCESS,
+      message: '操作成功',
+      data: body?.menuIds ?? []
+    })
+  },
+  // 菜单管理-全量树（GET 不分页）
+  {
+    url: '/api/v1/system/menus',
+    method: 'get',
+    response: () =>
+      ({
+        code: BizCode.SUCCESS,
         message: '操作成功',
-        data: [
-          // 外部页面
-          {
-            parentId: 0,
-            id: 100,
-            menuType: 0, // 菜单类型（0代表菜单、1代表iframe、2代表外链、3代表按钮）
-            title: 'menus.pureExternalPage',
-            name: 'PureIframe',
-            path: '/iframe',
-            component: '',
-            rank: 7,
-            redirect: '',
-            icon: 'ri:links-fill',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: '',
-            frameLoading: true,
-            keepAlive: false,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          {
-            parentId: 100,
-            id: 101,
-            menuType: 0,
-            title: 'menus.pureExternalDoc',
-            name: 'PureIframeExternal',
-            path: '/iframe/external',
-            component: '',
-            rank: null,
-            redirect: '',
-            icon: '',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: '',
-            frameLoading: true,
-            keepAlive: false,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          {
-            parentId: 101,
-            id: 102,
-            menuType: 2,
-            title: 'menus.pureExternalLink',
-            name: 'https://pure-admin.cn/',
-            path: '/external',
-            component: '',
-            rank: null,
-            redirect: '',
-            icon: '',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: '',
-            frameLoading: true,
-            keepAlive: false,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          {
-            parentId: 101,
-            id: 103,
-            menuType: 2,
-            title: 'menus.pureUtilsLink',
-            name: 'https://pure-admin-utils.netlify.app/',
-            path: '/pureUtilsLink',
-            component: '',
-            rank: null,
-            redirect: '',
-            icon: '',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: '',
-            frameLoading: true,
-            keepAlive: false,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          {
-            parentId: 100,
-            id: 104,
-            menuType: 1,
-            title: 'menus.pureEmbeddedDoc',
-            name: 'PureIframeEmbedded',
-            path: '/iframe/embedded',
-            component: '',
-            rank: null,
-            redirect: '',
-            icon: '',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: '',
-            frameLoading: true,
-            keepAlive: false,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          {
-            parentId: 104,
-            id: 105,
-            menuType: 1,
-            title: 'menus.pureEpDoc',
-            name: 'FrameEp',
-            path: '/iframe/ep',
-            component: '',
-            rank: null,
-            redirect: '',
-            icon: '',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: 'https://element-plus.org/zh-CN/',
-            frameLoading: true,
-            keepAlive: true,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          {
-            parentId: 104,
-            id: 106,
-            menuType: 1,
-            title: 'menus.pureTailwindcssDoc',
-            name: 'FrameTailwindcss',
-            path: '/iframe/tailwindcss',
-            component: '',
-            rank: null,
-            redirect: '',
-            icon: '',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: 'https://tailwindcss.com/docs/installation',
-            frameLoading: true,
-            keepAlive: true,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          {
-            parentId: 104,
-            id: 107,
-            menuType: 1,
-            title: 'menus.pureVueDoc',
-            name: 'FrameVue',
-            path: '/iframe/vue3',
-            component: '',
-            rank: null,
-            redirect: '',
-            icon: '',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: 'https://cn.vuejs.org/',
-            frameLoading: true,
-            keepAlive: true,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          {
-            parentId: 104,
-            id: 108,
-            menuType: 1,
-            title: 'menus.pureViteDoc',
-            name: 'FrameVite',
-            path: '/iframe/vite',
-            component: '',
-            rank: null,
-            redirect: '',
-            icon: '',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: 'https://cn.vitejs.dev/',
-            frameLoading: true,
-            keepAlive: true,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          {
-            parentId: 104,
-            id: 109,
-            menuType: 1,
-            title: 'menus.purePiniaDoc',
-            name: 'FramePinia',
-            path: '/iframe/pinia',
-            component: '',
-            rank: null,
-            redirect: '',
-            icon: '',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: 'https://pinia.vuejs.org/zh/index.html',
-            frameLoading: true,
-            keepAlive: true,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          {
-            parentId: 104,
-            id: 110,
-            menuType: 1,
-            title: 'menus.pureRouterDoc',
-            name: 'FrameRouter',
-            path: '/iframe/vue-router',
-            component: '',
-            rank: null,
-            redirect: '',
-            icon: '',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: 'https://router.vuejs.org/zh/',
-            frameLoading: true,
-            keepAlive: true,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          // 系统管理
-          {
-            parentId: 0,
-            id: 300,
-            menuType: 0,
-            title: 'menus.pureSysManagement',
-            name: 'PureSystem',
-            path: '/system',
-            component: '',
-            rank: 10,
-            redirect: '',
-            icon: 'ri:settings-3-line',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: '',
-            frameLoading: true,
-            keepAlive: false,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          {
-            parentId: 300,
-            id: 301,
-            menuType: 0,
-            title: 'menus.pureUser',
-            name: 'SystemUser',
-            path: '/system/user/index',
-            component: '',
-            rank: null,
-            redirect: '',
-            icon: 'ri:admin-line',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: '',
-            frameLoading: true,
-            keepAlive: false,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          {
-            parentId: 300,
-            id: 302,
-            menuType: 0,
-            title: 'menus.pureRole',
-            name: 'SystemRole',
-            path: '/system/role/index',
-            component: '',
-            rank: null,
-            redirect: '',
-            icon: 'ri:admin-fill',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: '',
-            frameLoading: true,
-            keepAlive: false,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          {
-            parentId: 300,
-            id: 303,
-            menuType: 0,
-            title: 'menus.pureSystemMenu',
-            name: 'SystemMenu',
-            path: '/system/menu/index',
-            component: '',
-            rank: null,
-            redirect: '',
-            icon: 'ep:menu',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: '',
-            frameLoading: true,
-            keepAlive: false,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          {
-            parentId: 300,
-            id: 304,
-            menuType: 0,
-            title: 'menus.pureDept',
-            name: 'SystemDept',
-            path: '/system/dept/index',
-            component: '',
-            rank: null,
-            redirect: '',
-            icon: 'ri:git-branch-line',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: '',
-            frameLoading: true,
-            keepAlive: false,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          // 系统监控
-          {
-            parentId: 0,
-            id: 400,
-            menuType: 0,
-            title: 'menus.pureSysMonitor',
-            name: 'PureMonitor',
-            path: '/monitor',
-            component: '',
-            rank: 11,
-            redirect: '',
-            icon: 'ep:monitor',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: '',
-            frameLoading: true,
-            keepAlive: false,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          {
-            parentId: 400,
-            id: 401,
-            menuType: 0,
-            title: 'menus.pureOnlineUser',
-            name: 'OnlineUser',
-            path: '/monitor/online-user',
-            component: 'monitor/online/index',
-            rank: null,
-            redirect: '',
-            icon: 'ri:user-voice-line',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: '',
-            frameLoading: true,
-            keepAlive: false,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          {
-            parentId: 400,
-            id: 402,
-            menuType: 0,
-            title: 'menus.pureLoginLog',
-            name: 'LoginLog',
-            path: '/monitor/login-logs',
-            component: 'monitor/logs/login/index',
-            rank: null,
-            redirect: '',
-            icon: 'ri:window-line',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: '',
-            frameLoading: true,
-            keepAlive: false,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          {
-            parentId: 400,
-            id: 403,
-            menuType: 0,
-            title: 'menus.pureOperationLog',
-            name: 'OperationLog',
-            path: '/monitor/operation-logs',
-            component: 'monitor/logs/operation/index',
-            rank: null,
-            redirect: '',
-            icon: 'ri:history-fill',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: '',
-            frameLoading: true,
-            keepAlive: false,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          },
-          {
-            parentId: 400,
-            id: 404,
-            menuType: 0,
-            title: 'menus.pureSystemLog',
-            name: 'SystemLog',
-            path: '/monitor/system-logs',
-            component: 'monitor/logs/system/index',
-            rank: null,
-            redirect: '',
-            icon: 'ri:file-search-line',
-            extraIcon: '',
-            enterTransition: '',
-            leaveTransition: '',
-            activePath: '',
-            auths: '',
-            frameSrc: '',
-            frameLoading: true,
-            keepAlive: false,
-            hiddenTag: false,
-            fixedTag: false,
-            showLink: true,
-            showParent: false
-          }
-        ]
+        data: MENU_TREE
+      }) satisfies ApiResponse<MenuVO[]>
+  },
+  // 菜单管理-详情（server 返回单行不带 children）
+  {
+    url: '/api/v1/system/menus/:id',
+    method: 'get',
+    response: ({ params }) => {
+      const menu = MENU_ROWS.find(item => item.id === params.id);
+      if (!menu) {
+        return {
+          code: BizCode.NOT_FOUND,
+          message: '菜单不存在',
+          data: null
+        };
+      }
+      return {
+        code: BizCode.SUCCESS,
+        message: '操作成功',
+        data: menu
       };
     }
+  },
+  // 菜单管理-新增（回显 + 新 id）
+  {
+    url: '/api/v1/system/menus',
+    method: 'post',
+    response: ({ body }) => ({
+      code: BizCode.SUCCESS,
+      message: '操作成功',
+      data: {
+        ...body,
+        id: 'menu-mock-created',
+        createdAt: NOW_ISO,
+        updatedAt: NOW_ISO,
+        deletedAt: null,
+        children: []
+      }
+    })
+  },
+  // 菜单管理-编辑（回显）
+  {
+    url: '/api/v1/system/menus/:id',
+    method: 'put',
+    response: ({ params, body }) => ({
+      code: BizCode.SUCCESS,
+      message: '操作成功',
+      data: { ...body, id: params.id, updatedAt: NOW_ISO }
+    })
+  },
+  // 菜单管理-删除
+  {
+    url: '/api/v1/system/menus/:id',
+    method: 'delete',
+    response: () => ({
+      code: BizCode.SUCCESS,
+      message: '操作成功',
+      data: null
+    })
   },
   // 部门管理
   {
-    url: '/dept',
+    url: '/api/v1/system/dept',
     method: 'post',
     response: () => {
       return {
@@ -1042,7 +698,7 @@ export default defineFakeRoute([
   },
   // 在线用户
   {
-    url: '/online-logs',
+    url: '/api/v1/system/online-logs',
     method: 'post',
     response: ({ body }) => {
       let list = [
@@ -1080,7 +736,7 @@ export default defineFakeRoute([
   },
   // 登录日志
   {
-    url: '/login-logs',
+    url: '/api/v1/system/login-logs',
     method: 'post',
     response: ({ body }) => {
       let list = [
@@ -1125,7 +781,7 @@ export default defineFakeRoute([
   },
   // 操作日志
   {
-    url: '/operation-logs',
+    url: '/api/v1/system/operation-logs',
     method: 'post',
     response: ({ body }) => {
       let list = [
@@ -1172,7 +828,7 @@ export default defineFakeRoute([
   },
   // 系统日志
   {
-    url: '/system-logs',
+    url: '/api/v1/system/system-logs',
     method: 'post',
     response: ({ body }) => {
       let list = [
@@ -1231,7 +887,7 @@ export default defineFakeRoute([
   },
   // 系统日志-根据 id 查日志详情
   {
-    url: '/system-logs-detail',
+    url: '/api/v1/system/system-logs-detail',
     method: 'post',
     response: ({ body }) => {
       if (body.id == 1) {
