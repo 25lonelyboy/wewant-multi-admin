@@ -21,7 +21,7 @@ const props = withDefaults(defineProps<FormProps>(), {
   formInline: () => ({
     menuType: 0,
     higherMenuOptions: [],
-    parentId: 0,
+    parentId: '',
     title: '',
     name: '',
     path: '',

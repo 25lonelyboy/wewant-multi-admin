@@ -175,12 +175,12 @@ class PureHttp {
         if ($error.isCancelRequest) {
           return Promise.reject($error);
         }
-        const body = $error.response?.data;
+        const body = ($error.response?.data ?? {}) as Record<string, any>;
         // 信封非 0 码（server 按码段返 HTTP 4xx/5xx）：40102 无感刷新重试，其余 toast 后端 message
-        if (body?.code === BizCode.ACCESS_TOKEN_EXPIRED) {
+        if (body.code === BizCode.ACCESS_TOKEN_EXPIRED) {
           return PureHttp.refreshAndRetry($error.config);
         }
-        if (body?.message) {
+        if (body.message) {
           message(body.message, { type: 'error' });
         }
         return Promise.reject($error);
