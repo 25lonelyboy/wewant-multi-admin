@@ -2,7 +2,8 @@
 import { formUpload } from '@/api/mock';
 import { message } from '@/utils/message';
 import { onMounted, reactive, ref } from 'vue';
-import { type UserInfo, getMine } from '@/api/user';
+import { getMine } from '@/api/user';
+import type { UserProfile } from '@multi-admin/contracts';
 import type { FormInstance, FormRules } from 'element-plus';
 import ReCropperPreview from '@/components/ReCropperPreview';
 import { createFormData, deviceDetection } from '@pureadmin/utils';
@@ -27,7 +28,7 @@ const userInfos = reactive({
   description: ''
 });
 
-const rules = reactive<FormRules<UserInfo>>({
+const rules = reactive<FormRules<UserProfile>>({
   nickname: [{ required: true, message: '昵称必填', trigger: 'blur' }]
 });
 
@@ -100,7 +101,14 @@ const onSubmit = async (formEl: FormInstance) => {
 onMounted(async () => {
   const { code, data } = await getMine();
   if (code === 0) {
-    Object.assign(userInfos, data);
+    // UserProfile 可空字段兜底空串（表单模型为 string 型）
+    Object.assign(userInfos, {
+      avatar: data.avatar ?? '',
+      nickname: data.nickname,
+      email: data.email ?? '',
+      phone: data.phone ?? '',
+      description: data.description ?? ''
+    });
   }
 });
 </script>

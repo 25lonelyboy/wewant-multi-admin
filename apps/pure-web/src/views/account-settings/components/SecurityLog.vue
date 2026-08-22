@@ -55,17 +55,19 @@ const columns: TableColumnList = [
 
 async function onSearch() {
   loading.value = true;
-  const { code, data } = await getMineLogs();
-  if (code === 0) {
-    dataList.value = data.list;
-    pagination.total = data.total;
-    pagination.pageSize = data.pageSize;
-    pagination.currentPage = data.currentPage;
-  }
-
-  setTimeout(() => {
+  try {
+    const { code, data } = await getMineLogs();
+    if (code === 0) {
+      dataList.value = data.list;
+      pagination.total = data.total;
+      pagination.pageSize = data.pageSize;
+      pagination.currentPage = data.currentPage;
+    }
+  } catch {
+    // 直连态 404（mine-logs 为 mock-only 端点，后端未实现）：保持空态
+  } finally {
     loading.value = false;
-  }, 200);
+  }
 }
 
 onMounted(() => {
