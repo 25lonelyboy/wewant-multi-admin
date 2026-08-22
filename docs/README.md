@@ -19,10 +19,10 @@
 | [architecture/](architecture/README.md) | 当前架构事实、模块边界、不变量、安全约束 | 有事实源 |
 | [engineering/](engineering/README.md) | 可复用工程实践、构建与验证命令、依赖与兼容性结论 | 有事实源 |
 | [decisions/](decisions/README.md) | 架构决策记录（ADR），跨域决策唯一存放地 | 已有 3 篇 ADR |
-| [tasks/](tasks/README.md) | 大任务/阶段/专项治理的过程材料（热索引 + archive） | 当前无进行中任务 |
+| [tasks/](tasks/README.md) | 大任务/阶段/专项治理的过程材料（热索引 + archive） | NestJS 后端基架补全收尾中 |
 | product/ | 业务规则、角色、权限、术语表 | 暂无内容，待有业务文档时再建 |
 | operations/ | 部署、环境、CI/CD、观测 | 暂无内容（部署事实暂由代码内注释承载） |
-| governance/ | 文档体系维护规则 | 职责并入本文件，不单独建目录 |
+| [governance/](governance/README.md) | 全局 backlog 登记册 | 已建立（P5）；文档体系维护规则仍在本文件 |
 
 ## 维护规则
 

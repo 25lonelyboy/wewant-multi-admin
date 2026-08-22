@@ -7,7 +7,8 @@ covers:
   - apps/pure-web/Dockerfile
   - apps/nestjs-server/Dockerfile
   - docker-compose.yml
-last_verified: 2026-08-21
+  - packages/contracts/
+last_verified: 2026-08-22
 ---
 
 # 构建与验证
@@ -31,11 +32,17 @@ last_verified: 2026-08-21
 | nestjs-server | `prisma generate && nest build` | 产物 `dist/`（Prisma Client 由 generate 先行产出） |
 | uni-mobile | `uni build`（按平台加 `-p`） | H5 / 小程序多目标 |
 | electron-desktop | prebuild（触发 pure-web build）→ esbuild → electron-builder | 链路细节见 `docs/architecture/desktop-app.md` |
+| contracts | `tsdown` ESM+CJS 双格式 + 双 d.ts | 前后端契约包；消费方 `pretypecheck` / `pretest` 前置构建防陈旧产物参检（细节见 `docs/architecture/contracts.md`） |
 
 ## Lint / 格式化职责分离
 
 - **ESLint / Stylelint 只校验**，应用侧配置是引用 `internal/eslint-config` / `internal/stylelint-config` 工厂的薄壳；lint 统一 `--max-warnings 0`。
 - **格式化由 Prettier 独占**（根 `.prettierrc.js` + `.prettierignore`）；不要在 ESLint/Stylelint 里开格式化规则。
+
+## pure-web 数据源开关（VITE_MOCK）
+
+- 缺省（false / 未定义）：不注册 fake-server 插件，dev server 将 `/api/v1` 代理至 NestJS（`http://localhost:3000`）；`VITE_MOCK=true`：注册 `vite-plugin-fake-server`（`enableProd` 亦注入 prod 构建）。
+- mock fixture 与真实后端契约同形（同信封、同路径、同类型标注）；mock-only 端点清单与降级约束见 `docs/architecture/contracts.md`。
 
 ## Docker
 

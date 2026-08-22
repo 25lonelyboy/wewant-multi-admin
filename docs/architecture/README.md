@@ -7,6 +7,7 @@
 | 文档 | 内容 |
 |---|---|
 | [repo-structure.md](repo-structure.md) | monorepo 结构、各 workspace 边界与构建依赖关系、目录放置规则 |
+| [contracts.md](contracts.md) | contracts 契约包：定位约束、扩展流程、信封错误码、分页时间约定、VITE_MOCK 数据源开关 |
 | [desktop-app.md](desktop-app.md) | Electron 桌面端架构：进程结构、自定义协议、托盘常驻、IPC 安全不变量、打包链 |
 
 ## 不写在这里的内容

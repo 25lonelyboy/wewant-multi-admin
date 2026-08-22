@@ -9,6 +9,7 @@
 | [ADR-001-electron-desktop.md](ADR-001-electron-desktop.md) | 桌面端技术选型 Electron（打印需求导向） | accepted |
 | [ADR-002-dependency-catalog.md](ADR-002-dependency-catalog.md) | 依赖版本统一走 pnpm catalog + named catalog 隔离 | accepted |
 | [ADR-003-electron-toolchain-pin.md](ADR-003-electron-toolchain-pin.md) | Electron 工具链精确 pin + 构建编排放桌面端 prebuild | accepted |
+| [ADR-004-contracts-and-backend-stack.md](ADR-004-contracts-and-backend-stack.md) | 前后端契约走独立 contracts 包；Prisma / 自研 JWT 认证 / class-validator 选型 | accepted |
 
 ## 规则
 

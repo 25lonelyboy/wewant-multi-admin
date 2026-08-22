@@ -220,3 +220,12 @@ P4 分设计（`...-phase4-design.md`）§12 的 7 项修订已逐条落实：
 5. 高级密码策略登记 backlog（备案 5）✅
 6. 错误码表新增 `NOT_FOUND: 40404`（§5 错误码段，备案 6）✅
 7. 三表软删除全局改造（deletedAt + 部分唯一索引 + 全查询过滤 + 认证链波及适配）；restore 端点/超管标志位化/单测覆盖率下限棘轮/防环 DB 层加固登记 backlog（备案 7）✅
+
+### P5 完成判定（已完成，2026-08-22）
+
+§11 P5 行验收口径按 P5 分设计 §1 修订（「pure-web mock 态运行正常」→「直连真实后端 + mock 离线降级」），落实情况：
+
+1. `packages/contracts` 建包，nestjs-server / pure-web 双端 `workspace:*` 消费，双端 typecheck 消费 contracts ✅
+2. pure-web 缺省直连真实后端（登录 → 动态路由 → system 三域 CRUD + 详情 → 账户个人信息）；`VITE_MOCK` 离线 mock 契约同形 ✅
+3. dept / 监控 / mine-logs 为 mock-only 端点，前端降级空态并登记 `docs/governance/backlog.md` ✅
+4. 文档收尾：`docs/architecture/contracts.md`、ADR-004、AGENTS.md 与各事实源修订、任务域归档 `docs/tasks/archive/` ✅

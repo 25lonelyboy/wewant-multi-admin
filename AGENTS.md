@@ -6,14 +6,15 @@ This file provides guidance to Lingma (lingma.aliyun.com) when working with code
 
 多端管理后台 pnpm monorepo，由四应用 + 两类共享包组成：
 
-| Workspace               | 说明                                                                                                                                                                |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/pure-web`         | Vue3 管理后台（vue-pure-admin 基底：Element Plus + Tailwind + Pinia），当前用 vite-plugin-fake-server mock 数据，尚未接入真实后端                                   |
-| `apps/nestjs-server`    | NestJS 后端：骨架与横切基建、Prisma + Redis、认证链（JWT 双令牌轮换 + RBAC 守卫链）、system RBAC CRUD（全局软删除）与单测/e2e 合并覆盖率门禁均已交付，前端联调待 P5 |
-| `apps/uni-mobile`       | uni-app 多端应用（H5 + 各家小程序），基于 Vue3                                                                                                                      |
-| `apps/electron-desktop` | Electron 桌面端，托管 pure-web 构建产物作为渲染层                                                                                                                   |
-| `packages/common`       | 跨端共享 TS 代码（tsdown 构建），暂无应用实际引用                                                                                                                   |
-| `internal/*`            | 仓库内部工具：`eslint-config` / `stylelint-config` / `tsconfig` / `node-utils`                                                                                      |
+| Workspace               | 说明                                                                                                                                                                       |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/pure-web`         | Vue3 管理后台（vue-pure-admin 基底：Element Plus + Tailwind + Pinia），缺省直连真实后端，`VITE_MOCK=true` 切离线 mock（契约同形）                                          |
+| `apps/nestjs-server`    | NestJS 后端：骨架与横切基建、Prisma + Redis、认证链（JWT 双令牌轮换 + RBAC 守卫链）、system RBAC CRUD（全局软删除）与单测/e2e 合并覆盖率门禁均已交付，前端直连已打通（P5） |
+| `apps/uni-mobile`       | uni-app 多端应用（H5 + 各家小程序），基于 Vue3                                                                                                                             |
+| `apps/electron-desktop` | Electron 桌面端，托管 pure-web 构建产物作为渲染层                                                                                                                          |
+| `packages/common`       | 跨端共享 TS 代码（tsdown 构建），暂无应用实际引用                                                                                                                          |
+| `packages/contracts`    | 前后端接口契约包（纯类型 + BizCode/MenuType 常量），nestjs-server 与 pure-web 以 `workspace:*` 消费                                                                        |
+| `internal/*`            | 仓库内部工具：`eslint-config` / `stylelint-config` / `tsconfig` / `node-utils`                                                                                             |
 
 环境约束：Node >=24、pnpm >=11（`engines` 字段 + 根 `.npmrc` 的 `engine-strict=true` 强制）；registry 与 Electron 二进制镜像已在根 `.npmrc` 配置，无需额外设置。
 
@@ -46,6 +47,7 @@ pnpm --filter @multi-admin/nestjs-server run test:coverage  # 单测+e2e 合并�
 ## 架构要点
 
 - **版本治理**：多消费者/框架级依赖统一走 `pnpm-workspace.yaml` 的 `catalog:`；uni-app 的 Vite 5.2.8 用 named catalog `catalog:uni-app` 隔离；jest 30.4.1 被 catalog + overrides 双重 pin。
+- **contracts 先行**：前后端契约变更先改 `packages/contracts`（纯类型 + 常量值），双端再各自实现/接线；mock 与真实后端契约同形，扩展流程与错误码表见 `docs/architecture/contracts.md`。
 - **桌面端链路**：`electron-desktop` 的 `prebuild` 钩子编排 pure-web 构建 → esbuild 编译主进程/preload（`esbuild.config.mjs`）→ electron-builder 打包（`electron-builder.yml`）；渲染层由自定义协议（`electron/main/protocol.ts`）托管 pure-web 产物；单实例锁 + 托盘常驻（关窗隐藏不退出）。
 - **安全不变量**：preload 仅暴露具名方法，禁止 `ipcRenderer` 泛通道透传；Electron 生态依赖（electron / electron-builder）精确 pin，不加 `^`。
 - **Lint 薄壳模式**：各应用 eslint / stylelint 配置一行引用 `@multi-admin/eslint-config` / `@multi-admin/stylelint-config` 工厂函数；职责分离——ESLint 只校验，格式化由 Prettier 独占；lint 带 `--max-warnings 0`。
