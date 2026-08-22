@@ -1,5 +1,7 @@
+import type { EntityId, RoleOption, UserStatus } from '@multi-admin/contracts';
+
 interface FormItemProps {
-  id?: number;
+  id?: EntityId;
   /** 用于判断是`新增`还是`修改` */
   title: string;
   higherDeptOptions: Record<string, unknown>[];
@@ -10,7 +12,7 @@ interface FormItemProps {
   phone: string | number;
   email: string;
   sex: string | number;
-  status: number;
+  status: UserStatus;
   dept?: {
     id?: number;
     name?: string;
@@ -25,9 +27,9 @@ interface RoleFormItemProps {
   username: string;
   nickname: string;
   /** 角色列表 */
-  roleOptions: any[];
+  roleOptions: RoleOption[];
   /** 选中的角色列表 */
-  ids: Record<number, unknown>[];
+  ids: EntityId[];
 }
 interface RoleFormProps {
   formInline: RoleFormItemProps;

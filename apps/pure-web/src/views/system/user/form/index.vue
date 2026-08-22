@@ -16,7 +16,7 @@ const props = withDefaults(defineProps<FormProps>(), {
     phone: '',
     email: '',
     sex: '',
-    status: 1,
+    status: 'ACTIVE',
     remark: ''
   })
 });
@@ -153,8 +153,8 @@ defineExpose({ getRef });
           <el-switch
             v-model="newFormInline.status"
             inline-prompt
-            :active-value="1"
-            :inactive-value="0"
+            active-value="ACTIVE"
+            inactive-value="DISABLED"
             active-text="启用"
             inactive-text="停用"
             :style="switchStyle"

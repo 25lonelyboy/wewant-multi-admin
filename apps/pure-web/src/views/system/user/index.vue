@@ -91,8 +91,8 @@ const {
             clearable
             class="w-45!"
           >
-            <el-option label="已开启" value="1" />
-            <el-option label="已关闭" value="0" />
+            <el-option label="已开启" value="ACTIVE" />
+            <el-option label="已关闭" value="DISABLED" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -110,11 +110,7 @@ const {
         </el-form-item>
       </el-form>
 
-      <PureTableBar
-        title="用户管理（仅演示，操作后不生效）"
-        :columns="columns"
-        @refresh="onSearch"
-      >
+      <PureTableBar title="用户管理" :columns="columns" @refresh="onSearch">
         <template #buttons>
           <el-button
             type="primary"
