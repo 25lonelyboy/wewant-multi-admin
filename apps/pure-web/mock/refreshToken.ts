@@ -1,28 +1,30 @@
 import { defineFakeRoute } from 'vite-plugin-fake-server/client';
+import { BizCode } from '@multi-admin/contracts';
+import type { ApiResponse, RefreshResponse } from '@multi-admin/contracts';
 
-// 模拟刷新token接口
+// 模拟刷新token接口（契约同形：RefreshResponse，对外不含 sid——分设计 §4.1）
 export default defineFakeRoute([
   {
-    url: '/refresh-token',
+    url: '/api/v1/auth/refresh-token',
     method: 'post',
     response: ({ body }) => {
       if (body.refreshToken) {
         return {
-          code: 0,
+          code: BizCode.SUCCESS,
           message: '操作成功',
           data: {
             accessToken: 'eyJhbGciOiJIUzUxMiJ9.newAdmin',
             refreshToken: 'eyJhbGciOiJIUzUxMiJ9.newAdminRefresh',
-            // `expires`选择这种日期格式是为了方便调试，后端直接设置时间戳或许更方便（每次都应该递增）。如果后端返回的是时间戳格式，前端开发请来到这个目录`src/utils/auth.ts`，把第`38`行的代码换成expires = data.expires即可。
-            expires: '2030/10/30 23:59:59'
-          }
-        };
+            // 毫秒时间戳（每次刷新递增，与直连态一致）
+            expires: Date.now() + 2 * 60 * 60 * 1000
+          } satisfies RefreshResponse
+        } satisfies ApiResponse<RefreshResponse>;
       } else {
         return {
-          code: 10001,
-          message: '请求参数缺失或格式不正确',
-          data: {}
-        };
+          code: BizCode.REFRESH_TOKEN_INVALID,
+          message: 'refreshToken 无效',
+          data: null
+        } satisfies ApiResponse<null>;
       }
     }
   }

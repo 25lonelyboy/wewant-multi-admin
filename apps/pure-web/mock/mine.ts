@@ -1,10 +1,11 @@
 import { defineFakeRoute } from 'vite-plugin-fake-server/client';
 import { faker } from '@faker-js/faker/locale/zh_CN';
+import type { ApiResponse, UserProfile } from '@multi-admin/contracts';
 
 export default defineFakeRoute([
-  // 账户设置-个人信息
+  // 账户设置-个人信息（对 GET /api/v1/auth/profile，UserProfile 形状）
   {
-    url: '/mine',
+    url: '/api/v1/auth/profile',
     method: 'get',
     response: () => {
       return {
@@ -17,13 +18,13 @@ export default defineFakeRoute([
           email: 'pureadmin@163.com',
           phone: '15888886789',
           description: '一个热爱开源的前端工程师'
-        }
-      };
+        } satisfies UserProfile
+      } satisfies ApiResponse<UserProfile>;
     }
   },
-  // 账户设置-个人安全日志
+  // 账户设置-个人安全日志（端点预留位，直连态未实现属预期过渡；离线态正常供数）
   {
-    url: '/mine-logs',
+    url: '/api/v1/mine-logs',
     method: 'get',
     response: () => {
       const list = [
@@ -33,8 +34,8 @@ export default defineFakeRoute([
           address: '中国河南省信阳市',
           system: 'macOS',
           browser: 'Chrome',
-          summary: '账户登录', // 详情
-          operatingTime: new Date() // 时间
+          summary: '账户登录',
+          operatingTime: new Date()
         },
         {
           id: 2,
@@ -51,9 +52,9 @@ export default defineFakeRoute([
         message: '操作成功',
         data: {
           list,
-          total: list.length, // 总条目数
-          pageSize: 10, // 每页显示条目个数
-          currentPage: 1 // 当前页数
+          total: list.length,
+          pageSize: 10,
+          currentPage: 1
         }
       };
     }

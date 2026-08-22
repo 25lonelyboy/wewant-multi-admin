@@ -1,9 +1,13 @@
-// 根据角色动态生成路由
+// 登录（契约同形：信封 + LoginResponse；expires 为毫秒时间戳，与直连态 token.service 一致）
 import { defineFakeRoute } from 'vite-plugin-fake-server/client';
+import type { ApiResponse, LoginResponse } from '@multi-admin/contracts';
+
+// access 有效期 2 小时（与 server JWT_ACCESS_TTL 默认值同口径）
+const expires = Date.now() + 2 * 60 * 60 * 1000;
 
 export default defineFakeRoute([
   {
-    url: '/login',
+    url: '/api/v1/auth/login',
     method: 'post',
     response: ({ body }) => {
       if (body.username === 'admin') {
@@ -11,33 +15,31 @@ export default defineFakeRoute([
           code: 0,
           message: '操作成功',
           data: {
-            avatar: 'https://avatars.githubusercontent.com/u/44761321',
+            avatar: null,
             username: 'admin',
             nickname: '小铭',
-            // 一个用户可能有多个角色
             roles: ['admin'],
-            // 按钮级别权限
             permissions: ['*:*:*'],
             accessToken: 'eyJhbGciOiJIUzUxMiJ9.admin',
             refreshToken: 'eyJhbGciOiJIUzUxMiJ9.adminRefresh',
-            expires: '2030/10/30 00:00:00'
-          }
-        };
+            expires
+          } satisfies LoginResponse
+        } satisfies ApiResponse<LoginResponse>;
       } else {
         return {
           code: 0,
           message: '操作成功',
           data: {
-            avatar: 'https://avatars.githubusercontent.com/u/52823142',
+            avatar: null,
             username: 'common',
             nickname: '小林',
             roles: ['common'],
             permissions: ['permission:btn:add', 'permission:btn:edit'],
             accessToken: 'eyJhbGciOiJIUzUxMiJ9.common',
             refreshToken: 'eyJhbGciOiJIUzUxMiJ9.commonRefresh',
-            expires: '2030/10/30 00:00:00'
-          }
-        };
+            expires
+          } satisfies LoginResponse
+        } satisfies ApiResponse<LoginResponse>;
       }
     }
   }

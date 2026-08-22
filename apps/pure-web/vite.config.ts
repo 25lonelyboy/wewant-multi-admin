@@ -24,7 +24,16 @@ export default async ({ mode }: ConfigEnv): Promise<UserConfigExport> => {
       port: VITE_PORT,
       host: '0.0.0.0',
       // 本地跨域代理 https://cn.vitejs.dev/config/server-options.html#server-proxy
-      proxy: {},
+      // 直连态（VITE_MOCK=false）：/api/v1 转发 NestJS（env.schema PORT 默认 3000，同源不触发 CORS）；
+      // 离线态（VITE_MOCK=true）：fake-server 整体接管，不挂 proxy，规避同路径冲突（分设计 R3）
+      proxy: VITE_MOCK
+        ? {}
+        : {
+            '/api/v1': {
+              target: 'http://localhost:3000',
+              changeOrigin: true
+            }
+          },
       // 预热文件以提前转换和缓存结果，降低启动期间的初始页面加载时长并防止转换瀑布
       warmup: {
         clientFiles: ['./index.html', './src/{views,components}/*']

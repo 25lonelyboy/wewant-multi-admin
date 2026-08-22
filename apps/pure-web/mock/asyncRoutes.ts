@@ -1,6 +1,7 @@
-// 模拟后端动态生成路由
+// 模拟后端动态生成路由（离线态保留 system + monitor 两组树全功能；直连态由真实后端只供 System 组——分设计决策 #2）
 import { defineFakeRoute } from 'vite-plugin-fake-server/client';
 import { system, monitor } from '@/router/enums';
+import type { ApiResponse, AsyncRouteNode } from '@multi-admin/contracts';
 
 /**
  * roles：页面级别权限，这里模拟二种 "admin"、"common"
@@ -8,7 +9,7 @@ import { system, monitor } from '@/router/enums';
  * common：普通角色
  */
 
-const systemManagementRouter = {
+const systemManagementRouter: AsyncRouteNode = {
   path: '/system',
   meta: {
     icon: 'ri:settings-3-line',
@@ -55,7 +56,7 @@ const systemManagementRouter = {
   ]
 };
 
-const systemMonitorRouter = {
+const systemMonitorRouter: AsyncRouteNode = {
   path: '/monitor',
   meta: {
     icon: 'ep:monitor',
@@ -108,14 +109,14 @@ const systemMonitorRouter = {
 
 export default defineFakeRoute([
   {
-    url: '/get-async-routes',
+    url: '/api/v1/auth/get-async-routes',
     method: 'get',
     response: () => {
       return {
         code: 0,
         message: '操作成功',
         data: [systemManagementRouter, systemMonitorRouter]
-      };
+      } satisfies ApiResponse<AsyncRouteNode[]>;
     }
   }
 ]);
