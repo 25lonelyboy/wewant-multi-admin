@@ -1,11 +1,8 @@
 // prisma/seed.ts
-// 幂等 seed：upsert / createMany+skipDuplicates + 软删不在 seed 集合中的存量菜单；
-// 超管 create-only 绝不覆盖已改密码。
+// 幂等 seed（create-only 语义）：只补不删不改，以生产库为事实源。
+// 首次部署初始化必要数据，后续重跑跳过已存在的活跃记录；
+// 仅复活被软删的种子项（支持「裁剪 → 再引入」场景）。
 // 载体：tsx 直跑（prisma.config.ts migrations.seed）；e2e globalSetup 复用 runSeed。
-//
-// ⚠️ 爆炸半径警示：清理步骤以 seed 集合（MENU_TREE 展开）为唯一事实来源，
-// 不区分行来源（种子/手工）。含手工创建菜单的库（如生产）不得直接重跑本脚本，
-// 否则手工菜单将被软删。开发/测试库是本口径的唯一适用场景，故不设开关。
 import { pathToFileURL } from 'node:url';
 import * as argon2 from 'argon2';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -99,12 +96,9 @@ export async function runSeed(prisma: PrismaClient): Promise<void> {
 
   // 2. 菜单（两轮：先无父节点全建，再回填 parentId）
   // 两轮包在交互式事务内：回填中途失败整体回滚，不残留无父链菜单，
-  // 与超管块事务口径一致；幂等 upsert 保证重跑自愈。
+  // 与超管块事务口径一致；create-only 保证重跑自愈。
   const flat = flattenMenus(MENU_TREE);
   const buttons = buildButtonSeeds(MENU_TREE);
-  // seed 全集（MENU 节点 + BUTTON 权限点）：清理步骤的排除口径，凡不在集合内的
-  // 存量活跃行视为被裁剪项（如 P5 裁掉的 SystemDept/Monitor），软删之。
-  const seedMenuNames = [...flat.map(m => m.name), ...buttons.map(b => b.name)];
   await prisma.$transaction(async tx => {
     for (const menu of flat) {
       const existing = await tx.menu.findFirst({
@@ -118,7 +112,7 @@ export async function runSeed(prisma: PrismaClient): Promise<void> {
         sort: menu.sort
       };
       if (existing) {
-        await tx.menu.update({ where: { id: existing.id }, data });
+        continue;
       } else {
         // 同名软删行复活而非新建：避免裁剪后重新引入时产生重名活跃行，
         // 保证「裁剪 → 再引入」双向幂等。orderBy 固定取最旧行，
@@ -149,21 +143,14 @@ export async function runSeed(prisma: PrismaClient): Promise<void> {
       const self = await tx.menu.findFirstOrThrow({
         where: { name: menu.name, deletedAt: null }
       });
-      await tx.menu.update({
-        where: { id: self.id },
-        data: { parentId: parent.id }
-      });
+      if (self.parentId === null) {
+        await tx.menu.update({
+          where: { id: self.id },
+          data: { parentId: parent.id }
+        });
+      }
     }
-    // 清理：软删不在 seed 集合中的存量菜单/权限点（P5 裁决裁掉了 SystemDept 页与
-    // Monitor 整组，纯 upsert 不会移除存量行，靠此步让开发/测试库同步裁剪）。
-    // ⚠️ 爆炸半径：清理以 seed 集合（MENU_TREE 展开）为唯一事实来源，不区分行来源；
-    // 含手工创建菜单的库（如生产）不得直接重跑本脚本，否则手工菜单将被软删。
-    // 软删而非物删：保留可追溯性；查询侧统一按 deletedAt IS NULL 过滤，
-    // 裁剪项即时不可见；残留的 RoleMenu 关联随菜单软删自然失效。
-    await tx.menu.updateMany({
-      where: { deletedAt: null, name: { notIn: seedMenuNames } },
-      data: { deletedAt: new Date() }
-    });
+    // 事务内只剩 create-if-missing 操作，保留事务以保证首次部署的原子性。
   });
 
   // 3. 按钮权限点
@@ -176,7 +163,7 @@ export async function runSeed(prisma: PrismaClient): Promise<void> {
     });
     const data = { permission: btn.permission, parentId: parent.id };
     if (existing) {
-      await prisma.menu.update({ where: { id: existing.id }, data });
+      continue;
     } else {
       // 同名软删行复活（与 MENU 块同口径）；orderBy 固定取最旧行，
       // 同名多 tombstone 时结果确定。
