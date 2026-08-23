@@ -39,6 +39,7 @@
     "lint-staged": "catalog:",
     "prettier": "catalog:",
     "stylelint": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "turbo": "catalog:"
   }
 }

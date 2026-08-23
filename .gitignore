@@ -61,3 +61,6 @@ pids
 
 # Prisma 生成物（prisma generate 产物，build 链重新生成）
 apps/nestjs-server/src/generated/
+
+# Turborepo 本地缓存（默认在 node_modules/.cache/turbo，此为自定义缓存目录兜底）
+.turbo

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "dist-electron/**"]
+    },
+    "build:staging": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
+    "build:dir": { "dependsOn": ["^build"], "cache": false },
+    "build:mp-weixin": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
+    "typecheck": { "dependsOn": ["^build"] },
+    "lint": {},
+    "stylelint": {},
+    "test": { "dependsOn": ["^build"], "cache": false },
+    "test:e2e": { "dependsOn": ["^build"], "cache": false },
+    "test:coverage": { "dependsOn": ["^build"], "cache": false },
+    "dev": { "persistent": true, "cache": false, "dependsOn": ["^build"] },
+    "dev:mp-weixin": {
+      "persistent": true,
+      "cache": false,
+      "dependsOn": ["^build"]
+    },
+    "test:watch": {
+      "persistent": true,
+      "cache": false,
+      "dependsOn": ["^build"]
+    },
+    "//apps/nestjs-server#build": {
+      "outputs": ["dist/**", "src/generated/**"]
+    },
+    "//apps/electron-desktop#build": { "cache": false },
+    "//apps/electron-desktop#typecheck": { "dependsOn": [] },
+    "//apps/electron-desktop#dev": { "dependsOn": [] }
+  }
+}
