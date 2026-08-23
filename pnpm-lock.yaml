@@ -1029,9 +1029,18 @@ importers:
 
   packages/contracts:
     devDependencies:
+      '@multi-admin/eslint-config':
+        specifier: workspace:*
+        version: link:../../internal/eslint-config
       '@multi-admin/tsconfig':
         specifier: workspace:*
         version: link:../../internal/tsconfig
+      eslint:
+        specifier: 'catalog:'
+        version: 10.8.1(jiti@2.7.0)(supports-color@10.2.2)
+      prettier:
+        specifier: 'catalog:'
+        version: 3.9.6
       tsdown:
         specifier: 'catalog:'
         version: 0.22.14(@volar/typescript@2.4.28)(tsx@4.23.12)(typescript@5.9.3)(vue-tsc@3.3.9(typescript@5.9.3))
