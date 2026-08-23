@@ -28,7 +28,9 @@ RUN pnpm install --frozen-lockfile --filter @multi-admin/nestjs-server... \
     --fetch-retries=5
 
 COPY apps/nestjs-server ./apps/nestjs-server
-RUN pnpm --filter @multi-admin/nestjs-server run build
+# `...` 后缀 = 该包及全部依赖，pnpm 按依赖图拓扑序先构建上游（contracts），
+# 与本地 turbo 任务图同源于同一份依赖声明（容器内不安装/不运行 turbo）
+RUN pnpm --filter @multi-admin/nestjs-server... run build
 
 FROM node:24-alpine AS production-stage
 

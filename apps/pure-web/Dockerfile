@@ -26,7 +26,9 @@ RUN pnpm install --frozen-lockfile --filter @multi-admin/pure-web... \
     --fetch-retries=5
 
 COPY apps/pure-web ./apps/pure-web
-RUN pnpm --filter @multi-admin/pure-web run build
+# `...` 后缀 = 该包及全部依赖，pnpm 按依赖图拓扑序先构建上游（contracts），
+# 与本地 turbo 任务图同源于同一份依赖声明（容器内不安装/不运行 turbo）
+RUN pnpm --filter @multi-admin/pure-web... run build
 
 FROM nginx:stable-alpine AS production-stage
 
