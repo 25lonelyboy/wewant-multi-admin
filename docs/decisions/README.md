@@ -8,8 +8,9 @@
 |---|---|---|
 | [ADR-001-electron-desktop.md](ADR-001-electron-desktop.md) | 桌面端技术选型 Electron（打印需求导向） | accepted |
 | [ADR-002-dependency-catalog.md](ADR-002-dependency-catalog.md) | 依赖版本统一走 pnpm catalog + named catalog 隔离 | accepted |
-| [ADR-003-electron-toolchain-pin.md](ADR-003-electron-toolchain-pin.md) | Electron 工具链精确 pin + 构建编排放桌面端 prebuild | accepted |
+| [ADR-003-electron-toolchain-pin.md](ADR-003-electron-toolchain-pin.md) | Electron 工具链精确 pin（构建编排条款由 ADR-005 取代；pin 决策继续有效故不标整体 superseded） | accepted |
 | [ADR-004-contracts-and-backend-stack.md](ADR-004-contracts-and-backend-stack.md) | 前后端契约走独立 contracts 包；Prisma / 自研 JWT 认证 / class-validator 选型 | accepted |
+| [ADR-005-turbo-build-orchestration.md](ADR-005-turbo-build-orchestration.md) | 构建编排采纳 Turborepo 任务图（取代 pre hook；部分取代 ADR-003 编排条款） | accepted |
 
 ## 规则
 

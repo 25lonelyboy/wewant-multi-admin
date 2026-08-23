@@ -32,5 +32,5 @@ last_verified: 2026-08-23
 | dept / 监控域后端实现 | 前端 views / api / mock 已就位并降级空态，后端未实现；触发：两域业务需求立项（届时 seed 菜单树恢复节点） |
 | mine-logs 个人安全日志 | `/api/v1/mine-logs` 仅 mock 供数，后端未实现；触发：监控域登录日志立项时统一设计 SecurityLog 数据源 |
 | 头像上传与文件存储 | `avatar` 目前为字符串字段（URL 或 null），无上传端点；触发：文件存储基建（本地盘 / 对象存储 + 上传端点）引入时 |
-| electron-desktop prebuild 构建链 | `prebuild` 直接调 pure-web build 但未先构建 contracts 包，干净工作区首次 `build:desktop` 会因 `dist/` 不存在而断链；触发：electron-desktop 构建链路改造或 contracts 第二个消费者出现时补 `prebuild` 钩子 |
-| contracts 包缺 lint / format 脚本 | `packages/contracts` 仅有 build / typecheck / test，无独立 lint 与 format 校验；触发：contracts 消费者增至 2 个以上时补齐 |
+| electron-desktop prebuild 构建链 | `prebuild` 直接调 pure-web build 但未先构建 contracts 包，干净工作区首次 `build:desktop` 会因 `dist/` 不存在而断链；触发：electron-desktop 构建链路改造或 contracts 第二个消费者出现时补 `prebuild` 钩子（已关闭，2026-08-23，turbo 任务图取代钩子编排，ADR-005） |
+| contracts 包缺 lint / format 脚本 | `packages/contracts` 仅有 build / typecheck / test，无独立 lint 与 format 校验；触发：contracts 消费者增至 2 个以上时补齐（已关闭，2026-08-23，补齐 lint / format 脚本与 eslint 薄壳，turbo 迁移任务） |

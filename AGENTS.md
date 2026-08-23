@@ -26,12 +26,12 @@ pnpm dev:web                      # 启动 pure-web
 pnpm dev:server                   # 启动 NestJS（watch 模式）
 pnpm dev:mobile                   # 启动 uni-app H5
 pnpm dev:desktop                  # 启动 Electron 桌面端
-pnpm build                        # 全量构建所有 workspace
+pnpm build                        # 全量构建（turbo 任务图编排 + 缓存）
 pnpm build:web                    # 仅构建 pure-web
-pnpm build:desktop                # 打包桌面端安装包（prebuild 自动先构建 pure-web）
-pnpm check                        # 本地质量门禁：prettier → typecheck → lint → test，任一失败即终止
-pnpm lint                         # 全 workspace lint
-pnpm typecheck                    # 全 workspace 类型检查
+pnpm build:desktop                # 打包桌面端安装包（任务图 ^build 自动先构建 pure-web）
+pnpm check                        # 本地质量门禁：prettier → typecheck → lint → stylelint → test → test 覆盖枚举，纯校验不改文件
+pnpm lint                         # 全 workspace lint（turbo 编排，纯校验）
+pnpm typecheck                    # 全 workspace 类型检查（turbo 编排）
 pnpm format                       # Prettier 全量格式化
 
 # nestjs-server 本地开发前置：先 docker compose up -d postgres redis（或全量 up）
@@ -48,7 +48,8 @@ pnpm --filter @multi-admin/nestjs-server run test:coverage  # 单测+e2e 合并�
 
 - **版本治理**：多消费者/框架级依赖统一走 `pnpm-workspace.yaml` 的 `catalog:`；uni-app 的 Vite 5.2.8 用 named catalog `catalog:uni-app` 隔离；jest 30.4.1 被 catalog + overrides 双重 pin。
 - **contracts 先行**：前后端契约变更先改 `packages/contracts`（纯类型 + 常量值），双端再各自实现/接线；mock 与真实后端契约同形，扩展流程与错误码表见 `docs/architecture/contracts.md`。
-- **桌面端链路**：`electron-desktop` 的 `prebuild` 钩子编排 pure-web 构建 → esbuild 编译主进程/preload（`esbuild.config.mjs`）→ electron-builder 打包（`electron-builder.yml`）；渲染层由自定义协议（`electron/main/protocol.ts`）托管 pure-web 产物；单实例锁 + 托盘常驻（关窗隐藏不退出）。
+- **桌面端链路**：上游产物（pure-web dist）由 turbo 任务图 `^build` 编排；`build` / `build:dir` 任务 `cache: false` → esbuild 编译主进程/preload（`esbuild.config.mjs`）→ electron-builder 打包（`electron-builder.yml`）；渲染层由自定义协议（`electron/main/protocol.ts`）托管 pure-web 产物；单实例锁 + 托盘常驻（关窗隐藏不退出）。
+- **构建编排（turbo 任务图）**：跨包构建顺序由 `turbo.json` 的 `dependsOn: ["^build"]` 从 workspace 依赖图推导；pre 钩子已全量移除；所有编排入口走 `turbo run <task> [--filter=X]`（根脚本已封装），裸 `pnpm --filter X run <script>` 为非入口专家操作、不保证链路；包内前置（如 `prisma generate`）嵌脚本原子；Docker 容器以 `pnpm --filter X... run build` 原生拓扑兜底（决策见 ADR-005）。
 - **安全不变量**：preload 仅暴露具名方法，禁止 `ipcRenderer` 泛通道透传；Electron 生态依赖（electron / electron-builder）精确 pin，不加 `^`。
 - **Lint 薄壳模式**：各应用 eslint / stylelint 配置一行引用 `@multi-admin/eslint-config` / `@multi-admin/stylelint-config` 工厂函数；职责分离——ESLint 只校验，格式化由 Prettier 独占；lint 带 `--max-warnings 0`。
 - **Docker**：web / server 镜像构建必须以仓库根为 context（如 `docker build -f apps/pure-web/Dockerfile .`）；本机编排 `docker compose up`（先复制根 `.env.example` 为 `.env` 并填写密码）。compose 含 postgres / redis / server / web 四服务，server 启动链 entrypoint：`prisma migrate deploy → prisma db seed → exec node`（幂等可重复）。库名统一 `multi_admin`（测试库 `multi_admin_test`）；历史上用过旧库名（`multi-admin` 等）的存量 postgres 卷需 `docker compose down -v` 重建后才会以 `multi_admin` 初始化（存量卷的 `POSTGRES_DB` 不生效）。红线：本地 compose 的 redis 无密码且映射宿主 6379，仅限本地开发，生产/共享网络禁止直接暴露。env 模板两处注意：根 `.env` 的 `DATABASE_URL` 若手动设置，内嵌密码须与 `POSTGRES_PASSWORD` 一致（否则 server 连库失败而 postgres 容器正常，排障困难）；根模板的 `REDIS_URL` 经 compose 插值注入 server（`docker-compose.yml` 中 `${REDIS_URL:-redis://redis:6379}`）。

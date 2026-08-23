@@ -2,7 +2,7 @@
 status: living
 covers:
   - apps/electron-desktop/
-last_verified: 2026-08-16
+last_verified: 2026-08-23
 ---
 
 # Electron 桌面端架构
@@ -45,8 +45,8 @@ apps/electron-desktop/
 
 ```text
 pnpm build:desktop
-  → prebuild: pnpm --filter @multi-admin/pure-web run build   # 编排上游产物
-  → esbuild.config.mjs                                          # 编译主进程/preload
+→ turbo run build --filter=@multi-admin/electron-desktop   # 任务图 ^build 先构建 pure-web 产物
+  → esbuild.config.mjs                                       # 编译主进程/preload
   → electron-builder（--dir 可跳过安装包制作，仅产出目录）
 ```
 

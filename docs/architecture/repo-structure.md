@@ -5,7 +5,7 @@ covers:
   - internal/
   - packages/
   - pnpm-workspace.yaml
-last_verified: 2026-08-22
+last_verified: 2026-08-23
 ---
 
 # Monorepo 结构与边界
@@ -42,7 +42,7 @@ flowchart LR
     desktop["electron-desktop"]
     server["nestjs-server"]
     mobile["uni-mobile"]
-    desktop -- "prebuild 钩子触发 pure-web build" --> web
+    desktop -- "任务图 ^build 编排 pure-web 产物" --> web
     web -- "workspace:* 契约消费" --> contracts
     server -- "workspace:* 契约消费" --> contracts
     web -.-> eslint & tsconfig
@@ -54,7 +54,7 @@ flowchart LR
 
 要点：
 
-- **桌面端构建编排放 `electron-desktop` 的 `prebuild` 钩子**（而非根脚本或 pure-web 钩子），保证任何人单独执行 `pnpm build:desktop` 也能得到完整产物。
+- 桌面端构建编排由 `turbo.json` 任务图承担：`build` / `build:dir` 经 `^build` 先构建 pure-web，任何入口（根命令 / `--filter`）均自动编排（决策见 ADR-005）。
 - pure-web 与 electron-desktop 是"产物消费"关系而非代码 import 关系：桌面端通过自定义协议托管 pure-web 的静态产物（见 [desktop-app.md](desktop-app.md)）。
 - `packages/common` 目前无消费方，新增共享代码时的放置判据见下。
 - `packages/contracts` 是首个被前后端双端消费的共享包（P5）；契约扩展流程与错误码表见 [contracts.md](contracts.md)。

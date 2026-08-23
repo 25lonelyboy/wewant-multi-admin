@@ -5,7 +5,7 @@ covers:
   - apps/nestjs-server/src/
   - apps/pure-web/src/api/
   - apps/pure-web/mock/
-last_verified: 2026-08-22
+last_verified: 2026-08-23
 ---
 
 # contracts 契约包
@@ -15,7 +15,7 @@ last_verified: 2026-08-22
 - `packages/contracts`（`@multi-admin/contracts`）是前后端接口契约的唯一载体：响应信封、错误码、分页与各域 VO/DTO 类型。nestjs-server（Nest，ESM）与 pure-web（Vite；mock fixture 同形标注）双端消费。
 - 只放**纯类型与常量值**（如 BizCode / MenuType 枚举对象）；不放运行期逻辑、校验规则（class-validator DTO 留 server 侧）与框架依赖。
 - 构建为 tsdown ESM+CJS 双格式 + 双 d.ts（`format: ['esm', 'cjs']`，`dts: true`），应对 Vite / Nest（`type: module`）/ jest（CJS）三种消费场景。
-- 消费方一律 `workspace:*` 引用；双端 `pretypecheck` / `pretest` 先构建 contracts，防陈旧产物参检。
+- 消费方一律 `workspace:*` 引用；消费方的 typecheck / test / build 任务经 `turbo.json` 的 `^build` 先构建 contracts，防陈旧产物参检（决策见 ADR-005）。
 
 ## 契约扩展流程（contracts 先行）
 
