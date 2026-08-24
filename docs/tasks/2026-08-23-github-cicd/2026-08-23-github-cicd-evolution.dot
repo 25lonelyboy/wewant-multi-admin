@@ -1,0 +1,77 @@
+// GitHub CI 演进：现状 → 目标差距图（异步安全网定位；CD 不发布，仅 Docker 构建验证）
+// 生成：evolution-planner + brainstorming skill，2026-08-24 approved；证据口径见同目录 2026-08-23-github-cicd-design.md
+digraph cicd_evolution {
+  rankdir=TB;
+  fontname="sans-serif";
+  node [fontname="sans-serif", fontsize=11];
+  edge [fontname="sans-serif", fontsize=10];
+  labelloc="t";
+  label="wewant-multi-admin · GitHub CI 演进（绿=现状已具备 / 蓝=目标新增 / 橙=迁移切片）\n定位：入库后异步安全网（单人直推 master，不走 PR，不拦截）";
+
+  // ---------- 现状（current，证据充分） ----------
+  subgraph cluster_current {
+    label="现状 · 本地门禁时代（证据：代码/配置）";
+    style=rounded; color="#2e7d32";
+
+    check [label="pnpm check 门禁\n(scripts/check.mjs)\nprettier→typecheck→lint→stylelint→test", shape=box, fillcolor="#c8e6c9", style="rounded,filled"];
+    husky [label="husky 钩子（实时拦截层）\npre-commit(lint-staged)\ncommit-msg(commitlint)", shape=box, fillcolor="#c8e6c9", style="rounded,filled"];
+    turbo [label="turbo 任务图\n(turbo.json，变体显式声明)", shape=box, fillcolor="#c8e6c9", style="rounded,filled"];
+    catalog [label="catalog + pnpm-lock\n(packageManager=11.18.0)", shape=box, fillcolor="#c8e6c9", style="rounded,filled"];
+    dockerfiles [label="Dockerfile×2 已 monorepo 化\n根 context + --filter X...\n(web: nginx / server: entrypoint 启动链)", shape=box, fillcolor="#c8e6c9", style="rounded,filled"];
+    e2e [label="coverage/e2e 默认值对齐 services\nlocalhost:5432/6379, postgres:postgres\n(test/setup-env.ts)", shape=box, fillcolor="#c8e6c9", style="rounded,filled"];
+    coverage [label="合并覆盖率流水线\ntest:coverage ≥80% 硬门槛", shape=box, fillcolor="#c8e6c9", style="rounded,filled"];
+
+    check -> turbo [label="编排"];
+    husky -> check [label="提交前触发", style=dashed];
+  }
+
+  // ---------- 目标（target / approved） ----------
+  subgraph cluster_target {
+    label="目标 · GitHub Actions CI（approved，四 job 全并行，报警式不拦截）";
+    style=rounded; color="#1565c0";
+
+    wf [label=".github/workflows/ci.yml\n触发: push master + workflow_dispatch\n无 concurrency · 无 paths filter\nenv: HUSKY=0", shape=box, fillcolor="#bbdefb", style="rounded,filled"];
+    job_gate [label="gate (timeout 30)\nnode24 + pnpm(action-setup)\nfrozen-lockfile + pnpm check", shape=box, fillcolor="#bbdefb", style="rounded,filled"];
+    job_docker [label="docker-build (timeout 40)\nbuildx 构建 web/server 镜像，不 push\nweb 加启动冒烟 (run+curl)", shape=box, fillcolor="#bbdefb", style="rounded,filled"];
+    job_coverage [label="coverage (S2, timeout 40)\nservices postgres:15 + redis:7\ntest:coverage ≥80% 报警式硬门槛", shape=box, fillcolor="#bbdefb", style="rounded,filled"];
+    job_audit [label="audit (timeout 10)\npnpm audit --audit-level=high\n免 install · v1 continue-on-error", shape=box, fillcolor="#bbdefb", style="rounded,filled"];
+    awareness [label="失败感知（报警式的强制配套）\n根 README badge + watch 邮件\n纪律: CI 红→下一项先修 CI", shape=box, fillcolor="#fff9c4", style="rounded,filled"];
+
+    wf -> job_gate;
+    wf -> job_docker;
+    wf -> job_coverage [label="S2 并入"];
+    wf -> job_audit;
+    job_gate -> awareness [label="报红", style=dashed];
+    job_coverage -> awareness [label="报红", style=dashed];
+    job_audit -> awareness [label="报警(不红)", style=dashed];
+  }
+
+  // ---------- 现状到目标的复用边（零改造接入点） ----------
+  check -> job_gate [label="原样复用", color="#2e7d32"];
+  catalog -> job_gate [label="frozen-lockfile", color="#2e7d32"];
+  catalog -> job_audit [label="只解析 lockfile", color="#2e7d32"];
+  turbo -> job_gate [label="原样复用", color="#2e7d32"];
+  turbo -> job_coverage [label="test:coverage", color="#2e7d32"];
+  dockerfiles -> job_docker [label="原样复用", color="#2e7d32"];
+  e2e -> job_coverage [label="默认值天然匹配 services", color="#2e7d32"];
+  coverage -> job_coverage [label="≥80% 门槛原样提升", color="#2e7d32"];
+  husky -> job_gate [label="本地实时 + CI 异步双层分工", style=dashed, color="#78909c"];
+
+  // ---------- 迁移切片（橙色，含验证信号） ----------
+  subgraph cluster_slices {
+    label="迁移切片（按依赖排序）";
+    style=rounded; color="#ef6c00";
+
+    s0 [label="S0 前置验证（本地）\n① docker build 双镜像冒烟通过\n② pnpm check 在干净工作区通过", shape=note, fillcolor="#ffe0b2", style=filled];
+    s1pre [label="S1-pre ADR-006 先行（仓库惯例）\n定位/触发/并行/不拦截口径成文", shape=note, fillcolor="#ffe0b2", style=filled];
+    s1 [label="S1 CI v1\ngate + docker-build + audit 三 job 并行\n验证：push master 全绿 + 镜像产出 + web 冒烟 200", shape=note, fillcolor="#ffe0b2", style=filled];
+    s2 [label="S2 coverage 并入\nservices 建库→migrate→单测+e2e→合并报表 ≥80%\n报警式硬门槛", shape=note, fillcolor="#ffe0b2", style=filled];
+    s3 [label="S3 收尾\n根 README+badge · build-and-verify 改写+纪律条款\nclose backlog 两项 · audit 噪音复盘(可收紧)", shape=note, fillcolor="#ffe0b2", style=filled];
+
+    s0 -> s1pre -> s1 -> s2 -> s3;
+  }
+
+  s1pre -> wf [style=dashed, color="#ef6c00"];
+  s2 -> job_coverage [style=dashed, color="#ef6c00"];
+  s3 -> awareness [style=dashed, color="#ef6c00"];
+}
