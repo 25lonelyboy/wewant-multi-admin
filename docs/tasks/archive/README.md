@@ -10,7 +10,7 @@
 | `2026-08-14-electron-desktop-impl.md` | 桌面端实施计划（托盘、协议、构建链） |
 | `2026-08-14-electron-desktop-design.md` | 桌面端设计文档 |
 
-结论去向：可复用结论在 `docs/architecture/` 与 `docs/engineering/`；稳定决策落为 [ADR-001](../decisions/ADR-001-electron-desktop.md) / [ADR-002](../decisions/ADR-002-dependency-catalog.md) / [ADR-003](../decisions/ADR-003-electron-toolchain-pin.md)。
+结论去向：可复用结论在 `docs/architecture/` 与 `docs/engineering/`；稳定决策落为 [ADR-001](../../decisions/ADR-001-electron-desktop.md) / [ADR-002](../../decisions/ADR-002-dependency-catalog.md) / [ADR-003](../../decisions/ADR-003-electron-toolchain-pin.md)。
 
 归档日期：2026-08-16（结论提升完毕）。
 
@@ -29,7 +29,7 @@
 | `2026-08-21-nestjs-backend-foundation-phase5-design.md` | P5 设计（前端契约对接 + 直连切换） |
 | `2026-08-22-nestjs-backend-foundation-phase5-plan.md` | P5 实施计划（Task 1-21） |
 
-结论去向：契约包事实源 → [contracts.md](../architecture/contracts.md)；技术选型 → [ADR-004](../decisions/ADR-004-contracts-and-backend-stack.md)；仓库结构 → [repo-structure.md](../architecture/repo-structure.md)；构建与验证 → [build-and-verify.md](../engineering/build-and-verify.md)；待跟进项 → [governance/backlog.md](../governance/backlog.md)。
+结论去向：契约包事实源 → [contracts.md](../../architecture/contracts.md)；技术选型 → [ADR-004](../../decisions/ADR-004-contracts-and-backend-stack.md)；仓库结构 → [repo-structure.md](../../architecture/repo-structure.md)；构建与验证 → [build-and-verify.md](../../engineering/build-and-verify.md)；待跟进项 → [backlog.md](../../governance/backlog.md)。
 
 归档日期：2026-08-22（P5 全部门禁通过，结论提升完毕）。
 
