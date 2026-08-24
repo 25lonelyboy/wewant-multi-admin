@@ -4,7 +4,7 @@
 
 **Goal:** 按 approved 设计（同目录 `2026-08-23-github-cicd-design.md` / `2026-08-23-github-cicd-roadmap.md`）落地 GitHub Actions CI：push master 触发、四 job 并行、报警式不拦截、CD 不发布。
 
-**Architecture:** 薄封装复用既有资产——`pnpm check` 为质量门入口，Dockerfile×2 原样做构建验证，`test:coverage` 配 GH Actions services 做覆盖率门禁，`pnpm audit` 免安装扫描。零工程代码改动，全部为新增文件与文档同步。
+**Architecture:** 薄封装复用既有资产——`pnpm check` 为质量门入口，Dockerfile×2 做构建验证（ARG 参数化镜像源 + production-stage 缓存清理），`test:coverage` 配 GH Actions services 做覆盖率门禁，`pnpm audit` 免安装扫描。业务代码零改动，Dockerfile 仅构建期配置优化。
 
 **Tech Stack:** GitHub Actions（actions/checkout@v4、pnpm/action-setup@v4、actions/setup-node@v4、docker/setup-buildx-action@v3、docker/build-push-action@v6）、pnpm 11.18.0（packageManager 字段）、turbo、Docker。
 
@@ -60,14 +60,41 @@ Expected: 依次通过 prettier → typecheck → lint → stylelint → test，
 
 - [ ] **Step 3: 双镜像构建冒烟**
 
-Run（仓库根，两条依次执行，每条预计 5~15 分钟）:
+Run（仓库根，两条依次执行，每条预计 5~15 分钟，`tee` 顺带捕获日志供 Step 4 审计。注：`tee`/`grep` 需 bash 环境，Git Bash 或 WSL）:
 ```bash
-docker build -f apps/pure-web/Dockerfile -t multi-admin-web:smoke .
-docker build -f apps/nestjs-server/Dockerfile -t multi-admin-server:smoke .
+docker build -f apps/pure-web/Dockerfile -t multi-admin-web:smoke . 2>&1 | tee web-build.log
+docker build -f apps/nestjs-server/Dockerfile -t multi-admin-server:smoke . 2>&1 | tee server-build.log
 ```
 Expected: 两条均以 `Successfully built / exporting to image` 结束、退出码 0。失败则按报错修复（此步就是为把问题挡在 runner 外），修复后重跑。
 
-- [ ] **Step 4: web 镜像本地冒烟（预演 CI 冒烟逻辑）**
+- [ ] **Step 4: 镜像依赖审计（排查无关依赖污染）**
+
+目的：monorepo 的 `--filter X...` 会拉入该包的全部传递依赖，可能包含与目标应用无关的包（如 nestjs-server 镜像中混入 dcloud/uniapp、electron 相关依赖）。此步从构建日志中提取实际安装的包清单并审计。
+
+Run（直接分析 Step 3 已捕获的日志，无需重新构建）：
+```bash
+# nestjs-server：从安装日志中提取实际安装的包名
+grep -E "^\+ " server-build.log | sort > server-deps-installed.txt
+# 排查与 nestjs-server 运行时无关的包域：
+grep -iE "dcloud|uniapp|uni-|electron|@electron|desktop|@dcloudio" server-deps-installed.txt
+```
+
+对 pure-web 同理：
+```bash
+grep -E "^\+ " web-build.log | sort > web-deps-installed.txt
+grep -iE "dcloud|uniapp|uni-|electron|@electron|desktop|@dcloudio|@nestjs|prisma|argon2" web-deps-installed.txt
+```
+
+Expected:
+- **理想**：grep 无输出 = 无跨域污染依赖。
+- **发现问题**：如果 grep 命中（如 nestjs-server 中安装了 `@dcloudio/uni-mp-weixin`、`@electron/remote` 等），**立即中断，不进入 Step 5**，通知用户讨论优化方案。
+
+发现无关依赖时的优化建议（供讨论参考）：
+1. **`--filter` 精度不足**：`--filter @multi-admin/nestjs-server...` 的 `...` 会拉入全部 workspace 上游依赖（`internal/*`、`packages/common`）。如果上游包引入了桌面端依赖，需要检查 `internal/` 和 `packages/` 的 `package.json` 是否有跨域引用。
+2. **依赖提升泄漏**：pnpm 虚拟 store 中 `node_modules` 的符号链接可能让无关包变得可解析。考虑在 production-stage 的 `pnpm install` 追加 `--no-optional` 或显式排除特定 workspace 包。
+3. **构建期 vs 运行期差异**：build-stage 的 `--filter X...` 安装全量（含 devDeps）用于编译，production-stage 的 `--filter X --prod` 只安装 production deps。如果可疑包出现在 build-stage 但不在 production-stage，则不影响最终镜像体积，但仍需确认是否拖慢构建。
+
+- [ ] **Step 5: web 镜像本地冒烟（预演 CI 冒烟逻辑）**
 
 Run:
 ```bash
@@ -200,6 +227,9 @@ jobs:
           push: false
           load: true
           tags: multi-admin-web:ci
+          build-args: |
+            PNPM_REGISTRY=https://registry.npmjs.org
+            COREPACK_NPM_REGISTRY=https://registry.npmjs.org
       - name: 构建 nestjs-server 镜像
         uses: docker/build-push-action@v6
         with:
@@ -208,6 +238,10 @@ jobs:
           push: false
           load: true
           tags: multi-admin-server:ci
+          build-args: |
+            PNPM_REGISTRY=https://registry.npmjs.org
+            COREPACK_NPM_REGISTRY=https://registry.npmjs.org
+            PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
       - name: web 镜像启动冒烟（重试循环，容忍冷启动延迟）
         run: |
           docker run -d --name web-smoke -p 8848:80 multi-admin-web:ci
@@ -251,7 +285,7 @@ git commit -m "ci(repo): GitHub Actions CI v1（gate + docker-build + audit 并�
 Expected: 三 job 并行；`gate` 绿；`docker-build` 绿（两镜像产出、冒烟 200）；`audit` 绿（有漏洞时 step 黄/红但 job 绿）。
 失败处置：
 - `gate` 失败多为环境差异（对照本地 `pnpm check` 输出定位）；注意安装阶段会下载 electron Linux 二进制（约 100MB，走 GitHub Releases）与触发原生依赖构建脚本（argon2 等走预编译包），首跑耗时包含这段，勿误判为卡死。
-- `docker-build` 失败优先看 registry 拉包（预案：Dockerfile 的 `PNPM_CONFIG_REGISTRY` 提为 `ARG` 改官方源，需先与用户确认）。
+- `docker-build` 失败优先看 buildx/Docker Hub 连通性（Dockerfile ARG 已默认国内源，CI 通过 `build-args` 覆盖为官方源，registry 不是问题点）。
 - `audit` step 若报「需要安装上下文」类错误（pnpm audit 直读 lockfile 行为异常），降级为该 job 内先 `pnpm install --frozen-lockfile` 再 audit。
 
 **修复闭环前不进入 Task 4。**
@@ -410,7 +444,9 @@ git commit -m "docs(repo): CI 落地收尾（README badge + 门禁双层文档�
 
 在首跑稳定一周后由用户择机处理（无需代码改动）：
 1. **audit 噪音基线**：查看 Actions 中 audit step 输出，统计 high/critical 数量与可行动性；若噪音可控（≤3 项且可行动），移除 `continue-on-error` 收紧为失败级。
-2. **docker 构建时长**：若 `docker-build` job 常态 >20 分钟成为反馈痛点，为两个 `docker/build-push-action` 追加 `cache-from: type=gha` / `cache-to: type=gha,mode=max`。
+2. **docker 构建时长**：若 `docker-build` job 常态 >20 分钟成为反馈痛点，为两个 `docker/build-push-action` 追加 `cache-from: type=gha` / `cache-to: type=gha,mode=max`（注：BuildKit `--mount=type=cache` 跨 run 不生效，必须用 `type=gha`）。
+3. **Dockerfile ARG 参数化评估**：两个 Dockerfile 已将镜像源参数化（ARG 默认国内源、CI `build-args` 覆盖官方源），首跑后确认 `PRISMA_ENGINES_MIRROR` 在 CI 生效、engines 下载走 `binaries.prisma.sh` 而非 npmmirror。
+4. **镜像瘦身验证**：production-stage 安装后已清理 pnpm 缓存（`/root/.cache` + store），首跑后确认 nestjs-server 镜像 ~571MB（原 ~1.18GB）；后续可评估 Prisma 7.x 捆绑依赖（`@prisma/studio-core` 42MB、`pglite` 23MB、`typescript` 23MB）是否可通过 Prisma 配置裁剪。
 
 ---
 
@@ -422,3 +458,6 @@ git commit -m "docs(repo): CI 落地收尾（README badge + 门禁双层文档�
 4. **已知修正**：根 `README.md` 已存在，badge 为「追加」而非「新建」（设计工件已同步修正）。
 5. **审查修订（2026-08-24）**：① 新增 Task 0（设计工件先入库，修复 Task 1 「工作区干净」前提矛盾）；② Task 1 Step 4 前置清理残留容器；③ CI 冒烟改 5 次重试循环；④ Task 3 失败处置补 electron 二进制下载说明与 audit 降级方案；⑤ ADR date 标注以实施日为准。
 6. **命名对齐治理规范（2026-08-24）**：任务目录与四份工件按 `docs/README.md` 命名规则（任务目录/过程文件日期前缀）重命名为 `2026-08-23-github-cicd/` + `*-design/-roadmap/-plan/-evolution` 系列；Task 0 补 `docs/tasks/README.md` 热索引登记步骤。
+7. **Dockerfile 镜像源参数化（2026-08-24）**：两个 Dockerfile 硬编码的 `registry.npmmirror.com` 改为 `ARG` 参数化（默认国内源），新增 `PRISMA_ENGINES_MIRROR` ARG；ci.yml `build-args` 覆盖为官方源（`registry.npmjs.org` + `binaries.prisma.sh`）；docker-compose.yml 无需改动（直接用 ARG 默认值）。
+8. **镜像瘦身 + 文档同步（2026-08-24）**：① nestjs-server production-stage 安装后追加 `rm -rf /root/.cache /root/.local/share/pnpm/store /tmp`（镜像从 ~1.18GB 降至 ~571MB，节省 ~606MB）；② 设计文档同步更新：registry 策略标「已落地」、风险表更新、影响面从「零改动」修正为「业务代码零改动 + Dockerfile 构建期优化」；③ 计划 Architecture 段同步 Dockerfile 优化说明。
+9. **镜像依赖审计步骤（2026-08-24）**：Task 1 新增 Step 4（镜像依赖审计），在双镜像构建后从日志中 grep 无关包域（dcloud/uniapp/electron 等）；Step 3 加 `tee` 捕获日志；原 Step 4（web 冒烟）顺延为 Step 5。发现跨域污染依赖时中断流程通知用户讨论。
