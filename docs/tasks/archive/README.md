@@ -32,3 +32,15 @@
 结论去向：契约包事实源 → [contracts.md](../architecture/contracts.md)；技术选型 → [ADR-004](../decisions/ADR-004-contracts-and-backend-stack.md)；仓库结构 → [repo-structure.md](../architecture/repo-structure.md)；构建与验证 → [build-and-verify.md](../engineering/build-and-verify.md)；待跟进项 → [governance/backlog.md](../governance/backlog.md)。
 
 归档日期：2026-08-22（P5 全部门禁通过，结论提升完毕）。
+
+## 2026-08-23-turbo-build-orchestration —— Turborepo 构建编排全量迁移
+
+| 文件 | 说明 |
+|---|---|
+| `README.md` | 任务入口、范围、状态、稳定结论去向 |
+| `2026-08-23-turbo-build-orchestration-design.md` | 设计文档（现状问题 / 方案对比 / 任务图建模 / 决策锁 / 验收标准） |
+| `2026-08-23-turbo-build-orchestration-plan.md` | 实施计划（Task 0-6，7 个任务的完整规格） |
+
+结论去向：构建编排决策 → [ADR-005](../../decisions/ADR-005-turbo-build-orchestration.md)；仓库结构 → [repo-structure.md](../../architecture/repo-structure.md)；契约包 → [contracts.md](../../architecture/contracts.md)；桌面端 → [desktop-app.md](../../architecture/desktop-app.md)；门禁与构建链 → [build-and-verify.md](../../engineering/build-and-verify.md)；已关闭 backlog → [backlog.md](../../governance/backlog.md)。
+
+归档日期：2026-08-24（结论提升完毕）。
