@@ -1,6 +1,7 @@
 ---
 status: living
 covers:
+  - .github/workflows/ci.yml
   - scripts/
   - .husky/
   - .lintstagedrc.json
@@ -9,19 +10,22 @@ covers:
   - docker-compose.yml
   - packages/contracts/
   - turbo.json
-last_verified: 2026-08-23
+last_verified: 2026-08-25
 ---
 
 # 构建与验证
 
 命令速查见根 `AGENTS.md`；本文写门禁机制与构建链约束。
 
-## 质量门禁（无 CI 的替代）
+## 质量门禁（本地实时 + CI 异步兜底双层）
 
-仓库无 CI/CD，提交质量由两层本地机制保证：
+提交质量由两层机制保证，职责分离：
 
-1. **`pnpm check`**（`scripts/check.mjs`）：按序执行 Prettier 全量检查 → `turbo run typecheck / lint / stylelint / test` → test 覆盖显式枚举，任一失败立即非零退出。纯校验不改文件。提交前必跑。
-2. **husky 钩子**：`pre-commit` 跑 lint-staged（配置在 `.lintstagedrc.json`，只处理暂存文件）；`commit-msg` 跑 commitlint（scope 强制 + 白名单，见 `commitlint.config.mjs`）。
+1. **实时拦截（本地，每次 commit）**：
+   - **`pnpm check`**（`scripts/check.mjs`）：按序执行 Prettier 全量检查 → `turbo run typecheck / lint / stylelint / test` → test 覆盖显式枚举，任一失败立即非零退出。纯校验不改文件。提交前必跑。
+   - **husky 钩子**：`pre-commit` 跑 lint-staged（配置在 `.lintstagedrc.json`，只处理暂存文件）；`commit-msg` 跑 commitlint（scope 强制 + 白名单，见 `commitlint.config.mjs`）。
+2. **异步兜底（入库后，每次 push master）**：`.github/workflows/ci.yml` 四 job 并行——`gate`（frozen-lockfile 安装 + `pnpm check` 服务端重验）、`docker-build`（双镜像构建验证 + web 启动冒烟，不 push）、`coverage`（services 上 `test:coverage` ≥80% 报警式硬门槛）、`audit`（`pnpm audit --audit-level=high` 报警式）。定位与取舍见 `docs/decisions/ADR-006-github-ci.md`。
+3. **纪律条款**：报警式不拦截的代价是红了必须有人看——**CI 红 → 下一项工作先修 CI**；感知窗口为根 README badge 与 GitHub watch 通知。
 
 历史教训（pre hook 时代）：生命周期钩子按**精确脚本名**匹配变体（`prebuild` 与 `prebuild:dir` 需各自声明）；迁移到任务图后，变体（`build:dir` / `build:staging` / `build:mp-weixin`）在 `turbo.json` 显式声明，新增变体必须同步入图。
 

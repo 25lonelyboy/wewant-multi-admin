@@ -53,7 +53,7 @@ pnpm --filter @multi-admin/nestjs-server run test:coverage  # 单测+e2e 合并�
 - **安全不变量**：preload 仅暴露具名方法，禁止 `ipcRenderer` 泛通道透传；Electron 生态依赖（electron / electron-builder）精确 pin，不加 `^`。
 - **Lint 薄壳模式**：各应用 eslint / stylelint 配置一行引用 `@multi-admin/eslint-config` / `@multi-admin/stylelint-config` 工厂函数；职责分离——ESLint 只校验，格式化由 Prettier 独占；lint 带 `--max-warnings 0`。
 - **Docker**：web / server 镜像构建必须以仓库根为 context（如 `docker build -f apps/pure-web/Dockerfile .`）；本机编排 `docker compose up`（先复制根 `.env.example` 为 `.env` 并填写密码）。compose 含 postgres / redis / server / web 四服务，server 启动链 entrypoint：`prisma migrate deploy → prisma db seed → exec node`（幂等可重复）。库名统一 `multi_admin`（测试库 `multi_admin_test`）；历史上用过旧库名（`multi-admin` 等）的存量 postgres 卷需 `docker compose down -v` 重建后才会以 `multi_admin` 初始化（存量卷的 `POSTGRES_DB` 不生效）。红线：本地 compose 的 redis 无密码且映射宿主 6379，仅限本地开发，生产/共享网络禁止直接暴露。env 模板两处注意：根 `.env` 的 `DATABASE_URL` 若手动设置，内嵌密码须与 `POSTGRES_PASSWORD` 一致（否则 server 连库失败而 postgres 容器正常，排障困难）；根模板的 `REDIS_URL` 经 compose 插值注入 server（`docker-compose.yml` 中 `${REDIS_URL:-redis://redis:6379}`）。
-- **无 CI/CD**：质量门禁只有本地 `pnpm check` + husky 钩子（pre-commit 跑 lint-staged，commit-msg 跑 commitlint）。
+- **质量门禁双层**：本地实时（`pnpm check` + husky 钩子）+ GitHub CI 异步兜底（`.github/workflows/ci.yml`，仅 push master 触发，四 job 并行报警式不拦截，决策见 `docs/decisions/ADR-006-github-ci.md`）。
 
 ## 硬规则
 

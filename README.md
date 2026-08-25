@@ -1,5 +1,7 @@
 # wewant-multi-admin
 
+![CI](https://github.com/25lonelyboy/wewant-multi-admin/actions/workflows/ci.yml/badge.svg)
+
 多端管理后台 monorepo（pnpm workspace）：Web 管理后台、NestJS 后端、uni-app 移动端、Electron 桌面端，共享 internal 工具包与 packages/common。
 
 ## 快速开始
