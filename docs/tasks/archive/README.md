@@ -44,3 +44,28 @@
 结论去向：构建编排决策 → [ADR-005](../../decisions/ADR-005-turbo-build-orchestration.md)；仓库结构 → [repo-structure.md](../../architecture/repo-structure.md)；契约包 → [contracts.md](../../architecture/contracts.md)；桌面端 → [desktop-app.md](../../architecture/desktop-app.md)；门禁与构建链 → [build-and-verify.md](../../engineering/build-and-verify.md)；已关闭 backlog → [backlog.md](../../governance/backlog.md)。
 
 归档日期：2026-08-24（结论提升完毕）。
+
+## 2026-08-23-github-cicd —— GitHub CI/CD 演进方案
+
+| 文件 | 说明 |
+|---|---|
+| `2026-08-23-github-cicd-design.md` | 演进设计（影响面评估 / 切片路线 / Job 拓扑） |
+| `2026-08-23-github-cicd-plan.md` | 实施计划（Task 0-6 + 文档治理收尾） |
+| `2026-08-23-github-cicd-roadmap.md` | 迁移路线图 |
+| `2026-08-23-github-cicd-evolution.dot` | 演进拓扑图（Graphviz DOT） |
+
+结论去向：CI 决策 → [ADR-006](../../decisions/ADR-006-github-ci.md)；门禁与构建链 → [build-and-verify.md](../../engineering/build-and-verify.md)；CI 配置 → [.github/workflows/ci.yml](../../.github/workflows/ci.yml)。
+
+归档日期：2026-08-26（结论提升完毕，CI 首跑通过 + DATABASE_URL 修复落地）。
+
+## 2026-08-25-ops-scripts —— ops 脚本自动化操作集
+
+| 文件 | 说明 |
+|---|---|
+| `README.md` | 任务入口、稳定结论位置、实施提交记录 |
+| `2026-08-25-ops-scripts-design.md` | 设计文档（6 场景梳理 + 5 Shell / 2 ESM 选型 + 各脚本详细设计） |
+| `2026-08-25-ops-scripts-plan.md` | 实施计划（7 个 Task + 完整代码） |
+
+结论去向：ops 脚本命令速查 → [build-and-verify.md](../../engineering/build-and-verify.md)；脚本实现 → [scripts/ops/](../../scripts/ops/)；package.json ops:* 别名 → [package.json](../../package.json)。
+
+归档日期：2026-08-26（结论提升完毕）。
