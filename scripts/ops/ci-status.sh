@@ -35,8 +35,9 @@ else
   '
 
   # 取最新一次 run，检查是否有失败
-  conclusion=$(gh run list --workflow=CI --limit=1 --json conclusion --jq '.[0].conclusion // empty')
-  id=$(gh run list --workflow=CI --limit=1 --json databaseId --jq '.[0].databaseId')
+  latest=$(gh run list --workflow=CI --limit=1 --json conclusion,databaseId --jq '.[0] | "\(.conclusion // "") \(.databaseId)"')
+  conclusion="${latest%% *}"
+  id="${latest##* }"
 
   if [ "$conclusion" = "failure" ]; then
     echo ""
