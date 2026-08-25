@@ -19,6 +19,7 @@ until docker compose exec -T postgres pg_isready -U postgres >/dev/null 2>&1; do
 done
 echo "  ✔ postgres 就绪"
 
+elapsed=0
 until docker compose exec -T redis redis-cli ping >/dev/null 2>&1; do
   sleep 2
   elapsed=$((elapsed + 2))
