@@ -1,0 +1,80 @@
+# GitHub CI：入库后异步安全网（决策见 docs/decisions/ADR-006-github-ci.md）
+# 报警式不拦截：仅 push master + 手动触发；无分支保护；四 job 全并行。
+name: CI
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+env:
+  HUSKY: '0'
+
+jobs:
+  gate:
+    name: gate（pnpm check 全量门禁）
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+
+  docker-build:
+    name: docker-build（构建验证，不 push）
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: 构建 pure-web 镜像
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/pure-web/Dockerfile
+          push: false
+          load: true
+          tags: multi-admin-web:ci
+          build-args: |
+            PNPM_REGISTRY=https://registry.npmjs.org
+            COREPACK_NPM_REGISTRY=https://registry.npmjs.org
+      - name: 构建 nestjs-server 镜像
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/nestjs-server/Dockerfile
+          push: false
+          load: true
+          tags: multi-admin-server:ci
+          build-args: |
+            PNPM_REGISTRY=https://registry.npmjs.org
+            COREPACK_NPM_REGISTRY=https://registry.npmjs.org
+            PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
+      - name: web 镜像启动冒烟（重试循环，容忍冷启动延迟）
+        run: |
+          docker run -d --name web-smoke -p 8848:80 multi-admin-web:ci
+          code=000
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8848) || true
+            [ "$code" = "200" ] && break
+            sleep 2
+          done
+          docker logs web-smoke
+          docker rm -f web-smoke
+          test "$code" = "200"
+
+  audit:
+    name: audit（报警式，不红）
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - name: pnpm audit（只解析 lockfile，免 install）
+        run: pnpm audit --audit-level=high
+        continue-on-error: true
