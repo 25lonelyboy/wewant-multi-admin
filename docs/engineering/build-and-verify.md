@@ -56,6 +56,22 @@ last_verified: 2026-08-25
 - 基础镜像 `node:24-alpine`，pnpm 版本经 corepack 按 `packageManager` 字段锁定；镜像变量用 `PNPM_CONFIG_REGISTRY` / `COREPACK_NPM_REGISTRY`（`npm_config_*` 对 pnpm 无效）。
 - 本机编排：`cp .env.example .env` 填写 `POSTGRES_PASSWORD` 与 `ADMIN_INIT_PASSWORD` 后 `docker compose up`（postgres + redis + server + web 四服务；server 依赖 postgres/redis 双健康，启动链 entrypoint 串 `prisma migrate deploy → prisma db seed → exec node`，幂等可重复）。库名统一 `multi_admin`；存量旧卷（旧库名初始化）需 `docker compose down -v` 重建。
 
+## ops 自动化脚本（scripts/ops/）
+
+本地高频操作沉淀为可复用脚本，人和 Agent 均可调用。ESM 脚本复用 `@multi-admin/node-utils`，Shell 脚本统一 `#!/usr/bin/env bash` + `set -euo pipefail`。
+
+| 命令 | 脚本 | 职责 |
+|---|---|---|
+| `pnpm ops:pre-push` | `pre-push.mjs` | push 前 CI 同构校验：frozen-lockfile + check + audit |
+| `pnpm ops:ci` | `ci-status.sh` | CI 结果拉取：最近 5 次 run 状态 + 失败自动打印日志 |
+| `pnpm ops:ci-logs` | `ci-logs.sh` | CI 失败日志导出：`.ci-failure-<id>.log`（Agent 可读取分析） |
+| `pnpm ops:env-up` | `env-up.sh` | 开发环境启动：postgres + redis + migrate + seed |
+| `pnpm ops:env-down` | `env-down.sh` | 开发环境停止（`--clean` 清除数据卷） |
+| `pnpm ops:smoke` | `docker-smoke.sh` | 本地 Docker 冒烟（`--server` 追加 nestjs-server 构建） |
+| `pnpm ops:coverage` | `coverage.mjs` | 本地覆盖率一键跑（`--skip-env` 跳过环境启停） |
+
+前置依赖：gh CLI（ci-status / ci-logs，需首次 `gh auth login`）、Docker Desktop（env-up / smoke / coverage）、Git Bash（shell 脚本执行）。
+
 ## 已知环境事实
 
 - Windows 下 Electron 打包期可能出现 `dist-electron/` EPERM 文件锁：确保无残留 electron 进程后重跑。

@@ -18,7 +18,14 @@
     "format:check": "prettier --check .",
     "typecheck": "turbo run typecheck",
     "clean:cache": "node ./scripts/clean.mjs --del-lock && pnpm install",
-    "prepare": "husky"
+    "prepare": "husky",
+    "ops:pre-push": "node scripts/ops/pre-push.mjs",
+    "ops:ci": "bash scripts/ops/ci-status.sh",
+    "ops:ci-logs": "bash scripts/ops/ci-logs.sh",
+    "ops:env-up": "bash scripts/ops/env-up.sh",
+    "ops:env-down": "bash scripts/ops/env-down.sh",
+    "ops:smoke": "bash scripts/ops/docker-smoke.sh",
+    "ops:coverage": "node scripts/ops/coverage.mjs"
   },
   "keywords": [],
   "author": "wewant-rocky",
