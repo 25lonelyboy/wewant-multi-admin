@@ -447,6 +447,7 @@ git commit -m "docs(repo): CI 落地收尾（README badge + 门禁双层文档�
 2. **docker 构建时长**：若 `docker-build` job 常态 >20 分钟成为反馈痛点，为两个 `docker/build-push-action` 追加 `cache-from: type=gha` / `cache-to: type=gha,mode=max`（注：BuildKit `--mount=type=cache` 跨 run 不生效，必须用 `type=gha`）。
 3. **Dockerfile ARG 参数化评估**：两个 Dockerfile 已将镜像源参数化（ARG 默认国内源、CI `build-args` 覆盖官方源），首跑后确认 `PRISMA_ENGINES_MIRROR` 在 CI 生效、engines 下载走 `binaries.prisma.sh` 而非 npmmirror。
 4. **镜像瘦身验证**：production-stage 安装后已清理 pnpm 缓存（`/root/.cache` + store），首跑后确认 nestjs-server 镜像 ~571MB（原 ~1.18GB）；后续可评估 Prisma 7.x 捆绑依赖（`@prisma/studio-core` 42MB、`pglite` 23MB、`typescript` 23MB）是否可通过 Prisma 配置裁剪。
+5. **镜像依赖审计结论（2026-08-25 已确认）**：本地 docker build 日志中 `@dcloudio/*` 和 `@prisma/*` 的 WARN 消息是 pnpm `--frozen-lockfile` 供应链策略验证阶段的 registry 元数据 HTTP 请求（扫描全量 lockfile 2220 条目），**不是实际安装**。`--filter X...` 严格控制安装范围：nestjs-server build-stage 1115 包 / production-stage 331 包，pure-web build-stage 877 包 / production-stage 零安装（仅 COPY dist）。审计脚本 `grep -E "^\+ "` 对 pnpm 无效（npm 专属格式），如需更精确审计应改为 `docker run --rm <image> ls /repo/node_modules/.pnpm`。结论：无跨域依赖污染，Dockerfile 无需修改。
 
 ---
 
@@ -461,3 +462,15 @@ git commit -m "docs(repo): CI 落地收尾（README badge + 门禁双层文档�
 7. **Dockerfile 镜像源参数化（2026-08-24）**：两个 Dockerfile 硬编码的 `registry.npmmirror.com` 改为 `ARG` 参数化（默认国内源），新增 `PRISMA_ENGINES_MIRROR` ARG；ci.yml `build-args` 覆盖为官方源（`registry.npmjs.org` + `binaries.prisma.sh`）；docker-compose.yml 无需改动（直接用 ARG 默认值）。
 8. **镜像瘦身 + 文档同步（2026-08-24）**：① nestjs-server production-stage 安装后追加 `rm -rf /root/.cache /root/.local/share/pnpm/store /tmp`（镜像从 ~1.18GB 降至 ~571MB，节省 ~606MB）；② 设计文档同步更新：registry 策略标「已落地」、风险表更新、影响面从「零改动」修正为「业务代码零改动 + Dockerfile 构建期优化」；③ 计划 Architecture 段同步 Dockerfile 优化说明。
 9. **镜像依赖审计步骤（2026-08-24）**：Task 1 新增 Step 4（镜像依赖审计），在双镜像构建后从日志中 grep 无关包域（dcloud/uniapp/electron 等）；Step 3 加 `tee` 捕获日志；原 Step 4（web 冒烟）顺延为 Step 5。发现跨域污染依赖时中断流程通知用户讨论。
+
+## 实施执行记录（2026-08-25）
+
+| Task | 状态 | Commit | 备注 |
+|------|------|--------|------|
+| Task 0: 设计工件入库 | ✅ | `9e963e7` + `fabf3d7` | 前一会话完成 |
+| Task 1: 本地冒烟 | ✅ | — | Step 1-2 通过（pnpm check 全绿）；Step 3-5 docker 构建由用户执行；Step 4 审计结论：WARN = lockfile 验证，非污染 |
+| Task 2: ADR-006 | ✅ | `ac12a56` | frontmatter date=2026-08-25 |
+| Task 3: CI v1 workflow | ✅ | `59629fb` | timeout-minutes: 60（docker-build，按 @prisma/engines 实测调优） |
+| Task 4: coverage job | ✅ | `5dbc33b` | services: postgres:15-alpine + redis:7-alpine |
+| Task 5: 文档同步 | ✅ | `2ca8c58` | README badge + build-and-verify 双层门禁 + AGENTS.md + backlog 关项 |
+| Task 6: 复盘项 | ✅ | — | 5 项复盘事项已登记（含审计结论） |
