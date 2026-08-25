@@ -6,12 +6,13 @@
 
 | 任务 | 说明 |
 |---|---|
-| ops 脚本自动化操作集 | 沉淀 7 个自动化脚本（CI 同构校验、CI 结果拉取、开发环境启停、Docker 冒烟、覆盖率）；设计 → [2026-08-25-ops-scripts-design.md](2026-08-25-ops-scripts/2026-08-25-ops-scripts-design.md) |
+| （暂无） | — |
 
 ## 最近已完成
 
 | 任务 | 收口说明 |
 |---|---|
+| ops 脚本自动化操作集 | 7 个脚本全部落地；工程实践 → [build-and-verify.md](../engineering/build-and-verify.md)；过程工件见 [2026-08-25-ops-scripts/](2026-08-25-ops-scripts/) |
 | GitHub CI 落地（异步安全网） | 6 commits 完成 `.github/workflows/ci.yml` 四 job 异步安全网；决策 → [ADR-006](../decisions/ADR-006-github-ci.md)，工程实践 → [build-and-verify.md](../engineering/build-and-verify.md)；过程工件见 [2026-08-23-github-cicd/](2026-08-23-github-cicd/) |
 | Turborepo 构建编排全量迁移 | 5 提交完成 turbo.json 任务图取代 pre hook + 门禁纯校验化 + Docker 拓扑修复；决策 → [ADR-005](../decisions/ADR-005-turbo-build-orchestration.md)，工程实践 → [build-and-verify.md](../engineering/build-and-verify.md)；过程原件已移入 [archive/2026-08-23-turbo-build-orchestration/](archive/2026-08-23-turbo-build-orchestration/) |
 | NestJS 后端基架补全（P1-P5） | 五阶段全部完成；契约包事实源 → [contracts.md](../architecture/contracts.md)，技术选型 → [ADR-004](../decisions/ADR-004-contracts-and-backend-stack.md)，待跟进项 → [governance/backlog.md](../governance/backlog.md)；过程原件已移入 [archive/2026-08-16-nestjs-backend-foundation/](archive/2026-08-16-nestjs-backend-foundation/) |
