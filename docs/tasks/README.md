@@ -6,7 +6,7 @@
 
 | 任务 | 说明 |
 |---|---|
-| （暂无） | — |
+| Server 基建速赢（Tier 1） | 4 项独立改进：校验错误字段明细 / JWT secret min(32) / 请求体大小 env 可配置 / Prisma 慢查询日志+连接池 max；设计文档 → [2026-08-26-server-infra-quickwins/2026-08-26-server-infra-quickwins-design.md](2026-08-26-server-infra-quickwins/2026-08-26-server-infra-quickwins-design.md) |
 
 ## 最近已完成
 
