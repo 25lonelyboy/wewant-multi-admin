@@ -77,8 +77,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
       - name: pnpm audit（只解析 lockfile，免 install）
-        run: pnpm audit --audit-level=high
+        # npmmirror 不支持 audit 端点，强制走官方 registry
+        run: pnpm audit --audit-level=high --registry=https://registry.npmjs.org
         continue-on-error: true
 
   coverage:
