@@ -3,17 +3,30 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "dist-electron/**"]
+      "outputs": ["dist/**", "dist-electron/**"],
+      "env": ["DATABASE_URL"]
     },
     "build:staging": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
     "build:dir": { "dependsOn": ["^build"], "cache": false },
     "build:mp-weixin": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
-    "typecheck": { "dependsOn": ["^build"] },
+    "typecheck": { "dependsOn": ["^build"], "env": ["DATABASE_URL"] },
     "lint": {},
     "stylelint": {},
-    "test": { "dependsOn": ["^build"], "cache": false },
-    "test:e2e": { "dependsOn": ["^build"], "cache": false },
-    "test:coverage": { "dependsOn": ["^build"], "cache": false },
+    "test": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "env": ["DATABASE_URL", "REDIS_URL"]
+    },
+    "test:e2e": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "env": ["DATABASE_URL", "REDIS_URL"]
+    },
+    "test:coverage": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "env": ["DATABASE_URL", "REDIS_URL"]
+    },
     "dev": { "persistent": true, "cache": false, "dependsOn": ["^build"] },
     "dev:mp-weixin": {
       "persistent": true,
