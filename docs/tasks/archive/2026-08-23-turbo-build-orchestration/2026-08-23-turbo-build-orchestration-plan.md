@@ -415,7 +415,7 @@ Expected: 两个镜像构建成功（验收 #9）。若本机 Docker 不可用�
 - [ ] **Step 2: `docs/decisions/README.md` 索引追加一行**
 
 ```markdown
-| [ADR-005-turbo-build-orchestration.md](ADR-005-turbo-build-orchestration.md) | 构建编排采纳 Turborepo 任务图（取代 pre hook；部分取代 ADR-003 编排条款） | accepted |
+| [ADR-005-turbo-build-orchestration.md](../../../decisions/ADR-005-turbo-build-orchestration.md) | 构建编排采纳 Turborepo 任务图（取代 pre hook；部分取代 ADR-003 编排条款） | accepted |
 ```
 
 同时修改 ADR-003 索引行的「决策」列为：`Electron 工具链精确 pin（构建编排条款由 ADR-005 取代；pin 决策继续有效故不标整体 superseded）`。ADR-003 文件本体一字不动（遵守「ADR 不可变」规则；部分取代的信息承载于索引行与 ADR-005 的关系声明）。

@@ -5,7 +5,7 @@ covers:
   - internal/
   - packages/
   - pnpm-workspace.yaml
-last_verified: 2026-08-23
+last_verified: 2026-08-26
 ---
 
 # Monorepo 结构与边界
@@ -67,6 +67,6 @@ flowchart LR
 
 ## 当前已知的结构事实（非缺陷清单，供决策参考）
 
-- 无 CI/CD；质量门禁 = 根 `pnpm check` + husky 钩子（详见 `docs/engineering/build-and-verify.md`）。
+- 质量门禁双层：本地 `pnpm check` + husky 钩子，GitHub CI（`.github/workflows/ci.yml`）异步兜底（详见 `docs/engineering/build-and-verify.md`）。
 - 前后端已打通（P5）：pure-web 缺省直连 NestJS（`VITE_MOCK` 可切离线 mock）；dept/监控/mine-logs 为 mock-only 端点，前端降级空态（见 `docs/governance/backlog.md`）。
 - 三端 TS 严格度不一致：pure-web `strict: false`（pure-admin 模板存量），uni-mobile extends `@vue/tsconfig`，nestjs-server 走内部基线。

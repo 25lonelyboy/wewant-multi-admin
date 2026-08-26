@@ -1,6 +1,9 @@
 ---
 status: living
-last_verified: 2026-08-23
+covers:
+  - apps/nestjs-server/
+  - docker-compose.yml
+last_verified: 2026-08-26
 ---
 
 # 全局 backlog

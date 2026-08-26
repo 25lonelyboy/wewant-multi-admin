@@ -17,9 +17,9 @@
 
 | 结论 | 位置 |
 |------|------|
-| ops 脚本命令速查与前置依赖 | [docs/engineering/build-and-verify.md](../../engineering/build-and-verify.md#ops-自动化脚本scriptsops) |
-| package.json ops:* 别名 | [package.json](../../../package.json) |
-| 脚本实现 | [scripts/ops/](../../../scripts/ops/) |
+| ops 脚本命令速查与前置依赖 | [docs/engineering/build-and-verify.md](../../../engineering/build-and-verify.md#ops-自动化脚本scriptsops) |
+| package.json ops:* 别名 | [package.json](../../../../package.json) |
+| 脚本实现 | [scripts/ops/](../../../../scripts/ops/) |
 
 ## 实施提交
 

@@ -6,66 +6,72 @@ This file provides guidance to Lingma (lingma.aliyun.com) when working with code
 
 多端管理后台 pnpm monorepo，由四应用 + 两类共享包组成：
 
-| Workspace               | 说明                                                                                                                                                                       |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/pure-web`         | Vue3 管理后台（vue-pure-admin 基底：Element Plus + Tailwind + Pinia），缺省直连真实后端，`VITE_MOCK=true` 切离线 mock（契约同形）                                          |
-| `apps/nestjs-server`    | NestJS 后端：骨架与横切基建、Prisma + Redis、认证链（JWT 双令牌轮换 + RBAC 守卫链）、system RBAC CRUD（全局软删除）与单测/e2e 合并覆盖率门禁均已交付，前端直连已打通（P5） |
-| `apps/uni-mobile`       | uni-app 多端应用（H5 + 各家小程序），基于 Vue3                                                                                                                             |
-| `apps/electron-desktop` | Electron 桌面端，托管 pure-web 构建产物作为渲染层                                                                                                                          |
-| `packages/common`       | 跨端共享 TS 代码（tsdown 构建），暂无应用实际引用                                                                                                                          |
-| `packages/contracts`    | 前后端接口契约包（纯类型 + BizCode/MenuType 常量），nestjs-server 与 pure-web 以 `workspace:*` 消费                                                                        |
-| `internal/*`            | 仓库内部工具：`eslint-config` / `stylelint-config` / `tsconfig` / `node-utils`                                                                                             |
+| Workspace               | 说明                                                                                                                                                           |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/pure-web`         | Vue3 管理后台（vue-pure-admin 基底），缺省直连真实后端（代理 `/api/v1`），`VITE_MOCK=true` 切离线 mock（契约同形）                                             |
+| `apps/nestjs-server`    | NestJS 后端：Prisma + Redis、JWT 双令牌轮换 + RBAC、system 三域 CRUD（软删除）、单测/e2e 合并覆盖率门禁；架构细节见 [backend.md](docs/architecture/backend.md) |
+| `apps/uni-mobile`       | uni-app 多端应用（H5 + 各家小程序），基于 Vue3                                                                                                                 |
+| `apps/electron-desktop` | Electron 桌面端，托管 pure-web 构建产物作为渲染层                                                                                                              |
+| `packages/common`       | 跨端共享 TS 代码（tsdown 构建），暂无应用实际引用                                                                                                              |
+| `packages/contracts`    | 前后端接口契约包（纯类型 + BizCode/MenuType 常量），nestjs-server 与 pure-web 以 `workspace:*` 消费                                                            |
+| `internal/*`            | 仓库内部工具：`eslint-config` / `stylelint-config` / `tsconfig` / `node-utils`                                                                                 |
 
-环境约束：Node >=24、pnpm >=11（`engines` 字段 + 根 `.npmrc` 的 `engine-strict=true` 强制）；registry 与 Electron 二进制镜像已在根 `.npmrc` 配置，无需额外设置。
+环境约束：Node >=24（`.nvmrc` pin 24.18.1）、pnpm >=11（`engines` + 根 `.npmrc` `engine-strict=true` 强制）；registry 与 Electron 二进制镜像已在根 `.npmrc` 配置。
 
 ## 常用命令
 
 ```bash
-pnpm install                      # 安装依赖
-pnpm dev:web                      # 启动 pure-web
-pnpm dev:server                   # 启动 NestJS（watch 模式）
-pnpm dev:mobile                   # 启动 uni-app H5
-pnpm dev:desktop                  # 启动 Electron 桌面端
-pnpm build                        # 全量构建（turbo 任务图编排 + 缓存）
-pnpm build:web                    # 仅构建 pure-web
-pnpm build:desktop                # 打包桌面端安装包（任务图 ^build 自动先构建 pure-web）
+pnpm install
+pnpm dev:web / dev:server / dev:mobile / dev:desktop   # 各端启动（turbo 编排）
+pnpm build                        # 全量构建（turbo 任务图 + 缓存）
+pnpm build:web / build:desktop    # build:desktop 经任务图 ^build 自动先构建 pure-web
 pnpm check                        # 本地质量门禁：prettier → typecheck → lint → stylelint → test → test 覆盖枚举，纯校验不改文件
-pnpm lint                         # 全 workspace lint（turbo 编排，纯校验）
-pnpm typecheck                    # 全 workspace 类型检查（turbo 编排）
-pnpm format                       # Prettier 全量格式化
+pnpm lint / typecheck             # turbo 编排的全 workspace 校验
+pnpm format / format:check        # Prettier 写入 / 纯校验（CI 用 format:check）
 
-# nestjs-server 本地开发前置：先 docker compose up -d postgres redis（或全量 up）
-pnpm --filter @multi-admin/nestjs-server run prisma:migrate   # 本地迁移（prisma migrate dev）
+# nestjs-server 本地开发前置：docker compose up -d postgres redis（或 pnpm ops:env-up）
+pnpm --filter @multi-admin/nestjs-server run prisma:migrate   # prisma migrate dev
 pnpm --filter @multi-admin/nestjs-server run prisma:seed      # 显式 seed（Prisma 7 起 migrate dev 不再自动 seed）
 
 # 运行单个测试文件（目前仅 nestjs-server 有 jest 基建）
 pnpm --filter @multi-admin/nestjs-server run test -- src/config/env.schema.spec.ts
-pnpm --filter @multi-admin/nestjs-server run test:e2e   # e2e 测试（jest-e2e.cjs，需 docker compose up -d postgres redis）
-pnpm --filter @multi-admin/nestjs-server run test:coverage  # 单测+e2e 合并覆盖率（≥80% 门禁），前置 compose postgres/redis
+pnpm --filter @multi-admin/nestjs-server run test:e2e         # 需 compose postgres/redis
+pnpm --filter @multi-admin/nestjs-server run test:coverage    # 单测+e2e 合并覆盖率（≥80% 门禁）
+
+# 运维辅助脚本（完整表见 docs/engineering/build-and-verify.md）
+pnpm ops:env-up / ops:env-down    # 开发环境启停（postgres + redis + migrate + seed）
+pnpm ops:pre-push                 # push 前 CI 同构校验（frozen-lockfile + check + audit）
+pnpm ops:ci / ops:ci-logs         # CI 状态拉取 / 失败日志导出
+pnpm ops:smoke / ops:coverage     # Docker 冒烟 / 覆盖率报表
 ```
 
 ## 架构要点
 
-- **版本治理**：多消费者/框架级依赖统一走 `pnpm-workspace.yaml` 的 `catalog:`；uni-app 的 Vite 5.2.8 用 named catalog `catalog:uni-app` 隔离；jest 30.4.1 被 catalog + overrides 双重 pin。
-- **contracts 先行**：前后端契约变更先改 `packages/contracts`（纯类型 + 常量值），双端再各自实现/接线；mock 与真实后端契约同形，扩展流程与错误码表见 `docs/architecture/contracts.md`。
-- **桌面端链路**：上游产物（pure-web dist）由 turbo 任务图 `^build` 编排；`build` / `build:dir` 任务 `cache: false` → esbuild 编译主进程/preload（`esbuild.config.mjs`）→ electron-builder 打包（`electron-builder.yml`）；渲染层由自定义协议（`electron/main/protocol.ts`）托管 pure-web 产物；单实例锁 + 托盘常驻（关窗隐藏不退出）。
-- **构建编排（turbo 任务图）**：跨包构建顺序由 `turbo.json` 的 `dependsOn: ["^build"]` 从 workspace 依赖图推导；pre 钩子已全量移除；所有编排入口走 `turbo run <task> [--filter=X]`（根脚本已封装），裸 `pnpm --filter X run <script>` 为非入口专家操作、不保证链路；包内前置（如 `prisma generate`）嵌脚本原子；Turborepo 不透传自定义 env vars 到 task 子进程——涉及 `prisma generate` 的任务必须在 `turbo.json` 声明 `env: ["DATABASE_URL"]`，测试任务追加 `REDIS_URL`；Docker 容器以 `pnpm --filter X... run build` 原生拓扑兜底（决策见 ADR-005）。
-- **安全不变量**：preload 仅暴露具名方法，禁止 `ipcRenderer` 泛通道透传；Electron 生态依赖（electron / electron-builder）精确 pin，不加 `^`。
-- **Lint 薄壳模式**：各应用 eslint / stylelint 配置一行引用 `@multi-admin/eslint-config` / `@multi-admin/stylelint-config` 工厂函数；职责分离——ESLint 只校验，格式化由 Prettier 独占；lint 带 `--max-warnings 0`。
-- **Docker**：web / server 镜像构建必须以仓库根为 context（如 `docker build -f apps/pure-web/Dockerfile .`）；本机编排 `docker compose up`（先复制根 `.env.example` 为 `.env` 并填写密码）。compose 含 postgres / redis / server / web 四服务，server 启动链 entrypoint：`prisma migrate deploy → prisma db seed → exec node`（幂等可重复）。库名统一 `multi_admin`（测试库 `multi_admin_test`）；历史上用过旧库名（`multi-admin` 等）的存量 postgres 卷需 `docker compose down -v` 重建后才会以 `multi_admin` 初始化（存量卷的 `POSTGRES_DB` 不生效）。红线：本地 compose 的 redis 无密码且映射宿主 6379，仅限本地开发，生产/共享网络禁止直接暴露。env 模板两处注意：根 `.env` 的 `DATABASE_URL` 若手动设置，内嵌密码须与 `POSTGRES_PASSWORD` 一致（否则 server 连库失败而 postgres 容器正常，排障困难）；根模板的 `REDIS_URL` 经 compose 插值注入 server（`docker-compose.yml` 中 `${REDIS_URL:-redis://redis:6379}`）。
-- **质量门禁双层**：本地实时（`pnpm check` + husky 钩子）+ GitHub CI 异步兜底（`.github/workflows/ci.yml`，仅 push master 触发，四 job 并行报警式不拦截，决策见 `docs/decisions/ADR-006-github-ci.md`）。
+- **构建编排（turbo 任务图）**：跨包顺序由 `turbo.json` `dependsOn: ["^build"]` 推导，pre 钩子已全量移除；入口一律 `turbo run <task> [--filter=X]`（根脚本已封装），裸 `pnpm --filter X run <script>` 为非入口专家操作、不保证链路。Turborepo 不透传自定义 env——涉及 `prisma generate` 的任务必须声明 `env: ["DATABASE_URL"]`（测试任务加 `REDIS_URL`）；Docker 容器内以 `pnpm --filter X... run build` 原生拓扑兜底（[ADR-005](docs/decisions/ADR-005-turbo-build-orchestration.md)）。
+- **contracts 先行**：契约变更先改 `packages/contracts`（纯类型 + 常量），双端再实现/接线；mock 与真实后端契约同形，扩展流程与错误码表见 [contracts.md](docs/architecture/contracts.md)。
+- **NestJS 后端**：模块分层、请求链、API 约定（全局前缀 `api/v1`、信封 `{ code, message, data }`）、数据库事实见 [backend.md](docs/architecture/backend.md)。
+- **桌面端链路**：turbo `^build` 编排 pure-web 产物 → esbuild 编译主进程（ESM）/preload（CJS，sandbox 要求）→ 复制 dist 到 `dist-electron/web/` → electron-builder 打包；渲染层由自定义 `app://` 协议托管（含路径穿越防护）；单实例锁 + 托盘常驻（关窗隐藏不退出）。细节见 [desktop-app.md](docs/architecture/desktop-app.md)。
+- **Lint 薄壳模式**：各应用 eslint / stylelint 一行引用 `internal/*` 工厂；ESLint 只校验（`--max-warnings 0`），格式化由 Prettier 独占。
+- **Docker**：镜像构建必须以仓库根为 context；compose 含 postgres / redis / server / web 四服务，server 启动链 `prisma migrate deploy → prisma db seed → exec node`（幂等）；库名统一 `multi_admin`（存量旧卷需 `down -v` 重建）；本地 redis 无密码映射宿主 6379，禁止暴露生产/共享网络。env 注意事项见 [build-and-verify.md](docs/engineering/build-and-verify.md)。
+- **质量门禁双层**：本地实时（`pnpm check` + husky lint-staged）+ GitHub CI 异步兜底（`.github/workflows/ci.yml`，push master 触发，四 job：gate / docker-build / coverage / audit，报警式不拦截，[ADR-006](docs/decisions/ADR-006-github-ci.md)）。**CI 红 → 下一项工作先修 CI。**
+
+## 安全不变量
+
+- preload 仅暴露具名方法，禁止 `ipcRenderer` 泛通道透传；新增 IPC 能力需主进程 handler、preload 具名方法、`types/ipc.d.ts` 三处同步
+- Electron 生态依赖（electron / electron-builder）精确 pin，不加 `^`
+- argon2 密码哈希永不落日志
 
 ## 硬规则
 
 - 提交信息遵循 conventional commits 且必须携带 scope，白名单见 `commitlint.config.mjs`：`server` / `mobile` / `web` / `desktop` / `common` / `internal` / `repo` / `deps` / `release` / `docs`。
-- 新增依赖先过 catalog 判据（≥2 个 workspace 消费 / 框架级依赖 / 刻意固定版本），不满足则留在应用本地 package.json；禁止靠根 package.json hoisting 共享（会产生幻影依赖）。
-- catalog 中刻意 pin 的包保持 pinned，不要擅自补 `^`；版本大不兼容时用 named catalog 隔离而非强行统一。
+- 新增依赖先过 catalog 判据（≥2 个 workspace 消费 / 框架级依赖 / 刻意固定版本），不满足则留在应用本地；禁止靠根 package.json hoisting 共享。
+- catalog 中刻意 pin 的包保持 pinned，不擅自补 `^`；版本大不兼容时用 named catalog 隔离（如 `catalog:uni-app`）。
 - 改变已文档化行为的代码变更，必须在同一提交内更新对应文档。
 - 文档禁止写入密钥、token、内网地址。
 
 ## 文档治理
 
 - 读取顺序：本文件 → [docs/README.md](docs/README.md) → 对应领域 README → 最小主题文件；按需读取，不要求通读。
-- 事实源：架构事实在 `docs/architecture/`，工程实践在 `docs/engineering/`，决策在 `docs/decisions/`（ADR），过程材料在 `docs/tasks/`。
+- 事实源：架构事实在 `docs/architecture/`，工程实践在 `docs/engineering/`，决策在 `docs/decisions/`（ADR），过程材料在 `docs/tasks/`，backlog 在 `docs/governance/`。
 - 文档与代码冲突时以代码为准，并修复文档；信任活文档 frontmatter 的 `last_verified`，不信任编辑时间。
 - 新文档必须归位到对应层目录，并登记进该目录 README 索引。

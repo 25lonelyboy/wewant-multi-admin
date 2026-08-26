@@ -29,12 +29,12 @@
 
 | 结论域 | 事实源 / ADR |
 |---|---|
-| 构建编排选型决策 | [ADR-005](../../../docs/decisions/ADR-005-turbo-build-orchestration.md) |
-| 仓库结构与依赖图 | [repo-structure.md](../../../docs/architecture/repo-structure.md) |
-| contracts 契约包消费方式 | [contracts.md](../../../docs/architecture/contracts.md) |
-| 桌面端打包链 | [desktop-app.md](../../../docs/architecture/desktop-app.md) |
-| 门禁与构建链工程实践 | [build-and-verify.md](../../../docs/engineering/build-and-verify.md) |
-| Agent 指引（常用命令 + 架构要点） | [AGENTS.md](../../../AGENTS.md) |
-| 已关闭 backlog（2 条） | [backlog.md](../../../docs/governance/backlog.md) |
+| 构建编排选型决策 | [ADR-005](../../../decisions/ADR-005-turbo-build-orchestration.md) |
+| 仓库结构与依赖图 | [repo-structure.md](../../../architecture/repo-structure.md) |
+| contracts 契约包消费方式 | [contracts.md](../../../architecture/contracts.md) |
+| 桌面端打包链 | [desktop-app.md](../../../architecture/desktop-app.md) |
+| 门禁与构建链工程实践 | [build-and-verify.md](../../../engineering/build-and-verify.md) |
+| Agent 指引（常用命令 + 架构要点） | [AGENTS.md](../../../../AGENTS.md) |
+| 已关闭 backlog（2 条） | [backlog.md](../../../governance/backlog.md) |
 
 归档日期：2026-08-24（结论提升完毕）。

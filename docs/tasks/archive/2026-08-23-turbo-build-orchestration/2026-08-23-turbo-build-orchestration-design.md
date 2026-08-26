@@ -1,6 +1,6 @@
 # Turborepo 构建编排全量迁移设计
 
-> 任务域：`2026-08-23-turbo-build-orchestration`。目标：以 Turborepo 取代 npm pre hook 编排，全仓四端 + 共享包统一纳管；干净仓库下开发、构建、类型检查、lint、测试、镜像构建全链路通畅且入口统一。关联治理：[governance/backlog.md](../../governance/backlog.md)；决策将落档为 ADR-005。
+> 任务域：`2026-08-23-turbo-build-orchestration`。目标：以 Turborepo 取代 npm pre hook 编排，全仓四端 + 共享包统一纳管；干净仓库下开发、构建、类型检查、lint、测试、镜像构建全链路通畅且入口统一。关联治理：[governance/backlog.md](../../../governance/backlog.md)；决策将落档为 ADR-005。
 
 ## 1. 目标与范围
 

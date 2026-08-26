@@ -650,7 +650,7 @@ pnpm dev:desktop  # 桌面端（依赖 pure-web dev server）
 
 ## 仓库结构
 
-见 [AGENTS.md](./AGENTS.md)。
+见 [AGENTS.md](../../../../AGENTS.md)。
 
 ## 部署
 

@@ -3271,7 +3271,7 @@ describe('system RBAC CRUD (e2e)', () => {
   const server = () => request(app.getHttpServer());
   const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
   const api = (method: 'get' | 'post' | 'put' | 'delete', url: string) =>
-    server()[method](`/api/v1${url}`);
+    server() [method] (`/api/v1${url}`);
   const expectData = async <T>(req: request.Test): Promise<T> => {
     const res = await req;
     expect(res.status).toBeLessThan(300);
@@ -4026,7 +4026,7 @@ P4 分设计（`...-phase4-design.md`）§12 的 7 项修订已逐条落实：
 「进行中」表 NestJS 后端基架补全行说明改为：
 
 ```markdown
-总体设计见 [2026-08-16-nestjs-backend-foundation/](2026-08-16-nestjs-backend-foundation/)，总-分结构，分 P1~P5 五阶段；P1~P4 已完成，P5（contracts 与前端对齐）待启动
+总体设计见 [2026-08-16-nestjs-backend-foundation/](./)，总-分结构，分 P1~P5 五阶段；P1~P4 已完成，P5（contracts 与前端对齐）待启动
 ```
 
 - [ ] **Step 5: 全链路验收（对照分设计 §11 完成判定 8 项）**

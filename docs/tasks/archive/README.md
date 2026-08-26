@@ -54,7 +54,7 @@
 | `2026-08-23-github-cicd-roadmap.md` | 迁移路线图 |
 | `2026-08-23-github-cicd-evolution.dot` | 演进拓扑图（Graphviz DOT） |
 
-结论去向：CI 决策 → [ADR-006](../../decisions/ADR-006-github-ci.md)；门禁与构建链 → [build-and-verify.md](../../engineering/build-and-verify.md)；CI 配置 → [.github/workflows/ci.yml](../../.github/workflows/ci.yml)。
+结论去向：CI 决策 → [ADR-006](../../decisions/ADR-006-github-ci.md)；门禁与构建链 → [build-and-verify.md](../../engineering/build-and-verify.md)；CI 配置 → [.github/workflows/ci.yml](../../../.github/workflows/ci.yml)。
 
 归档日期：2026-08-26（结论提升完毕，CI 首跑通过 + DATABASE_URL 修复落地）。
 
@@ -66,6 +66,6 @@
 | `2026-08-25-ops-scripts-design.md` | 设计文档（6 场景梳理 + 5 Shell / 2 ESM 选型 + 各脚本详细设计） |
 | `2026-08-25-ops-scripts-plan.md` | 实施计划（7 个 Task + 完整代码） |
 
-结论去向：ops 脚本命令速查 → [build-and-verify.md](../../engineering/build-and-verify.md)；脚本实现 → [scripts/ops/](../../scripts/ops/)；package.json ops:* 别名 → [package.json](../../package.json)。
+结论去向：ops 脚本命令速查 → [build-and-verify.md](../../engineering/build-and-verify.md)；脚本实现 → [scripts/ops/](../../../scripts/ops/)；package.json ops:* 别名 → [package.json](../../../package.json)。
 
 归档日期：2026-08-26（结论提升完毕）。

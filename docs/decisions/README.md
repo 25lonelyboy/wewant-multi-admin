@@ -11,6 +11,7 @@
 | [ADR-003-electron-toolchain-pin.md](ADR-003-electron-toolchain-pin.md) | Electron 工具链精确 pin（构建编排条款由 ADR-005 取代；pin 决策继续有效故不标整体 superseded） | accepted |
 | [ADR-004-contracts-and-backend-stack.md](ADR-004-contracts-and-backend-stack.md) | 前后端契约走独立 contracts 包；Prisma / 自研 JWT 认证 / class-validator 选型 | accepted |
 | [ADR-005-turbo-build-orchestration.md](ADR-005-turbo-build-orchestration.md) | 构建编排采纳 Turborepo 任务图（取代 pre hook；部分取代 ADR-003 编排条款） | accepted |
+| [ADR-006-github-ci.md](ADR-006-github-ci.md) | GitHub CI 四 job 异步安全网（报警式不拦截，单人直推工作流兜底） | accepted |
 
 ## 规则
 

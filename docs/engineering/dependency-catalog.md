@@ -3,7 +3,7 @@ status: living
 covers:
   - pnpm-workspace.yaml
   - .npmrc
-last_verified: 2026-08-21
+last_verified: 2026-08-26
 ---
 
 # 依赖治理：pnpm catalog 策略

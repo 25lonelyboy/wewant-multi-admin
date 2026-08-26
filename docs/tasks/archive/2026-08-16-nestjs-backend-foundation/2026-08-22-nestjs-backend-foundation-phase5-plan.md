@@ -3867,7 +3867,7 @@ last_verified: 2026-08-22
 `docs/architecture/README.md` 主题索引表追加一行（repo-structure 行之后）：
 
 ```markdown
-| [contracts.md](contracts.md) | contracts 契约包：定位约束、扩展流程、信封错误码、分页时间约定、VITE_MOCK 数据源开关 |
+| [contracts.md](../../../architecture/contracts.md) | contracts 契约包：定位约束、扩展流程、信封错误码、分页时间约定、VITE_MOCK 数据源开关 |
 ```
 
 - [ ] **Step 3: 新建 docs/decisions/ADR-004-contracts-and-backend-stack.md（全文）**
@@ -3905,7 +3905,7 @@ P4 收尾时 NestJS 后端基架完成（认证链 + system RBAC CRUD + 测试�
 `docs/decisions/README.md` 索引表追加一行（ADR-003 行之后）：
 
 ```markdown
-| [ADR-004-contracts-and-backend-stack.md](ADR-004-contracts-and-backend-stack.md) | 前后端契约走独立 contracts 包；Prisma / 自研 JWT 认证 / class-validator 选型 | accepted |
+| [ADR-004-contracts-and-backend-stack.md](../../../decisions/ADR-004-contracts-and-backend-stack.md) | 前后端契约走独立 contracts 包；Prisma / 自研 JWT 认证 / class-validator 选型 | accepted |
 ```
 
 - [ ] **Step 5: repo-structure.md 修订（五处）**
@@ -3917,7 +3917,7 @@ P4 收尾时 NestJS 后端基架完成（认证链 + system RBAC CRUD + 测试�
 pure-web 行关键事实中「开发期数据来自 `vite-plugin-fake-server`（`mock/` 目录），尚未接真实后端」替换为：
 
 ```markdown
-数据源由 `VITE_MOCK` 切换：缺省直连 NestJS（代理 `/api/v1`），`true` 为离线 mock（契约同形，见 [contracts.md](contracts.md)）
+数据源由 `VITE_MOCK` 切换：缺省直连 NestJS（代理 `/api/v1`），`true` 为离线 mock（契约同形，见 [contracts.md](../../../architecture/contracts.md)）
 ```
 
 nestjs-server 行「前端联调待 P5」替换为「前端直连已打通（P5）」。
@@ -3925,7 +3925,7 @@ nestjs-server 行「前端联调待 P5」替换为「前端直连已打通（P5�
 `packages/common` 行之后插入一行：
 
 ```markdown
-| `packages/contracts`（`@multi-admin/contracts`） | 前后端接口契约 | 纯类型 + BizCode/MenuType 常量；tsdown ESM+CJS 双格式 + 双 d.ts；nestjs-server 与 pure-web 以 `workspace:*` 消费；见 [contracts.md](contracts.md) |
+| `packages/contracts`（`@multi-admin/contracts`） | 前后端接口契约 | 纯类型 + BizCode/MenuType 常量；tsdown ESM+CJS 双格式 + 双 d.ts；nestjs-server 与 pure-web 以 `workspace:*` 消费；见 [contracts.md](../../../architecture/contracts.md) |
 ```
 
 5c. 构建依赖关系 mermaid 整块替换为：
@@ -3956,7 +3956,7 @@ flowchart LR
 5d. 「要点」列表中「`packages/common` 目前无消费方，新增共享代码时的放置判据见下。」之后追加一条：
 
 ```markdown
-- `packages/contracts` 是首个被前后端双端消费的共享包（P5）；契约扩展流程与错误码表见 [contracts.md](contracts.md)。
+- `packages/contracts` 是首个被前后端双端消费的共享包（P5）；契约扩展流程与错误码表见 [contracts.md](../../../architecture/contracts.md)。
 ```
 
 5e. 「当前已知的结构事实」第二条整行替换：
@@ -4040,7 +4040,7 @@ governance 行整行替换：
 替换为：
 
 ```markdown
-| [governance/](governance/README.md) | 全局 backlog 登记册 | 已建立（P5）；文档体系维护规则仍在本文件 |
+| [governance/](../../../governance/README.md) | 全局 backlog 登记册 | 已建立（P5）；文档体系维护规则仍在本文件 |
 ```
 
 - [ ] **Step 10: 新建 docs/governance/README.md 与 docs/governance/backlog.md（全文）**
@@ -4061,7 +4061,7 @@ last_verified: 2026-08-22
 
 | 文件 | 职责 |
 |---|---|
-| [backlog.md](backlog.md) | 全局 backlog：各任务域识别但未关闭的登记项（来源 / 结论 / 触发条件），只追加或标注关闭，不改写 |
+| [backlog.md](../../../governance/backlog.md) | 全局 backlog：各任务域识别但未关闭的登记项（来源 / 结论 / 触发条件），只追加或标注关闭，不改写 |
 ```
 
 `docs/governance/backlog.md`：
@@ -4200,7 +4200,7 @@ git mv docs/tasks/2026-08-16-nestjs-backend-foundation/2026-08-22-nestjs-backend
 | `2026-08-21-nestjs-backend-foundation-phase5-design.md` | P5 contracts 与前端直连对齐分设计 |
 | `2026-08-22-nestjs-backend-foundation-phase5-plan.md` | P5 实施计划（contracts 建包迁移 / mock 契约同形 / 前端直连接线 / 文档收尾 / 验收归档） |
 
-结论去向：架构事实在 `docs/architecture/`（含 [contracts.md](../../architecture/contracts.md)）；工程实践在 [build-and-verify.md](../../engineering/build-and-verify.md)；稳定决策落为 [ADR-004](../../decisions/ADR-004-contracts-and-backend-stack.md)；未关闭项迁移至 [governance/backlog.md](../../governance/backlog.md)。
+结论去向：架构事实在 `docs/architecture/`（含 [contracts.md](../../../architecture/contracts.md)）；工程实践在 [build-and-verify.md](../../../engineering/build-and-verify.md)；稳定决策落为 [ADR-004](../../../decisions/ADR-004-contracts-and-backend-stack.md)；未关闭项迁移至 [governance/backlog.md](../../../governance/backlog.md)。
 
 归档日期：2026-08-22（结论提升完毕）。
 ```
@@ -4216,7 +4216,7 @@ git mv docs/tasks/2026-08-16-nestjs-backend-foundation/2026-08-22-nestjs-backend
 「最近已完成」表在仓库基架行之前插入：
 
 ```markdown
-| NestJS 后端基架补全 | P1~P5 完成：后端全基架 + pure-web 直连 + contracts 契约包；结论提升至 architecture/engineering 与 [ADR-004](../decisions/ADR-004-contracts-and-backend-stack.md)，backlog 迁移至 [governance/backlog.md](../governance/backlog.md)，原件移入 [archive/2026-08-16-nestjs-backend-foundation/](archive/2026-08-16-nestjs-backend-foundation/) |
+| NestJS 后端基架补全 | P1~P5 完成：后端全基架 + pure-web 直连 + contracts 契约包；结论提升至 architecture/engineering 与 [ADR-004](../../../decisions/ADR-004-contracts-and-backend-stack.md)，backlog 迁移至 [governance/backlog.md](../../../governance/backlog.md)，原件移入 [archive/2026-08-16-nestjs-backend-foundation/](./) |
 ```
 
 `docs/README.md` 目录职责表 tasks 行「NestJS 后端基架补全收尾中」改回「当前无进行中任务」。
