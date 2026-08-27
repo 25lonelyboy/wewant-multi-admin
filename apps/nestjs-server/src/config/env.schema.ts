@@ -14,7 +14,9 @@ export const envSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
   JWT_ACCESS_TTL: z.string().default('15m'),
-  JWT_REFRESH_TTL: z.string().default('7d')
+  JWT_REFRESH_TTL: z.string().default('7d'),
+  BODY_LIMIT: z.string().default('1mb'),
+  UPLOAD_BODY_LIMIT: z.string().default('10mb')
 });
 
 export type Env = z.infer<typeof envSchema>;

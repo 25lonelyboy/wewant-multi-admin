@@ -37,6 +37,7 @@
     "class-transformer": "catalog:",
     "class-validator": "catalog:",
     "dotenv": "catalog:",
+    "express": "catalog:",
     "helmet": "catalog:",
     "ioredis": "catalog:",
     "nestjs-pino": "catalog:",

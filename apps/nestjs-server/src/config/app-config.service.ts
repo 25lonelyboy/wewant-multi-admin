@@ -57,4 +57,12 @@ export class AppConfigService {
   get isProduction(): boolean {
     return this.nodeEnv === 'production';
   }
+
+  get bodyLimit(): string {
+    return this.config.get('BODY_LIMIT', { infer: true });
+  }
+
+  get uploadBodyLimit(): string {
+    return this.config.get('UPLOAD_BODY_LIMIT', { infer: true });
+  }
 }

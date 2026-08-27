@@ -81,4 +81,16 @@ describe('envSchema', () => {
     raw.JWT_REFRESH_SECRET = 'b'.repeat(31);
     expect(envSchema.safeParse(raw).success).toBe(false);
   });
+
+  it('BODY_LIMIT 默认 1mb', () => {
+    const raw = validEnv();
+    delete raw.BODY_LIMIT;
+    expect(envSchema.parse(raw).BODY_LIMIT).toBe('1mb');
+  });
+
+  it('UPLOAD_BODY_LIMIT 默认 10mb', () => {
+    const raw = validEnv();
+    delete raw.UPLOAD_BODY_LIMIT;
+    expect(envSchema.parse(raw).UPLOAD_BODY_LIMIT).toBe('10mb');
+  });
 });

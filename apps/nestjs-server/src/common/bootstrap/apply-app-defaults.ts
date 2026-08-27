@@ -1,6 +1,7 @@
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import type { ValidationError } from 'class-validator';
+import { json } from 'express';
 import { Logger } from 'nestjs-pino';
 import helmet from 'helmet';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -18,6 +19,9 @@ export function applyAppDefaults(app: INestApplication): void {
   app.use(requestIdMiddleware);
   // helmet：非生产关 CSP（Swagger UI 依赖内联脚本，默认 CSP 致文档页白屏）；生产保持默认
   app.use(helmet(config.isProduction ? {} : { contentSecurityPolicy: false }));
+  // 请求体大小：路由级必须在前面注册，全局兜底
+  app.use('/api/v1/upload', json({ limit: config.uploadBodyLimit }));
+  app.use(json({ limit: config.bodyLimit }));
   app.setGlobalPrefix('api/v1', { exclude: ['health'] });
   app.useGlobalPipes(
     new ValidationPipe({

@@ -37,6 +37,28 @@ describe('applyAppDefaults', () => {
     ).toBe(true);
   });
 
+  it('body size：路由级先于全局注册', () => {
+    const app = buildFakeApp({
+      corsOrigin: '',
+      port: 3000,
+      isProduction: true,
+      bodyLimit: '1mb',
+      uploadBodyLimit: '10mb'
+    });
+    applyAppDefaults(app as unknown as INestApplication);
+    const useCalls = app.use.mock.calls as unknown[][];
+    // 找到带路径的调用（路由级 json）
+    const routeCallIndex = useCalls.findIndex(
+      ([path]) => typeof path === 'string' && path.includes('upload')
+    );
+    // 路由级 json 之后的第一个函数型中间件即全局 json
+    const globalCallIndex = useCalls.findIndex(
+      ([mw], idx) => idx > routeCallIndex && typeof mw === 'function'
+    );
+    expect(routeCallIndex).toBeGreaterThanOrEqual(0);
+    expect(globalCallIndex).toBeGreaterThan(routeCallIndex);
+  });
+
   it('Swagger 仅非生产启用（路径 api/docs + Bearer scheme）', () => {
     const createSpy = jest
       .spyOn(SwaggerModule, 'createDocument')
