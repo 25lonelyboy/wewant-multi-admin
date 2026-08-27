@@ -253,15 +253,15 @@ export class PrismaService
 
   async onApplicationBootstrap(): Promise<void> {
     await this.$connect();
-    // 慢查询事件监听
+    // 慢查询事件监听：日志决策抽为纯函数 resolveQueryLog（query-log.ts）
     this.$on('query', (e: { query: string; duration: number }) => {
-      const threshold = this.config.prismaSlowQueryMs;
-      if (e.duration >= threshold || this.config.prismaQueryLog) {
-        this.logger.warn({
-          duration: e.duration,
-          threshold,
-          query: e.query
-        }, 'Slow query detected');
+      const resolved = resolveQueryLog(
+        e,
+        this.config.prismaSlowQueryMs,
+        this.config.prismaQueryLog
+      );
+      if (resolved) {
+        this.logger[resolved.level](resolved.message);
       }
     });
   }
@@ -274,6 +274,8 @@ export class PrismaService
 
 `.env.example` 新增三行示例。
 
+> 日志文案区分（fix 补丁）：`duration >= threshold` 输出 `warn` 级 `Slow query detected (<duration>ms >= <threshold>ms): <query>`（文案不变）；低于阈值且 `PRISMA_QUERY_LOG=true` 时输出 `log`（info）级 `Query log (<duration>ms): <query>`，不再误报 "Slow query detected"；低于阈值且未开启则不打日志。
+
 ### Logger 来源决策（实施时确认）
 
 `this.logger` 需使用 NestJS `Logger` 或 `nestjs-pino` 的日志。若 `PrismaService` 继承 `PrismaClient` 导致 DI 注入受限，实施时可选：
@@ -285,7 +287,7 @@ export class PrismaService
 
 ### 测试
 
-- `prisma.service.spec.ts`：断言构造参数含 `log` 和 `max`；mock `$on('query')` 验证阈值过滤逻辑；断言 `config` 正确存于实例
+- `prisma.service.spec.ts`：断言构造参数含 `log` 和 `max`；mock `$on('query')` 验证阈值过滤逻辑；断言 `config` 正确存于实例（日志决策由 `query-log.spec.ts` 覆盖：超阈值/恰等于阈值 → warn，低于阈值+开关 → log，低于阈值+关闭 → null）
 
 ## 错误处理与迁移影响
 

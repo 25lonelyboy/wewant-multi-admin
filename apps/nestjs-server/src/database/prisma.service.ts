@@ -7,11 +7,13 @@ import {
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client.js';
 import { AppConfigService } from '../config/app-config.service.js';
+import { resolveQueryLog } from './query-log.js';
 
 /**
  * Prisma 7 官方形态：driver adapter 自管连接池，应用层不持有 pg.Pool。
  * 生命周期挂 OnApplicationBootstrap/Shutdown（与 P1 enableShutdownHooks 联动）。
- * 慢查询超阈值（PRISMA_SLOW_QUERY_MS）或 PRISMA_QUERY_LOG=true 时输出 warn 日志。
+ * 慢查询超阈值（PRISMA_SLOW_QUERY_MS）输出 warn 日志；
+ * PRISMA_QUERY_LOG=true 时低于阈值的查询另以 log（info）级输出，文案区分。
  */
 @Injectable()
 export class PrismaService
@@ -37,11 +39,13 @@ export class PrismaService
     (this as PrismaClient<'query'>).$on(
       'query',
       (e: { query: string; duration: number }) => {
-        const threshold = this.config.prismaSlowQueryMs;
-        if (e.duration >= threshold || this.config.prismaQueryLog) {
-          this.logger.warn(
-            `Slow query detected (${e.duration}ms >= ${threshold}ms): ${e.query}`
-          );
+        const resolved = resolveQueryLog(
+          e,
+          this.config.prismaSlowQueryMs,
+          this.config.prismaQueryLog
+        );
+        if (resolved) {
+          this.logger[resolved.level](resolved.message);
         }
       }
     );
