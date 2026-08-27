@@ -64,3 +64,6 @@ apps/nestjs-server/src/generated/
 
 # Turborepo 本地缓存（默认在 node_modules/.cache/turbo，此为自定义缓存目录兜底）
 .turbo
+
+# Git worktree 隔离工作区目录
+.worktrees
