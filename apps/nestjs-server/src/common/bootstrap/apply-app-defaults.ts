@@ -1,5 +1,6 @@
-import { ValidationPipe } from '@nestjs/common';
+import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
+import type { ValidationError } from 'class-validator';
 import { Logger } from 'nestjs-pino';
 import helmet from 'helmet';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -18,7 +19,26 @@ export function applyAppDefaults(app: INestApplication): void {
   // helmet：非生产关 CSP（Swagger UI 依赖内联脚本，默认 CSP 致文档页白屏）；生产保持默认
   app.use(helmet(config.isProduction ? {} : { contentSecurityPolicy: false }));
   app.setGlobalPrefix('api/v1', { exclude: ['health'] });
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      detailedOutputMessages: true,
+      exceptionFactory: (errors: ValidationError[]) => {
+        const details = errors.flatMap(err =>
+          Object.values(err.constraints ?? {}).map(msg => ({
+            field: err.property,
+            message: msg
+          }))
+        );
+        return new BadRequestException({
+          statusCode: 400,
+          message: '参数校验失败',
+          errors: details
+        });
+      }
+    })
+  );
   // 逗号分隔允许多来源；trim + 过滤空串，容忍 "a, b" 与尾逗号等手写配置
   app.enableCors({
     origin: config.corsOrigin

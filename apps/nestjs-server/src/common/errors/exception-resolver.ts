@@ -7,6 +7,7 @@ export interface ResolvedError {
   status: number;
   code: number;
   message: string;
+  data?: unknown;
 }
 
 /**
@@ -21,10 +22,14 @@ export function resolveException(exception: unknown): ResolvedError {
     };
   }
   if (exception instanceof BadRequestException) {
+    const response = exception.getResponse() as {
+      errors?: Array<{ field: string; message: string }>;
+    };
     return {
       status: HttpStatus.BAD_REQUEST,
       code: BizCode.VALIDATION_FAILED,
-      message: '参数校验失败'
+      message: '参数校验失败',
+      data: response.errors?.length ? { errors: response.errors } : undefined
     };
   }
   if (exception instanceof HttpException) {
