@@ -43,31 +43,26 @@ last_verified: 2026-08-26
 { "code": 40000, "message": "参数校验失败", "data": null }
 ```
 
-当前 ValidationPipe 未开启 `detailedOutputMessages`，`getResponse().message` 为纯字符串数组，无法提取字段名。
+当前 ValidationPipe 使用默认异常工厂，`getResponse().message` 为纯字符串数组，无法提取字段名。
 
 ### 设计
 
-#### 1a. ValidationPipe 开启详细输出 + 自定义异常工厂（`apply-app-defaults.ts`）
+#### 1a. ValidationPipe 自定义异常工厂（`apply-app-defaults.ts`）
+
+明细展开逻辑抽为纯函数 [toValidationErrorDetails](../../../apps/nestjs-server/src/common/errors/validation-error-details.ts)：递归遍历 `ValidationError[]`，`constraints` 逐条输出，嵌套 `children` 递归下钻并以 `.` 拼接字段路径（如 `meta.title`），覆盖 `@ValidateNested()` 嵌套 DTO 场景。
 
 ```ts
 app.useGlobalPipes(
   new ValidationPipe({
     whitelist: true,
     transform: true,
-    detailedOutputMessages: true,
-    exceptionFactory: (errors: ValidationError[]) => {
-      const details = errors.flatMap(err =>
-        Object.values(err.constraints ?? {}).map(msg => ({
-          field: err.property,
-          message: msg
-        }))
-      );
-      return new BadRequestException({
+    exceptionFactory: (errors: ValidationError[]) =>
+      new BadRequestException({
         statusCode: 400,
         message: '参数校验失败',
-        errors: details
-      });
-    }
+        // 递归展开嵌套 DTO：嵌套字段以点分路径输出（如 meta.title）
+        errors: toValidationErrorDetails(errors)
+      })
   })
 );
 ```
@@ -127,8 +122,8 @@ data: data ?? null
 ### 数据流
 
 ```
-请求 → ValidationPipe（detailedOutputMessages + exceptionFactory）
-→ 校验失败 → 将 ValidationError[] 映射为 { field, message } 数组 → 抛 BadRequestException
+请求 → ValidationPipe（自定义 exceptionFactory）
+→ 校验失败 → 递归展开 ValidationError[] 为 { field, message } 数组（嵌套字段点分路径） → 抛 BadRequestException
 → AllExceptionsFilter → resolveException 提取 exception.getResponse().errors
 → 返回 { code: 40000, message: '参数校验失败', data: { errors: [...] } }
 ```

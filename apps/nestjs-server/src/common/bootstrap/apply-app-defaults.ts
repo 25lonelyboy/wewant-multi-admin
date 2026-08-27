@@ -6,6 +6,7 @@ import { Logger } from 'nestjs-pino';
 import helmet from 'helmet';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppConfigService } from '../../config/app-config.service.js';
+import { toValidationErrorDetails } from '../errors/validation-error-details.js';
 import { requestIdMiddleware } from '../middleware/request-id.middleware.js';
 
 /**
@@ -27,19 +28,13 @@ export function applyAppDefaults(app: INestApplication): void {
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      exceptionFactory: (errors: ValidationError[]) => {
-        const details = errors.flatMap(err =>
-          Object.values(err.constraints ?? {}).map(msg => ({
-            field: err.property,
-            message: msg
-          }))
-        );
-        return new BadRequestException({
+      exceptionFactory: (errors: ValidationError[]) =>
+        new BadRequestException({
           statusCode: 400,
           message: '参数校验失败',
-          errors: details
-        });
-      }
+          // 递归展开嵌套 DTO：嵌套字段以点分路径输出（如 meta.title）
+          errors: toValidationErrorDetails(errors)
+        })
     })
   );
   // 逗号分隔允许多来源；trim + 过滤空串，容忍 "a, b" 与尾逗号等手写配置
