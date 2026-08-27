@@ -16,7 +16,10 @@ export const envSchema = z.object({
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL: z.string().default('7d'),
   BODY_LIMIT: z.string().default('1mb'),
-  UPLOAD_BODY_LIMIT: z.string().default('10mb')
+  UPLOAD_BODY_LIMIT: z.string().default('10mb'),
+  PRISMA_SLOW_QUERY_MS: z.coerce.number().int().positive().default(500),
+  DATABASE_POOL_MAX: z.coerce.number().int().positive().default(20),
+  PRISMA_QUERY_LOG: z.enum(['true', 'false']).default('false')
 });
 
 export type Env = z.infer<typeof envSchema>;

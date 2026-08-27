@@ -27,7 +27,6 @@ export function applyAppDefaults(app: INestApplication): void {
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      detailedOutputMessages: true,
       exceptionFactory: (errors: ValidationError[]) => {
         const details = errors.flatMap(err =>
           Object.values(err.constraints ?? {}).map(msg => ({

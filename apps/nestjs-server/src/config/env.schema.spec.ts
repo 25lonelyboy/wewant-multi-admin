@@ -93,4 +93,22 @@ describe('envSchema', () => {
     delete raw.UPLOAD_BODY_LIMIT;
     expect(envSchema.parse(raw).UPLOAD_BODY_LIMIT).toBe('10mb');
   });
+
+  it('PRISMA_SLOW_QUERY_MS 默认 500', () => {
+    const raw = validEnv();
+    delete raw.PRISMA_SLOW_QUERY_MS;
+    expect(envSchema.parse(raw).PRISMA_SLOW_QUERY_MS).toBe(500);
+  });
+
+  it('DATABASE_POOL_MAX 默认 20', () => {
+    const raw = validEnv();
+    delete raw.DATABASE_POOL_MAX;
+    expect(envSchema.parse(raw).DATABASE_POOL_MAX).toBe(20);
+  });
+
+  it('PRISMA_QUERY_LOG 默认 false', () => {
+    const raw = validEnv();
+    delete raw.PRISMA_QUERY_LOG;
+    expect(envSchema.parse(raw).PRISMA_QUERY_LOG).toBe('false');
+  });
 });
