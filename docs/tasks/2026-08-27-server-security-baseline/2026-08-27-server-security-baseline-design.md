@@ -100,7 +100,7 @@ docker buildx imagetools inspect node:24-alpine | head -20
 
 ### pin 注释约定
 
-每个 pin 行尾追加注释：`# pin: YYYY-MM-DD，刷新：pnpm ops:check-digests（季度）`，保持与现有 Dockerfile 注释同密度。
+每个 pin 附带注释：`# pin: YYYY-MM-DD (pnpm ops:check-digests quarterly)`。Dockerfile 用 FROM 上方的独立整行注释（行尾注释在 Dockerfile 语法中非法，实测 `dockerfile parse error: FROM requires either one or three arguments`）；YAML（compose / ci.yml）用行尾注释，prettier 会规整为单空格。保持与现有 Dockerfile 注释同密度。
 
 ### 影响面
 
