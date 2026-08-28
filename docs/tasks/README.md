@@ -6,6 +6,7 @@
 
 | 任务 | 说明 |
 |---|---|
+| 生产安全基线（Tier 2 #6） | 容器非 root（`USER node`）+ 镜像 digest pin（8 处 tag@digest）+ check-digests 刷新兜底脚本；设计 → [design.md](2026-08-27-server-security-baseline/2026-08-27-server-security-baseline-design.md) |
 | 登录限流账号维度与失败锁定（Tier 2） | 固定阈值锁定（5 次/15 分钟）+ 混合错误语义；设计 → [design.md](2026-08-27-login-account-lockout/2026-08-27-login-account-lockout-design.md) |
 | Server 基建速赢（Tier 1） | 4 项独立改进：校验错误字段明细 / JWT secret min(32) / 请求体大小 env 可配置 / Prisma 慢查询日志+连接池 max；设计 → [design.md](2026-08-26-server-infra-quickwins/2026-08-26-server-infra-quickwins-design.md)，计划 → [plan.md](2026-08-26-server-infra-quickwins/2026-08-26-server-infra-quickwins-plan.md) |
 
