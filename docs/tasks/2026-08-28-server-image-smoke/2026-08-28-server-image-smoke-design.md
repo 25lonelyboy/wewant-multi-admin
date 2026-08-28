@@ -52,9 +52,10 @@
 
 ### 3. `.github/workflows/ci.yml`（docker-build job 扩展）
 
-- job 级新增 `services:`（与 coverage job 同模式）：
-  - `postgres: postgres:15-alpine`：env `POSTGRES_USER=postgres`/`POSTGRES_PASSWORD=postgres`/`POSTGRES_DB=multi_admin`，ports 5432:5432，healthcheck `pg_isready -U postgres -d multi_admin`（DB 名与 compose 统一，migrate deploy 依赖库已存在）。
-  - `redis: redis:7-alpine`：ports 6379:6379，healthcheck `redis-cli ping`。
+- job 级新增 `services:`（与 coverage job 同模式）：生产安全基线（2026-08-28 合并 master）已将仓库镜像引用全量 digest pin，新引用必须沿用 pin——
+  - `postgres: postgres:15-alpine@sha256:fe0737ba566a2c5b2a28f34433c0a423261900ec17b9bf7ad115e1aae7e57f1b`（与 coverage postgres 同 digest）：env `POSTGRES_USER=postgres`/`POSTGRES_PASSWORD=postgres`/`POSTGRES_DB=multi_admin`，ports 5432:5432，healthcheck `pg_isready -U postgres -d multi_admin`（DB 名与 compose 统一，migrate deploy 依赖库已存在）。
+  - `redis: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf`（与 coverage redis 同 digest）：ports 6379:6379，healthcheck `redis-cli ping`。
+- 联动脉：`scripts/ops/check-digests.sh` 将全仓 pin 数量硬锁定为 8，本次新增 2 处 pin 后必须同步更新边界至 10（「预期 N 处」提示与「postgres ×2 / redis ×2」注释一并修正），否则季度巡检必失败。
 - server 构建步骤后新增 step「server 镜像启动冒烟（/health 探针）」：`run: bash scripts/ops/server-smoke.sh`；step 级 env **显式五件套**（冒烟专用丢弃值，非生产秘密，可直接内联并加注释说明）：`DATABASE_URL=postgresql://postgres:postgres@localhost:5432/multi_admin?schema=public`、`REDIS_URL=redis://localhost:6379`、`ADMIN_INIT_PASSWORD` 与两个 JWT secret 取 D6 字面量，可读后脚本构建语义一致。
   - 脚本默认值仅服务于 `ops:smoke --server` 本地单命令体验；CI 环境语义与本地完全一致，五变量均「调用侧覆盖优先」。
 - job 内 web 冒烟步骤保持不动（范围纪律）。
@@ -62,7 +63,7 @@
 ### 4. 文档与登记（实施收口时）
 
 - `docs/engineering/build-and-verify.md` 补充 `ops:server-smoke` 一句说明（含前置 `ops:env-up`）。
-- backlog：「server 镜像启动冒烟」行尾追加关闭标注（2026-08-28，实现形态一句话）；新增「server 冒烟生产级演进」行（三信号 + 触发条件）。
+- backlog：「server 镜像启动冒烟」行尾追加关闭标注（2026-08-29，实现形态一句话）；新增「server 冒烟生产级演进」行（三信号 + 触发条件）。
 - `docs/tasks/README.md` 热索引登记与收口。
 
 ## 验证与验收
@@ -74,5 +75,5 @@
 ## 边界（不做）
 
 - 不 push 镜像、不拆独立 job、不做事务性登录冒烟、不改动 web 冒烟与其余三个 job。
-- postgres/redis 镜像引用不做 digest pin（属既有 backlog「生产安全基线加固」#2 范围）。
+- postgres/redis 镜像引用沿用生产安全基线 digest pin（与 coverage services 同源字面量），并同步 check-digests.sh 计数边界（8 → 10）；不新增巡检之外的 pin 治理面。
 - 不引入 compose/Testcontainers（演进信号 ③ 触发时再评估）。

@@ -20,12 +20,12 @@
 - Modify: `docs/tasks/README.md`（已登记索引行，纳入提交）
 - Include: `docs/tasks/2026-08-28-server-image-smoke/2026-08-28-server-image-smoke-design.md`（untracked）
 
-- [ ] **Step 1: 确认工作区状态**
+- [x] **Step 1: 确认工作区状态**（已执行，dc8a4b8）
 
 Run: `git status --short`
 Expected: 仅见 `M docs/tasks/README.md` 与 `?? docs/tasks/2026-08-28-server-image-smoke/`（与计划一致；若出现其他文件，停下与用户确认）
 
-- [ ] **Step 2: 提交设计工件**
+- [x] **Step 2: 提交设计工件**（已执行，dc8a4b8）
 
 ```bash
 git add docs/tasks/2026-08-28-server-image-smoke/ docs/tasks/README.md
@@ -212,14 +212,16 @@ Run: `git add package.json`
 ### Task 4: ci.yml docker-build job 加 services 与冒烟 step
 
 **Files:**
-- Modify: `.github/workflows/ci.yml:30-71`（docker-build job）
+- Modify: `.github/workflows/ci.yml:30-71`（docker-build job：+services +冒烟 step）
+- Modify: `scripts/ops/check-digests.sh:18,38,62-65`（pin 计数边界 8 → 10，联动）
 
 - [ ] **Step 1: job 级新增 services（置于 timeout-minutes 与 steps 之间）**
 
 ```yaml
     services:
+      # 镜像沿用 coverage job 同源 digest pin（生产安全基线：全仓镜像引用必须 pin；+2 pin 后 check-digests 计数 8 → 10，见 Step 3）
       postgres:
-        image: postgres:15-alpine
+        image: postgres:15-alpine@sha256:fe0737ba566a2c5b2a28f34433c0a423261900ec17b9bf7ad115e1aae7e57f1b # pin: 2026-08-27 (pnpm ops:check-digests quarterly)
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -232,7 +234,7 @@ Run: `git add package.json`
           --health-timeout 5s
           --health-retries 10
       redis:
-        image: redis:7-alpine
+        image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf # pin: 2026-08-27 (pnpm ops:check-digests quarterly)
         ports:
           - 6379:6379
         options: >-
@@ -256,14 +258,35 @@ Run: `git add package.json`
         run: bash scripts/ops/server-smoke.sh
 ```
 
-- [ ] **Step 3: 格式与 YAML 结构验证**
+- [ ] **Step 3: 同步 check-digests.sh 计数边界（8 → 10）**
 
-Run: `npx prettier --check .github/workflows/ci.yml`
+`check-digests.sh` 将全仓 pin 数量硬锁定为 8（`COUNT -ne 8` → exit 1）。本 Task 新增 2 处 pin，不同步边界将令季度巡检必失败。三处修改：
+
+1. 第 18 行 `预期 8 处` → `预期 10 处`
+2. 第 38 行注释 `node ×3、postgres ×2、redis ×2` → `node ×3、postgres ×3、redis ×3`
+3. 第 62-63 行计数边界与提示文案：
+
+```bash
+if [[ "$COUNT" -ne 10 ]]; then
+  echo "[check-digests] pin 数量异常：预期 10，实际 ${COUNT}（可能有 pin 被移除）" >&2
+  exit 1
+fi
+```
+
+Run: `bash -n scripts/ops/check-digests.sh`
+Expected: 无输出、exit 0
+
+- [ ] **Step 4: 格式与结构验证**
+
+Run: `npx prettier --check .github/workflows/ci.yml scripts/ops/check-digests.sh`
 Expected: exit 0；随后人工复核 job 结构：`services` 与 `steps` 同级缩进，后一个 `- name:` 前空行齐整，无多余缩进
 
-- [ ] **Step 4: 暂存**
+Run: `grep -rc '@sha256:' apps/nestjs-server/Dockerfile apps/pure-web/Dockerfile docker-compose.yml .github/workflows/ci.yml`
+Expected: nestjs-server 2、pure-web 2、docker-compose 2、ci.yml 4（合计 10，与 check-digests 新边界一致）
 
-Run: `git add .github/workflows/ci.yml`
+- [ ] **Step 5: 暂存**
+
+Run: `git add .github/workflows/ci.yml scripts/ops/check-digests.sh`
 
 ### Task 5: 本地验证并提交代码改动
 
@@ -305,13 +328,15 @@ Expected: lint-staged（prettier .sh 忽略、json/yml 自动格式化）+ commi
 ### Task 6: 活文档同步与 backlog 登记
 
 **Files:**
-- Modify: `docs/engineering/build-and-verify.md:74`（ops:smoke 行；其下插入 server-smoke 行）
-- Modify: `docs/governance/backlog.md:46`（关闭行尾；其后插入演进行）
+- Modify: `docs/engineering/build-and-verify.md:27,75`（docker-build 描述 + ops 表）
+- Modify: `docs/governance/backlog.md:47`（关闭行尾；其后插入演进行）
 - Modify: `docs/tasks/README.md`（进行中 → 最近已完成）
 
-- [ ] **Step 1: build-and-verify.md 表格更新**
+- [ ] **Step 1: build-and-verify.md 更新（两处）**
 
-`ops:smoke` 行描述改为 `` `--server` 追加构建 + 运行态冒烟 ``，其下新增一行：
+a. 「异步兜底」段（第 27 行）docker-build job 描述由 `docker-build（双镜像构建验证 + web 启动冒烟，不 push）` 改为 `docker-build（双镜像构建验证 + web/server 双启动冒烟：web curl 200、server /health+entrypoint 三段断言，server 冒烟依赖 job services postgres/redis；不 push）`
+
+b. 第 75 行 ops 表格 `ops:smoke` 行描述改为 `` `--server` 追加构建 + 运行态冒烟 ``，其下新增一行：
 
 ```markdown
 | `pnpm ops:server-smoke` | `server-smoke.sh` | server 镜像运行态冒烟（/health + entrypoint 三段断言；前置：镜像已构建 + ops:env-up） |
@@ -321,7 +346,7 @@ Expected: lint-staged（prettier .sh 忽略、json/yml 自动格式化）+ commi
 
 `server 镜像启动冒烟` 行尾（「触发：server 镜像首次进入真实部署链路前」之后）追加：
 
-`（已关闭，2026-08-28：docker-build job 加 postgres/redis services + /health 探针冒烟，server-smoke.sh 本地/CI 同源）`
+`（已关闭，2026-08-29：docker-build job 加 postgres/redis services（digest pin 沿用安全基线）+ /health 探针冒烟，server-smoke.sh 本地/CI 同源；check-digests 计数边界 8 → 10）`
 
 其后新增一行：
 
@@ -331,10 +356,10 @@ Expected: lint-staged（prettier .sh 忽略、json/yml 自动格式化）+ commi
 
 - [ ] **Step 3: 热索引收口**
 
-`docs/tasks/README.md` 从「进行中」移除本任务行，在「最近已完成」表首新增：
+`docs/tasks/README.md`（注意：「最近已完成」表首现为「生产安全基线（Tier 2 #6）」行——已由 2026-08-28 收口占据，插入锚点按其行内容对齐，而非表头）：从「进行中」移除本任务行（移除后该表为空时，整表替换为一行 `_（暂无进行中任务）_`），在「最近已完成」表首新增：
 
 ```markdown
-| server 镜像启动冒烟（Tier 2） | CI 构建即测：/health 探针 + entrypoint 三段断言，server-smoke.sh 本地/CI 同源；背靠 backlog 演进行；设计 → [design.md](2026-08-28-server-image-smoke/2026-08-28-server-image-smoke-design.md)，计划 → [plan.md](2026-08-28-server-image-smoke/2026-08-28-server-image-smoke-plan.md) |
+| server 镜像启动冒烟（Tier 2） | CI 构建即测：/health 探针 + entrypoint 三段断言 + job services 双依赖（digest pin 沿用安全基线），server-smoke.sh 本地/CI 同源；backlog 已关闭并登记演进行；设计 → [design.md](2026-08-28-server-image-smoke/2026-08-28-server-image-smoke-design.md)，计划 → [plan.md](2026-08-28-server-image-smoke/2026-08-28-server-image-smoke-plan.md) |
 ```
 
 - [ ] **Step 4: 格式门禁**
@@ -371,6 +396,7 @@ Expected: `docker-build` job 绿（时长参考：构建 ~39 分钟 + 冒烟 ~1-
 
 1. **Spec 覆盖**：设计 §1→Task 1/2、§2（别名）→Task 3、§3（ci.yml）→Task 4、§4（文档登记）→Task 6、验证与验收→Task 5/7；D1-D7 均落入对应 Task 的代码或注释。
 2. **占位符扫描**：无 TBD/TODO/「类似 Task N」；所有代码步骤含完整内容。
-3. **类型一致性**：跨 Task 引用的 env 名（IMAGE/SMOKE_PORT/POSTGRES_PASSWORD/ADMIN_INIT_PASSWORD/JWT_ACCESS_SECRET/JWT_REFRESH_SECRET/DATABASE_URL/REDIS_URL）、容器名 `server-smoke`、镜像名 `multi-admin-server:ci`、三段 entrypoint 字面量与 Dockerfile:77 逐字一致。
+3. **类型一致性**：跨 Task 引用的 env 名（IMAGE/SMOKE_PORT/POSTGRES_PASSWORD/ADMIN_INIT_PASSWORD/JWT_ACCESS_SECRET/JWT_REFRESH_SECRET/DATABASE_URL/REDIS_URL）、容器名 `server-smoke`、镜像名 `multi-admin-server:ci`、三段 entrypoint 字面量与 Dockerfile:85 逐字一致。
 4. **前提矛盾检查**：Task 0 先提交设计+计划工件（目录整体），避免「工作区不干净」前提卡死；Task 5 已标注首次构建时长与跳过路径。
 5. **本地密码适配**：Task 5 Step 2 从根 `.env` 提取真实 postgres 密码（存量卷不认缺省值），CI 由 step 级 env 显式指定，互不干扰。
+6. **master 前进影响核实（2026-08-29 再核）**：security-baseline/登录锁定已合并（dc8a4b8..9aeb2d5）——Dockerfile 加 `USER node` 但 entrypoint 三段标记字面量不变（Dockerfile:85 复核）；ci.yml coverage services 已 digest pin（postgres fe07.../redis ff02...），Task 4 新 services 沿用同源 pin 并联动 check-digests.sh 边界 8 → 10（离线计数 sanity 校验）；package.json 新增 `ops:check-digests` 别名，Task 3 插入锚点（ops:smoke 后）仍有效；backlog 冒烟行号 46 → 47；tasks/README「最近已完成」表首已被「生产安全基线」行占用，锚点按内容对齐；build-and-verify.md 27 行 docker-build 描述同步双冒烟。
