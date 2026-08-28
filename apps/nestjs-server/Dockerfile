@@ -4,7 +4,8 @@
 #   PNPM_REGISTRY=https://registry.npmjs.org
 #   COREPACK_NPM_REGISTRY=https://registry.npmjs.org
 #   PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
-FROM node:24-alpine AS build-stage
+# pin: 2026-08-27 (pnpm ops:check-digests quarterly)
+FROM node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf AS build-stage
 
 WORKDIR /repo
 
@@ -42,7 +43,8 @@ COPY apps/nestjs-server ./apps/nestjs-server
 # 与本地 turbo 任务图同源于同一份依赖声明（容器内不安装/不运行 turbo）
 RUN pnpm --filter @multi-admin/nestjs-server... run build
 
-FROM node:24-alpine AS production-stage
+# pin: 2026-08-27 (pnpm ops:check-digests quarterly)
+FROM node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf AS production-stage
 
 WORKDIR /repo
 
