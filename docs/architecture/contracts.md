@@ -5,7 +5,7 @@ covers:
   - apps/nestjs-server/src/
   - apps/pure-web/src/api/
   - apps/pure-web/mock/
-last_verified: 2026-08-23
+last_verified: 2026-08-28
 ---
 
 # contracts 契约包
@@ -27,6 +27,7 @@ last_verified: 2026-08-23
 ## 响应信封与错误码
 
 - 所有端点成功响应为 `ApiResponse<T> = { code, message, data }`；错误响应同信封，HTTP 状态按码段规则 `httpStatus = Math.floor(code / 100)`。
+- 校验失败（`VALIDATION_FAILED` / 40001）时 `data.errors` 为字段级明细 `Array<{ field: string; message: string }>`（`field` 为点分路径，嵌套 DTO 如 `meta.title`）；其余错误 `data: null`。
 - 错误码表（BizCode，contracts 为事实源）：
 
 | 常量 | 码值 | 语义 |

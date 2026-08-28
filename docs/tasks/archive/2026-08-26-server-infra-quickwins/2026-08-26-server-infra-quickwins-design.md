@@ -11,7 +11,7 @@ last_verified: 2026-08-26
 
 4 项独立基础设施改进，无交叉依赖，各自独立提交。所有变更均限于 `apps/nestjs-server/` 内现有文件，不引入新模块。
 
-来源：[backlog](../../governance/backlog.md) 登记项 + 本轮前瞻性审查。
+来源：[backlog](../../../governance/backlog.md) 登记项 + 本轮前瞻性审查。
 
 ## 已锁定决策
 
@@ -37,7 +37,7 @@ last_verified: 2026-08-26
 
 ### 现状
 
-[exception-resolver.ts](../../../apps/nestjs-server/src/common/errors/exception-resolver.ts) 对 `BadRequestException` 返回 `{ status, code, message }`（`ResolvedError` 接口），最终信封为：
+[exception-resolver.ts](../../../../apps/nestjs-server/src/common/errors/exception-resolver.ts) 对 `BadRequestException` 返回 `{ status, code, message }`（`ResolvedError` 接口），最终信封为：
 
 ```json
 { "code": 40000, "message": "参数校验失败", "data": null }
@@ -49,7 +49,7 @@ last_verified: 2026-08-26
 
 #### 1a. ValidationPipe 自定义异常工厂（`apply-app-defaults.ts`）
 
-明细展开逻辑抽为纯函数 [toValidationErrorDetails](../../../apps/nestjs-server/src/common/errors/validation-error-details.ts)：递归遍历 `ValidationError[]`，`constraints` 逐条输出，嵌套 `children` 递归下钻并以 `.` 拼接字段路径（如 `meta.title`），覆盖 `@ValidateNested()` 嵌套 DTO 场景。
+明细展开逻辑抽为纯函数 [toValidationErrorDetails](../../../../apps/nestjs-server/src/common/errors/validation-error-details.ts)：递归遍历 `ValidationError[]`，`constraints` 逐条输出，嵌套 `children` 递归下钻并以 `.` 拼接字段路径（如 `meta.title`），覆盖 `@ValidateNested()` 嵌套 DTO 场景。
 
 ```ts
 app.useGlobalPipes(
@@ -137,7 +137,7 @@ data: data ?? null
 
 ### 现状
 
-[env.schema.ts](../../../apps/nestjs-server/src/config/env.schema.ts) 中 `JWT_ACCESS_SECRET: z.string().min(1)`，无强度下限。
+[env.schema.ts](../../../../apps/nestjs-server/src/config/env.schema.ts) 中 `JWT_ACCESS_SECRET: z.string().min(1)`，无强度下限。
 
 ### 设计
 
@@ -157,7 +157,7 @@ data: data ?? null
 
 ### 现状
 
-[apply-app-defaults.ts](../../../apps/nestjs-server/src/common/bootstrap/apply-app-defaults.ts) 未调用 `json()`，依赖 Express 默认 100kb。
+[apply-app-defaults.ts](../../../../apps/nestjs-server/src/common/bootstrap/apply-app-defaults.ts) 未调用 `json()`，依赖 Express 默认 100kb。
 
 ### 设计
 
@@ -204,7 +204,7 @@ app.use(json({ limit: globalLimit }));
 
 ### 现状
 
-[prisma.service.ts](../../../apps/nestjs-server/src/database/prisma.service.ts) 构造参数仅 `adapter`，无 `log` 配置、无 `max`。`config` 仅在构造函数中使用，未存为实例属性。
+[prisma.service.ts](../../../../apps/nestjs-server/src/database/prisma.service.ts) 构造参数仅 `adapter`，无 `log` 配置、无 `max`。`config` 仅在构造函数中使用，未存为实例属性。
 
 ### 设计
 

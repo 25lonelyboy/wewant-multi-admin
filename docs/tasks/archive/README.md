@@ -69,3 +69,14 @@
 结论去向：ops 脚本命令速查 → [build-and-verify.md](../../engineering/build-and-verify.md)；脚本实现 → [scripts/ops/](../../../scripts/ops/)；package.json ops:* 别名 → [package.json](../../../package.json)。
 
 归档日期：2026-08-26（结论提升完毕）。
+
+## 2026-08-26-server-infra-quickwins —— Server 基建速赢（Tier 1）
+
+| 文件 | 说明 |
+|---|---|
+| `2026-08-26-server-infra-quickwins-design.md` | 设计文档（4 项改动 + 6 项锁定决策 + 实施期 fix 补丁标注） |
+| `2026-08-26-server-infra-quickwins-plan.md` | 实施计划（Task 0-4，TDD 步骤 + 影响面清单） |
+
+结论去向：backlog 关闭条目（校验明细 / Prisma 监控 / 请求体大小 / JWT 强度）→ [backlog.md](../../governance/backlog.md)；活文档同步（信封 data.errors / 请求链 / 数据库小节）→ [backend.md](../../architecture/backend.md)、[contracts.md](../../architecture/contracts.md)。
+
+归档日期：2026-08-28（worktree 合并 master，结论提升完毕）。

@@ -8,12 +8,12 @@
 |---|---|
 | 生产安全基线（Tier 2 #6） | 容器非 root（`USER node`）+ 镜像 digest pin（8 处 tag@digest）+ check-digests 刷新兜底脚本；设计 → [design.md](2026-08-27-server-security-baseline/2026-08-27-server-security-baseline-design.md) |
 | 登录限流账号维度与失败锁定（Tier 2） | 固定阈值锁定（5 次/15 分钟）+ 混合错误语义；设计 → [design.md](2026-08-27-login-account-lockout/2026-08-27-login-account-lockout-design.md) |
-| Server 基建速赢（Tier 1） | 4 项独立改进：校验错误字段明细 / JWT secret min(32) / 请求体大小 env 可配置 / Prisma 慢查询日志+连接池 max；设计 → [design.md](2026-08-26-server-infra-quickwins/2026-08-26-server-infra-quickwins-design.md)，计划 → [plan.md](2026-08-26-server-infra-quickwins/2026-08-26-server-infra-quickwins-plan.md) |
 
 ## 最近已完成
 
 | 任务 | 收口说明 |
 |---|---|
+| Server 基建速赢（Tier 1） | 4 项改动 + 2 fix 已合并 master；backlog 相关条目已关闭；信封/请求链/数据库新行为同步 → [backend.md](../architecture/backend.md)、[contracts.md](../architecture/contracts.md)；已归档 [archive/2026-08-26-server-infra-quickwins/](archive/2026-08-26-server-infra-quickwins/) |
 | ops 脚本自动化操作集 | 7 个脚本落地；结论 → [build-and-verify.md](../engineering/build-and-verify.md)；已归档 [archive/2026-08-25-ops-scripts/](archive/2026-08-25-ops-scripts/) |
 | GitHub CI 落地 | 四 job 异步安全网 + DATABASE_URL 修复；决策 → [ADR-006](../decisions/ADR-006-github-ci.md)；已归档 [archive/2026-08-23-github-cicd/](archive/2026-08-23-github-cicd/) |
 | Turborepo 构建编排全量迁移 | 5 提交完成 turbo.json 任务图取代 pre hook + 门禁纯校验化 + Docker 拓扑修复；决策 → [ADR-005](../decisions/ADR-005-turbo-build-orchestration.md)，工程实践 → [build-and-verify.md](../engineering/build-and-verify.md)；过程原件已移入 [archive/2026-08-23-turbo-build-orchestration/](archive/2026-08-23-turbo-build-orchestration/) |
