@@ -8,6 +8,7 @@ import { TokenService } from './token.service.js';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { LocalStrategy } from './strategies/local.strategy.js';
 import { LocalAuthGuard } from '../../common/guards/local-auth.guard.js';
+import { LoginLockService } from './login-lock.service.js';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { LocalAuthGuard } from '../../common/guards/local-auth.guard.js';
   providers: [
     AuthService,
     TokenService,
+    LoginLockService,
     LocalStrategy,
     JwtStrategy,
     LocalAuthGuard
