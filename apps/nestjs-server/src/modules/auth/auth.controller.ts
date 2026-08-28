@@ -16,6 +16,7 @@ import { LocalAuthGuard } from '../../common/guards/local-auth.guard.js';
 import type { AuthUser } from './auth-user.js';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './dto/login.dto.js';
+import { LoginLockGuard } from './login-lock.guard.js';
 import { RefreshTokenDto } from './dto/refresh-token.dto.js';
 
 @ApiTags('Auth')
@@ -26,10 +27,12 @@ export class AuthController {
 
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @UseGuards(LocalAuthGuard)
+  @UseGuards(LoginLockGuard, LocalAuthGuard)
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  @ApiOperation({ summary: '登录（同 IP 5 次/分）' })
+  @ApiOperation({
+    summary: '登录（同 IP 5 次/分；连续失败 5 次锁定 15 分钟）'
+  })
   @ApiBody({ type: LoginDto })
   login(
     @Request() req: { user: Awaited<ReturnType<AuthService['validateUser']>> }

@@ -104,6 +104,34 @@ describe('认证链路 (e2e)', () => {
     expect((res.body as Envelope<null>).code).toBe(42901);
   });
 
+  // 用例 2.5：账号维度失败锁定
+  it('连续 5 次错密触发锁定：生成锁定键并删除计数键', async () => {
+    for (let i = 0; i < 5; i++) {
+      const res = await login('admin', 'wrong-password');
+      expect(res.status).toBe(401);
+      expect((res.body as Envelope<null>).code).toBe(40101);
+    }
+    // 不发第 6 个请求（会先撞 IP 限流 429），直接断言 Redis 状态
+    expect(await redis.exists('auth:login-lock:admin')).toBe(1);
+    expect(await redis.exists('auth:login-fail:admin')).toBe(0);
+  });
+
+  it('锁定账号登录 → 42301，消息含剩余分钟', async () => {
+    await redis.set('auth:login-lock:admin', '1', 'EX', 900);
+    const res = await login('admin', ADMIN_PASSWORD);
+    expect(res.status).toBe(423);
+    const body = res.body as Envelope<null>;
+    expect(body.code).toBe(42301);
+    expect(body.message).toMatch(/账号已锁定，请在 \d+ 分钟后重试/);
+  });
+
+  it('成功登录清零计数与锁定键', async () => {
+    await redis.set('auth:login-fail:admin', '4');
+    await loginAdmin();
+    expect(await redis.exists('auth:login-fail:admin')).toBe(0);
+    expect(await redis.exists('auth:login-lock:admin')).toBe(0);
+  });
+
   // 用例 3：refresh 轮换
   it('轮换：新令牌对可用，旧 refresh 重用 → 40103，缺参 → 40001', async () => {
     const session = await loginAdmin();

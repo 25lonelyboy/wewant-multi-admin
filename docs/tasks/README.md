@@ -8,7 +8,7 @@
 |---|---|
 | 生产安全基线（Tier 2 #6） | 容器非 root（`USER node`）+ 镜像 digest pin（8 处 tag@digest）+ check-digests 刷新兜底脚本；设计 → [design.md](2026-08-27-server-security-baseline/2026-08-27-server-security-baseline-design.md) |
 | server 镜像启动冒烟（Tier 2） | CI 构建即测：run 已构建镜像 + /health 探针断言，本地 server-smoke.sh 同源改造；设计 → [design.md](2026-08-28-server-image-smoke/2026-08-28-server-image-smoke-design.md) |
-| 登录限流账号维度与失败锁定（Tier 2） | 固定阈值锁定（5 次/15 分钟）+ 混合错误语义；设计 → [design.md](2026-08-27-login-account-lockout/2026-08-27-login-account-lockout-design.md) |
+| 登录限流账号维度与失败锁定（Tier 2） | 固定阈值锁定（5 次/15 分钟）+ 混合错误语义；设计 → [design.md](2026-08-27-login-account-lockout/2026-08-27-login-account-lockout-design.md)，计划 → [plan.md](2026-08-27-login-account-lockout/2026-08-27-login-account-lockout-plan.md) |
 
 ## 最近已完成
 
