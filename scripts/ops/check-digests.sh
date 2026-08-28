@@ -15,7 +15,7 @@ FILES=(
 
 PINS=$(grep -HnE '(^FROM[[:space:]]+|image:[[:space:]]*)[^#[:space:]]+@sha256:[0-9a-f]{64}' "${FILES[@]}" || true)
 if [[ -z "$PINS" ]]; then
-  echo "[check-digests] 未发现任何 digest pin（预期 8 处）" >&2
+  echo "[check-digests] 未发现任何 digest pin（预期 10 处）" >&2
   exit 1
 fi
 
@@ -35,7 +35,7 @@ while IFS= read -r PIN_LINE; do
   PINNED_DIGEST="${TOKEN##*@}"
   COUNT=$((COUNT + 1))
 
-  # 同一 tag 的多处 pin 必须一致（node ×3、postgres ×2、redis ×2）
+  # 同一 tag 的多处 pin 必须一致（node ×3、postgres ×3、redis ×3）
   if [[ -n "${PINNED_OF[$TAG]+x}" && "${PINNED_OF[$TAG]}" != "$PINNED_DIGEST" ]]; then
     echo "[check-digests] 同一 tag pin 不一致：${SRC}:${LINE_NO} $TAG" >&2
     echo "  当前: $PINNED_DIGEST" >&2
@@ -59,8 +59,8 @@ while IFS= read -r PIN_LINE; do
   fi
 done <<<"$PINS"
 
-if [[ "$COUNT" -ne 8 ]]; then
-  echo "[check-digests] pin 数量异常：预期 8，实际 ${COUNT}（可能有 pin 被移除）" >&2
+if [[ "$COUNT" -ne 10 ]]; then
+  echo "[check-digests] pin 数量异常：预期 10，实际 ${COUNT}（可能有 pin 被移除）" >&2
   exit 1
 fi
 

@@ -31,6 +31,30 @@ jobs:
     name: docker-build（构建验证，不 push）
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    services:
+      # 镜像沿用 coverage job 同源 digest pin（生产安全基线：全仓镜像引用必须 pin；+2 pin 后 check-digests 计数 8 → 10，见 Step 3）
+      postgres:
+        image: postgres:15-alpine@sha256:fe0737ba566a2c5b2a28f34433c0a423261900ec17b9bf7ad115e1aae7e57f1b # pin: 2026-08-27 (pnpm ops:check-digests quarterly)
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: multi_admin
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d multi_admin"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf # pin: 2026-08-27 (pnpm ops:check-digests quarterly)
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -57,6 +81,15 @@ jobs:
             PNPM_REGISTRY=https://registry.npmjs.org
             COREPACK_NPM_REGISTRY=https://registry.npmjs.org
             PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
+      - name: server 镜像启动冒烟（/health 探针 + entrypoint 三段断言）
+        # 冒烟专用丢弃值（非生产秘密，内联安全）；Linux runner 走 --network host，容器内 localhost 即本 job services
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/multi_admin?schema=public
+          REDIS_URL: redis://localhost:6379
+          ADMIN_INIT_PASSWORD: smoke-admin-password
+          JWT_ACCESS_SECRET: smoke-access-secret-000000000000000000
+          JWT_REFRESH_SECRET: smoke-refresh-secret-000000000000000000
+        run: bash scripts/ops/server-smoke.sh
       - name: web 镜像启动冒烟（重试循环，容忍冷启动延迟）
         run: |
           docker run -d --name web-smoke -p 8848:80 multi-admin-web:ci

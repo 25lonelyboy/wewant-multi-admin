@@ -105,19 +105,22 @@ for i in 1 2 3 4 5 6 7 8 9 10; do
 done
 
 echo "▶ entrypoint 三段标记断言..."
-if docker logs server-smoke 2>&1 | grep -qF "[entrypoint] migrate deploy"; then
+# 注意：不能写成 `docker logs ... | grep -qF`——grep -q 命中即退出会使 docker logs 收到
+# SIGPIPE 非零退出，在 pipefail 下管道整体非零、if 恒假（本地实测踩坑后修正）。先捕获再断言。
+SMOKE_LOGS="$(docker logs server-smoke 2>&1 || true)"
+if echo "${SMOKE_LOGS}" | grep -qF "[entrypoint] migrate deploy"; then
   echo "  ✔ [entrypoint] migrate deploy"
 else
   echo "  ✖ 缺失 [entrypoint] migrate deploy"
   ok=0
 fi
-if docker logs server-smoke 2>&1 | grep -qF "[entrypoint] db seed"; then
+if echo "${SMOKE_LOGS}" | grep -qF "[entrypoint] db seed"; then
   echo "  ✔ [entrypoint] db seed"
 else
   echo "  ✖ 缺失 [entrypoint] db seed"
   ok=0
 fi
-if docker logs server-smoke 2>&1 | grep -qF "[entrypoint] start server"; then
+if echo "${SMOKE_LOGS}" | grep -qF "[entrypoint] start server"; then
   echo "  ✔ [entrypoint] start server"
 else
   echo "  ✖ 缺失 [entrypoint] start server"
@@ -125,7 +128,7 @@ else
 fi
 
 echo "▶ 容器日志（完整）："
-docker logs server-smoke
+echo "${SMOKE_LOGS}"
 
 echo "▶ 清理容器..."
 docker rm -f server-smoke

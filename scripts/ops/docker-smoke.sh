@@ -3,7 +3,7 @@ set -euo pipefail
 
 # 本地 Docker 镜像冒烟验证（与 CI docker-build job 同源）
 # 用法：bash scripts/ops/docker-smoke.sh [--server]
-# --server：额外构建 nestjs-server 镜像（不冒烟，仅验证构建）
+# --server：追加 nestjs-server 构建 + 运行态冒烟（server-smoke.sh；须先 ops:env-up 提供 postgres/redis）
 
 echo "▶ 构建 pure-web 镜像（仓库根 context）..."
 docker build \
@@ -53,4 +53,8 @@ if [ "${1:-}" = "--server" ]; then
     --build-arg COREPACK_NPM_REGISTRY=https://registry.npmjs.org \
     --build-arg PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
   echo "✔ nestjs-server 镜像构建成功"
+
+  echo ""
+  echo "▶ server 运行态冒烟..."
+  bash "$(dirname "$0")/server-smoke.sh"
 fi
