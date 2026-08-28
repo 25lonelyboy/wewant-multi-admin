@@ -1,0 +1,2 @@
+# shell 脚本固定 LF：Windows 上经 Git Bash/WSL bash 执行，CRLF 会破坏 shebang 与 set -o pipefail 解析
+*.sh text eol=lf
