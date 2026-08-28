@@ -80,3 +80,14 @@
 结论去向：backlog 关闭条目（校验明细 / Prisma 监控 / 请求体大小 / JWT 强度）→ [backlog.md](../../governance/backlog.md)；活文档同步（信封 data.errors / 请求链 / 数据库小节）→ [backend.md](../../architecture/backend.md)、[contracts.md](../../architecture/contracts.md)。
 
 归档日期：2026-08-28（worktree 合并 master，结论提升完毕）。
+
+## 2026-08-27-login-account-lockout —— 登录限流账号维度与失败锁定（Tier 2）
+
+| 文件 | 说明 |
+|---|---|
+| `2026-08-27-login-account-lockout-design.md` | 设计文档（7 项锁定决策 D1-D7 + 变更矩阵 + e2e 三拆分策略） |
+| `2026-08-27-login-account-lockout-plan.md` | 实施计划（Task 0-6，TDD 步骤 + 验收对照表 + 风险预案） |
+
+结论去向：错误码 42301 → [contracts.md](../../architecture/contracts.md)；限流与锁定行为 → [backend.md](../../architecture/backend.md)；已关闭条目与管理员解锁端点登记 → [backlog.md](../../governance/backlog.md)。
+
+归档日期：2026-08-28（worktree + Subagent-Driven 实施，6 提交合并 master，单测/e2e/覆盖率门禁复验全绿，结论提升完毕）。
