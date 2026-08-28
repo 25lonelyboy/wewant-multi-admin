@@ -43,6 +43,7 @@ pnpm ops:env-up / ops:env-down    # 开发环境启停（postgres + redis + migr
 pnpm ops:pre-push                 # push 前 CI 同构校验（frozen-lockfile + check + audit）
 pnpm ops:ci / ops:ci-logs         # CI 状态拉取 / 失败日志导出
 pnpm ops:smoke / ops:coverage     # Docker 冒烟 / 覆盖率报表
+pnpm ops:check-digests            # 镜像 digest pin 季度漂移巡检（新建 Dockerfile/compose/CI 镜像引用时同步维护）
 ```
 
 ## 架构要点

@@ -3,7 +3,8 @@
 # CI 覆盖为官方源（runner 直连快，docker/build-push-action 的 build-args）：
 #   PNPM_REGISTRY=https://registry.npmjs.org
 #   COREPACK_NPM_REGISTRY=https://registry.npmjs.org
-FROM node:24-alpine AS build-stage
+# pin: 2026-08-27 (pnpm ops:check-digests quarterly)
+FROM node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf AS build-stage
 
 WORKDIR /repo
 
@@ -36,7 +37,8 @@ COPY apps/pure-web ./apps/pure-web
 # 与本地 turbo 任务图同源于同一份依赖声明（容器内不安装/不运行 turbo）
 RUN pnpm --filter @multi-admin/pure-web... run build
 
-FROM nginx:stable-alpine AS production-stage
+# pin: 2026-08-27 (pnpm ops:check-digests quarterly)
+FROM nginx:stable-alpine@sha256:97d490c12ba55b4946b01546d1c3ed324e8d41ab1c9fcb2a616aa470620e5b46 AS production-stage
 
 COPY apps/pure-web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build-stage /repo/apps/pure-web/dist /usr/share/nginx/html

@@ -25,7 +25,8 @@
     "ops:env-up": "bash scripts/ops/env-up.sh",
     "ops:env-down": "bash scripts/ops/env-down.sh",
     "ops:smoke": "bash scripts/ops/docker-smoke.sh",
-    "ops:coverage": "node scripts/ops/coverage.mjs"
+    "ops:coverage": "node scripts/ops/coverage.mjs",
+    "ops:check-digests": "bash scripts/ops/check-digests.sh"
   },
   "keywords": [],
   "author": "wewant-rocky",
