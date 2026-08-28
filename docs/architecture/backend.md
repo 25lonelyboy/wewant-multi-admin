@@ -44,7 +44,7 @@ src/
 - Swagger 仅非生产环境启用，挂载于 `api/docs`（Bearer 认证 scheme）
 - 响应统一信封：`{ code: number, message: string, data: T }`
 - 业务错误走 `BizException`（携带 `BizCode` 枚举），由 `AllExceptionsFilter` 经 exception-resolver 统一格式化；错误码表与信封扩展规则见 [contracts.md](contracts.md)
-- 限流：登录同 IP 5 次/分；refresh-token 10 次/分；全局 60 次/分
+- 限流：登录同 IP 5 次/分；账号维度连续失败 5 次锁定 15 分钟（自动解锁，锁定中返回 42301）；refresh-token 10 次/分；全局 60 次/分
 
 ## 数据库
 

@@ -39,6 +39,7 @@ last_verified: 2026-08-23
 | FORBIDDEN | 40301 | 权限不足 |
 | NOT_FOUND | 40404 | 资源不存在或已软删 |
 | CONFLICT | 40900 | 唯一约束冲突 |
+| LOGIN_ACCOUNT_LOCKED | 42301 | 登录账号已锁定（等待自动解锁） |
 | RATE_LIMITED | 42901 | 触发限流 |
 | INTERNAL_ERROR | 50000 | 内部错误 |
 
