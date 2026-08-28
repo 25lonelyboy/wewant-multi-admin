@@ -10,7 +10,7 @@ covers:
   - docker-compose.yml
   - packages/contracts/
   - turbo.json
-last_verified: 2026-08-26
+last_verified: 2026-08-28
 ---
 
 # 构建与验证
@@ -59,6 +59,7 @@ turbo env 透传约束：Turborepo 不透传自定义 env vars 到 task 子进�
 - 本机编排：`cp .env.example .env` 填写 `POSTGRES_PASSWORD` 与 `ADMIN_INIT_PASSWORD` 后 `docker compose up`（postgres + redis + server + web 四服务；server 依赖 postgres/redis 双健康，启动链 entrypoint 串 `prisma migrate deploy → prisma db seed → exec node`，幂等可重复）。库名统一 `multi_admin`；存量旧卷（旧库名初始化）需 `docker compose down -v` 重建。
 - env 注意：根 `.env` 的 `DATABASE_URL` 若手动设置，内嵌密码须与 `POSTGRES_PASSWORD` 一致（否则 server 连库失败而 postgres 容器正常，排障困难）；根模板的 `REDIS_URL` 经 compose 插值注入 server（`${REDIS_URL:-redis://redis:6379}`）；JWT 双密钥（`JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`）必须不同，compose `:?` 强校验必填。
 - 镜像源参数化（`ARG PNPM_REGISTRY`），CI 通过 `build-args` 覆盖为官方源。
+- 镜像 pin 与非 root：生产镜像统一 `tag@digest`（manifest-list 层级）pin，季度 `pnpm ops:check-digests` 巡检漂移；nestjs-server prod 阶段以 `USER node`（UID 1000）运行，compose 的 server 服务带 `no-new-privileges`；nginx 保留官方镜像 master-root 形态（绑 80 需要），迁至 restricted PSA / OpenShift 时换 nginx-unprivileged。
 
 ## ops 自动化脚本（scripts/ops/）
 
@@ -73,8 +74,9 @@ turbo env 透传约束：Turborepo 不透传自定义 env vars 到 task 子进�
 | `pnpm ops:env-down` | `env-down.sh` | 开发环境停止（`--clean` 清除数据卷） |
 | `pnpm ops:smoke` | `docker-smoke.sh` | 本地 Docker 冒烟（`--server` 追加 nestjs-server 构建） |
 | `pnpm ops:coverage` | `coverage.mjs` | 本地覆盖率一键跑（`--skip-env` 跳过环境启停） |
+| `pnpm ops:check-digests` | `check-digests.sh` | 镜像 digest pin 漂移巡检（季度，`docker buildx imagetools inspect` 比对） |
 
-前置依赖：gh CLI（ci-status / ci-logs，需首次 `gh auth login`）、Docker Desktop（env-up / smoke / coverage）、Git Bash（shell 脚本执行）。
+前置依赖：gh CLI（ci-status / ci-logs，需首次 `gh auth login`）、Docker Desktop（env-up / smoke / coverage / check-digests）、Git Bash（shell 脚本执行）。
 
 ## 已知环境事实
 
