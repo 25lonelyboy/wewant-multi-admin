@@ -5,6 +5,7 @@ import { BizCode } from '@multi-admin/contracts';
 import type { RefreshResponse } from '@multi-admin/contracts';
 import { BizException } from '../../common/errors/biz.exception.js';
 import { TokenService } from './token.service.js';
+import { LoginLockService } from './login-lock.service.js';
 import { derivePermissions } from './permissions.js';
 import { buildRouteTree, type MenuRouteRow } from './route-tree.js';
 import type { AuthUser } from './auth-user.js';
@@ -13,7 +14,8 @@ import type { AuthUser } from './auth-user.js';
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tokens: TokenService
+    private readonly tokens: TokenService,
+    private readonly loginLock: LoginLockService
   ) {}
 
   /**
@@ -36,11 +38,16 @@ export class AuthService {
     const hashToVerify = user?.password ?? DUMMY_HASH;
     const valid = await argon2.verify(hashToVerify, password);
     if (!user || !valid) {
+      // 两失败分支合并后计数，耗时结构不变，不引入新时序旁路
+      await this.loginLock.recordFailure(username);
       throw new BizException(BizCode.UNAUTHORIZED, '用户名或密码错误');
     }
     if (user.status !== 'ACTIVE') {
+      // 禁用不计数：属管理员操作结果，非爆破信号
       throw new BizException(BizCode.UNAUTHORIZED, '账号已禁用');
     }
+    // 成功清零：删除计数与锁定残留（幂等）
+    await this.loginLock.clear(username);
     return user;
   }
 

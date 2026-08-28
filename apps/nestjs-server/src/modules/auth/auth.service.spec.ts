@@ -2,6 +2,7 @@
 import { AuthService } from './auth.service.js';
 import type { TokenService } from './token.service.js';
 import type { PrismaService } from '../../database/prisma.service.js';
+import type { LoginLockService } from './login-lock.service.js';
 import type { AuthUser } from './auth-user.js';
 import * as argon2 from 'argon2';
 
@@ -32,6 +33,7 @@ describe('AuthService', () => {
     deleteSession: jest.Mock;
     isBlacklisted: jest.Mock;
   };
+  let loginLock: { recordFailure: jest.Mock; clear: jest.Mock };
 
   beforeEach(() => {
     prisma = {
@@ -47,9 +49,14 @@ describe('AuthService', () => {
       deleteSession: jest.fn().mockResolvedValue(undefined),
       isBlacklisted: jest.fn().mockResolvedValue(false)
     };
+    loginLock = {
+      recordFailure: jest.fn().mockResolvedValue(false),
+      clear: jest.fn().mockResolvedValue(undefined)
+    };
     service = new AuthService(
       prisma as unknown as PrismaService,
-      tokens as unknown as TokenService
+      tokens as unknown as TokenService,
+      loginLock as unknown as LoginLockService
     );
   });
 
@@ -99,6 +106,34 @@ describe('AuthService', () => {
           where: expect.objectContaining({ username: 'ghost', deletedAt: null })
         })
       );
+    });
+
+    it('密码错误 → recordFailure 计数；禁用不计数；成功 clear 清零', async () => {
+      // 密码错误：计数
+      prisma.user.findFirst.mockResolvedValue(ADMIN_ROW);
+      (argon2.verify as jest.Mock).mockResolvedValue(false);
+      await expect(
+        service.validateUser('admin', 'wrong')
+      ).rejects.toMatchObject({ code: 40101 });
+      expect(loginLock.recordFailure).toHaveBeenCalledWith('admin');
+
+      // 禁用：不计数（属管理员操作结果，非爆破信号）
+      loginLock.recordFailure.mockClear();
+      prisma.user.findFirst.mockResolvedValue({
+        ...ADMIN_ROW,
+        status: 'DISABLED'
+      });
+      (argon2.verify as jest.Mock).mockResolvedValue(true);
+      await expect(service.validateUser('admin', 'ok')).rejects.toMatchObject({
+        code: 40101
+      });
+      expect(loginLock.recordFailure).not.toHaveBeenCalled();
+
+      // 成功：清零
+      prisma.user.findFirst.mockResolvedValue(ADMIN_ROW);
+      (argon2.verify as jest.Mock).mockResolvedValue(true);
+      await service.validateUser('admin', 'ok');
+      expect(loginLock.clear).toHaveBeenCalledWith('admin');
     });
   });
 
