@@ -10,6 +10,7 @@ describe('BizCode', () => {
     expect(BizCode.FORBIDDEN).toBe(40301);
     expect(BizCode.NOT_FOUND).toBe(40404);
     expect(BizCode.CONFLICT).toBe(40900);
+    expect(BizCode.LOGIN_ACCOUNT_LOCKED).toBe(42301);
     expect(BizCode.RATE_LIMITED).toBe(42901);
     expect(BizCode.INTERNAL_ERROR).toBe(50000);
   });
