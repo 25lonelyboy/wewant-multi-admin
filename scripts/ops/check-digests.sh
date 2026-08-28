@@ -59,6 +59,11 @@ while IFS= read -r PIN_LINE; do
   fi
 done <<<"$PINS"
 
+if [[ "$COUNT" -ne 8 ]]; then
+  echo "[check-digests] pin 数量异常：预期 8，实际 ${COUNT}（可能有 pin 被移除）" >&2
+  exit 1
+fi
+
 if [[ "$STATUS" -eq 0 ]]; then
   echo "[check-digests] 全部一致（共 $COUNT 处 pin）"
 fi
