@@ -379,17 +379,17 @@ git commit -m "docs(repo): 冒烟活文档同步与 backlog 关闭及演进行�
 
 ### Task 7: 推送与 CI 首跑验证
 
-- [ ] **Step 1: 推送 master**
+- [x] **Step 1: 推送 master**（b1bbf97..1d58b30）
 
 Run: `git push`
 Expected: push 成功（单分支直推工作流）
 
-- [ ] **Step 2: 观察 CI**
+- [x] **Step 2: 观察 CI**（run #33199601873 四 job 全绿；docker-build 内 server 冒烟三段 ✔ + /health code:0）
 
 Run: `pnpm ops:ci`（或 GitHub Actions 页面）
 Expected: `docker-build` job 绿（时长参考：构建 ~39 分钟 + 冒烟 ~1-2 分钟，timeout 60 分钟）；其余三 job 不受影响
 
-- [ ] **Step 3: 失败预案**
+- [x] **Step 3: 失败预案**（未触发：首跑即绿）
 
 若 docker-build 红：`pnpm ops:ci-logs` 导出失败日志，重点看 server 冒烟 step 输出（脚本已打印完整容器日志）；本地按 Task 5 口径复现后用 systematic-debugging 技能定位
 
