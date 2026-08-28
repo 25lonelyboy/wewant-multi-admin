@@ -36,6 +36,8 @@ services:
       context: .
       dockerfile: apps/nestjs-server/Dockerfile
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       NODE_ENV: production
       PORT: 3000

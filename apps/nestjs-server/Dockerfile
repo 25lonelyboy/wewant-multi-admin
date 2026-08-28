@@ -65,7 +65,7 @@ RUN corepack enable && pnpm install --frozen-lockfile --prod --ignore-scripts --
     --registry=${PNPM_REGISTRY} \
     --fetch-timeout=180000 \
     --fetch-retries=5 \
-    && rm -rf /root/.cache /root/.local/share/pnpm/store /tmp
+    && rm -rf /root/.cache /root/.local/share/pnpm/store /tmp && mkdir -p /tmp && chmod 1777 /tmp
 
 COPY --from=build-stage /repo/apps/nestjs-server/dist ./apps/nestjs-server/dist
 # 启动链刚需：migrations/seed 源码、v7 配置、生成物（seed 经 tsx 从源码产物导入，dev/prod 同路径）
@@ -78,4 +78,7 @@ RUN printf '#!/bin/sh\nset -e\necho "[entrypoint] migrate deploy"\npnpm exec pri
 
 WORKDIR /repo/apps/nestjs-server
 EXPOSE 3000
+
+USER node
+
 CMD ["/entrypoint.sh"]
