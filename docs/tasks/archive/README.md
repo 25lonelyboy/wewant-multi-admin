@@ -91,3 +91,14 @@
 结论去向：错误码 42301 → [contracts.md](../../architecture/contracts.md)；限流与锁定行为 → [backend.md](../../architecture/backend.md)；已关闭条目与管理员解锁端点登记 → [backlog.md](../../governance/backlog.md)。
 
 归档日期：2026-08-28（worktree + Subagent-Driven 实施，6 提交合并 master，单测/e2e/覆盖率门禁复验全绿，结论提升完毕）。
+
+## 2026-08-27-server-security-baseline —— 生产安全基线（Tier 2 #6）
+
+| 文件 | 说明 |
+|---|---|
+| `2026-08-27-server-security-baseline-design.md` | 设计文档（非 root + digest pin 变更矩阵 + USER node 安全分析 + pin 注释约定 + 实施期修正标注） |
+| `2026-08-27-server-security-baseline-plan.md` | 实施计划（Task 0-5，验收路径 + 自审记录 + 执行偏差 bullet） |
+
+结论去向：镜像 pin 约定与季度巡检 → [build-and-verify.md](../../engineering/build-and-verify.md)；已关闭条目 ①② → [backlog.md](../../governance/backlog.md)；巡检脚本 → [scripts/ops/check-digests.sh](../../../scripts/ops/check-digests.sh)；速查 → [AGENTS.md](../../../AGENTS.md)。
+
+归档日期：2026-08-29（worktree + Subagent-Driven 实施，7 提交合并 master，非 root 真实链路验收通过、pnpm check 全绿、最终审查 Ready to merge、结论提升完毕）。

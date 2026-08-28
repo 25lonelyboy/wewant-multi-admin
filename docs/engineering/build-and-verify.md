@@ -10,7 +10,7 @@ covers:
   - docker-compose.yml
   - packages/contracts/
   - turbo.json
-last_verified: 2026-08-28
+last_verified: 2026-08-29
 ---
 
 # 构建与验证
@@ -76,7 +76,9 @@ turbo env 透传约束：Turborepo 不透传自定义 env vars 到 task 子进�
 | `pnpm ops:coverage` | `coverage.mjs` | 本地覆盖率一键跑（`--skip-env` 跳过环境启停） |
 | `pnpm ops:check-digests` | `check-digests.sh` | 镜像 digest pin 漂移巡检（季度，`docker buildx imagetools inspect` 比对） |
 
-前置依赖：gh CLI（ci-status / ci-logs，需首次 `gh auth login`）、Docker Desktop（env-up / smoke / coverage / check-digests）、Git Bash（shell 脚本执行）。
+前置依赖：gh CLI（ci-status / ci-logs，需首次 `gh auth login`）、Docker Desktop（env-up / smoke / coverage / check-digests）、Git Bash 或 WSL bash（shell 脚本执行；仓库 `.sh` 统一 LF 行尾，见根 `.gitattributes`）。
+
+check-digests 远端比对依赖可联网环境：本机无 Registry 直连时按设计输出「远端 digest 获取失败」exit 1（本地同 tag 一致性检查仍有效）；CI 目前无该巡检 step（设计 D5 不新增 CI 验证逻辑），首次在线巡检需在可联网环境手动执行一次。
 
 ## 已知环境事实
 

@@ -20,7 +20,7 @@ backlog「生产安全基线加固」原三条中的剩余两条 + 一个配套�
 
 已由其他设计覆盖、不纳入本设计：第 ③ 条请求体大小（Tier 1 基建速赢，D3 已锁定 `BODY_LIMIT`/`UPLOAD_BODY_LIMIT` 双 env 可配置）。
 
-来源：[backlog](../../governance/backlog.md)；与「server 镜像启动冒烟」维持分离顺序（耦合评估：中等编辑表面 / 弱目标依赖，冒烟作为本设计的 CI 自动化延伸紧接其后立项）。
+来源：[backlog](../../../governance/backlog.md)；与「server 镜像启动冒烟」维持分离顺序（耦合评估：中等编辑表面 / 弱目标依赖，冒烟作为本设计的 CI 自动化延伸紧接其后立项）。
 
 ## 已锁定决策
 

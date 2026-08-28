@@ -14,7 +14,7 @@ last_verified: 2026-08-28
 | 项 | 背景与触发条件 |
 |---|---|
 | 子资源整体替换并发交错窗口 | 角色-菜单 / 用户-角色分配已实现 `$transaction` 原子（deleteMany+createMany），但 READ COMMITTED 下无行级锁，两个并发整体替换事务仍可能交错产生混合态；触发：同一资源的真实并发管理操作出现（可考虑行锁/版本号加固） |
-| 生产安全基线加固 | ① Dockerfile 无 `USER` 指令容器以 root 运行；② `node:24-alpine`/`postgres:15-alpine`/`redis:7-alpine` 无 digest pin（不可复现构建）；③ 请求体大小依赖 Express 默认 100kb 未显式声明；触发：生产部署前（①②已关闭，2026-08-28，非 root + digest pin 落地，见 docs/tasks/2026-08-27-server-security-baseline/；③ 已关闭，2026-08-27，BODY_LIMIT / UPLOAD_BODY_LIMIT env 可配置，全局 1mb + 上传路由 10mb） |
+| 生产安全基线加固 | ① Dockerfile 无 `USER` 指令容器以 root 运行；② `node:24-alpine`/`postgres:15-alpine`/`redis:7-alpine` 无 digest pin（不可复现构建）；③ 请求体大小依赖 Express 默认 100kb 未显式声明；触发：生产部署前（①②已关闭，2026-08-28，非 root + digest pin 落地，见 docs/tasks/archive/2026-08-27-server-security-baseline/；③ 已关闭，2026-08-27，BODY_LIMIT / UPLOAD_BODY_LIMIT env 可配置，全局 1mb + 上传路由 10mb） |
 | 登录限流账号维度与失败锁定 | 登录端点限流仅 IP 维度（5/min/IP），无按 username 的失败计数/临时锁定，分布式爆破与共享出口 IP 误伤两类风险均未覆盖；触发：公网暴露或真实多用户接入（已关闭，2026-08-27，实现形态为账号维度失败计数 + 15 分钟临时锁定，LoginLockGuard 前置 + 混合错误语义 42301） |
 | 管理员手动解锁端点 | 账号锁定目前仅 TTL 自动解锁（15 分钟），无误伤应急手段；触发：运维需求或锁定误伤反馈 |
 | JWT secret 强度校验与轮换预案 | env.schema 对 JWT_ACCESS_SECRET / JWT_REFRESH_SECRET 仅 min(1) 校验，无强度下限（建议 min 32）与双密钥轮换流程；触发：生产部署前（强度校验部分已关闭，2026-08-27，min(32) 强制，BREAKING；轮换预案仍开放） |
