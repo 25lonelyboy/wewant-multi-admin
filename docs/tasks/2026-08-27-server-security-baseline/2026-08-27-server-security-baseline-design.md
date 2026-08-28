@@ -5,7 +5,7 @@ covers:
   - apps/pure-web/Dockerfile
   - docker-compose.yml
   - .github/workflows/ci.yml
-last_verified: 2026-08-27
+last_verified: 2026-08-28
 ---
 
 # 生产安全基线设计（Tier 2 #6：非 root + digest pin）

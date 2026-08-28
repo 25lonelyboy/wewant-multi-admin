@@ -437,4 +437,4 @@ git commit -m "docs(repo): backlog 生产安全基线①②关闭标注"
 - 提交序列：docs → feat(server) → feat(repo) ×2 → docs(repo)，每步可独立回滚；scope 拆分（原设计 F5 留白）已按「非 root 主题归 server、跨 workspace 基建归 repo」定案
 - digest 值经实施时单命令获取并同 tag 复用（node/postgres/redis 多处一致由第 3.4 步 diff 核对 + 第 4.5 步脚本一致性检查双重保障）
 - 项目规则符合性：提交信息 scope 全部在白名单；shell 脚本 `#!/usr/bin/env bash` + `set -euo pipefail` 对齐既有 ops 风格；文档登记面（build-and-verify.md）与仓库治理一致
-- 执行偏差（2026-08-28 实施期）：Task 3 的 Dockerfile 行尾注释形态经实测为语法错误，改为 FROM 上方独立整行注释（文案不变）；digest 取源因本机无 Hub 直连改用本地 RepoDigests（manifest-list 层级，构建实证可解析），CI 侧以 ops:check-digests 首次巡检做在线闭环；Task 4 审查补 pin 数量边界校验（COUNT≠8 即告警退出）与 AGENTS.md 速查登记（fix commit，amended）；Task 5.2 验收以 compose 真实链路实现；Task 5.5 巡检在本机无 Hub 直连下呈现「远端获取失败」形态属预期，在线一致由 CI 闭环
+- 执行偏差（2026-08-28 实施期）：Task 3 的 Dockerfile 行尾注释形态经实测为语法错误，改为 FROM 上方独立整行注释（文案不变）；digest 取源因本机无 Hub 直连改用本地 RepoDigests（manifest-list 层级，构建实证可解析），CI 侧以 ops:check-digests 首次巡检做在线闭环；Task 4 审查补 pin 数量边界校验（COUNT≠8 即告警退出）与 AGENTS.md 速查登记（独立 fix commit）；Task 5.2 验收以 compose 真实链路实现；Task 5.5 巡检在本机无 Hub 直连下呈现「远端获取失败」形态属预期，在线一致由 CI 闭环
