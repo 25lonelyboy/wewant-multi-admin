@@ -56,6 +56,9 @@ ARG COREPACK_NPM_REGISTRY=https://registry.npmmirror.com
 ENV PNPM_CONFIG_REGISTRY=${PNPM_REGISTRY}
 # corepack 下载 pnpm 本体也走镜像（corepack 专属变量）
 ENV COREPACK_NPM_REGISTRY=${COREPACK_NPM_REGISTRY}
+# pnpm exec 默认校验依赖安装状态（verify-deps-before-run）：生产镜像按 --filter 裁剪安装会误判缺失，
+# 触发自动 install 在 /repo 根（root 属主）建临时文件，node 用户写入即 EACCES 重启循环；非 root 运行链需显式关闭
+ENV PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false
 
 COPY --from=build-stage /repo/package.json /repo/pnpm-workspace.yaml /repo/pnpm-lock.yaml /repo/.npmrc ./
 COPY --from=build-stage /repo/internal ./internal
@@ -67,13 +70,16 @@ RUN corepack enable && pnpm install --frozen-lockfile --prod --ignore-scripts --
     --registry=${PNPM_REGISTRY} \
     --fetch-timeout=180000 \
     --fetch-retries=5 \
-    && rm -rf /root/.cache /root/.local/share/pnpm/store /tmp && mkdir -p /tmp && chmod 1777 /tmp
+    && rm -rf /root/.cache /root/.local/share/pnpm/store /tmp && mkdir -p /tmp && chmod 1777 /tmp \
+    && chown -R node:node /repo/node_modules
 
 COPY --from=build-stage /repo/apps/nestjs-server/dist ./apps/nestjs-server/dist
 # 启动链刚需：migrations/seed 源码、v7 配置、生成物（seed 经 tsx 从源码产物导入，dev/prod 同路径）
 COPY --from=build-stage /repo/apps/nestjs-server/prisma ./apps/nestjs-server/prisma
 COPY --from=build-stage /repo/apps/nestjs-server/prisma.config.ts ./apps/nestjs-server/prisma.config.ts
 COPY --from=build-stage /repo/apps/nestjs-server/src/generated ./apps/nestjs-server/src/generated
+# contracts workspace 包产物：dist 以裸包名 import（exception-resolver 等），pnpm 链接指向 /repo/packages/contracts，缺则 ERR_MODULE_NOT_FOUND
+COPY --from=build-stage /repo/packages ./packages
 
 # 启动链：migrate deploy → db seed → 主进程；任一环节失败即容器退出（compose restart 兜底）
 RUN printf '#!/bin/sh\nset -e\necho "[entrypoint] migrate deploy"\npnpm exec prisma migrate deploy\necho "[entrypoint] db seed"\npnpm exec prisma db seed\necho "[entrypoint] start server"\nexec node dist/main.js\n' > /entrypoint.sh && chmod +x /entrypoint.sh
@@ -81,6 +87,9 @@ RUN printf '#!/bin/sh\nset -e\necho "[entrypoint] migrate deploy"\npnpm exec pri
 WORKDIR /repo/apps/nestjs-server
 EXPOSE 3000
 
+# node_modules 归 node 属主：Prisma CLI migrate/seed 需向 @prisma/engines 写引擎二进制（并入安装 RUN，独立层会
+# 对 node_modules 整层 copy-up ~200MB）；属主让渡覆盖全量依赖——收窄至 engines 路径含 Prisma 版本目录段、升级
+# 脆弱，权衡保留全量并记录于设计文档（security 表）；运行期 node 进程可改写依赖，已由 no-new-privileges 缓解
 USER node
 
 CMD ["/entrypoint.sh"]

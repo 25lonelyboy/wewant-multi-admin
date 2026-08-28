@@ -36,7 +36,7 @@ backlog「生产安全基线加固」原三条中的剩余两条 + 一个配套�
 
 | # | 文件 | 变更 |
 |---|---|---|
-| 1 | `apps/nestjs-server/Dockerfile` | 两处 `FROM node:24-alpine` 加 digest；production-stage 末尾（CMD 之前）加 `USER node`；清理 RUN 尾部追加 `mkdir -p /tmp && chmod 1777 /tmp`（重建被删除的可写临时目录） |
+| 1 | `apps/nestjs-server/Dockerfile` | 两处 `FROM node:24-alpine` 加 digest；production-stage 末尾（CMD 之前）加 `USER node`；清理 RUN 尾部追加 `mkdir -p /tmp && chmod 1777 /tmp`（重建被删除的可写临时目录）；依赖安装 RUN 内并 `chown -R node:node /repo/node_modules`（Prisma migrate/seed 引擎落盘可写；并入安装 RUN 避免独立 chown 层对 node_modules 整层 copy-up ~200MB）；增 `COPY --from=build-stage /repo/packages ./packages`（dist 裸名 import contracts 的解析来源）；增 `ENV PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false`（pnpm exec 依赖检查在 /repo 建临时文件的 EACCES 兜底） |
 | 2 | `apps/pure-web/Dockerfile` | `FROM node:24-alpine`、`FROM nginx:stable-alpine` 加 digest（不涉及 USER） |
 | 3 | `docker-compose.yml` | postgres/redis 镜像加 digest；server 服务加 `security_opt: [no-new-privileges:true]` |
 | 4 | `.github/workflows/ci.yml` | coverage job 的 postgres/redis service 镜像加 digest |
@@ -54,7 +54,10 @@ nestjs-server `production-stage` 以 root 运行 entrypoint 链（migrate deploy
 - nestjs-server production-stage 在 `WORKDIR` 与 `CMD` 之间加 `USER node`：
   - 后续构建指令（若有）与运行时进程均以 UID 1000 运行
   - 不改为 build-stage（依赖安装需要 root）
-  - 不做 `--chown`：运行时不需要对文件系统写权限（见安全分析）
+  - 不做 `--chown`（COPY 阶段保持 root 属主不变）；node_modules 单独归 node 属主——`chown -R node:node /repo/node_modules` 并入依赖安装 RUN 同层执行（独立 RUN 会对 node_modules 整层 copy-up ~200MB）
+  - chown 属主让渡范围 = 全量 node_modules（未收窄至 @prisma/engines 路径：该路径含 Prisma 版本目录段 `@prisma+engines@{version}`，升级即失效、维护脆弱）；运行期 node 进程理论可改写依赖文件，已由 no-new-privileges + 镜像层内容不可变（构建期产物）缓解，权衡记录于此；Prisma CLI 的 migrate/seed 会向 @prisma/engines 写入引擎二进制，实测 root 属主下 node 用户启动即重启循环；运行时查询引擎为 TS/WASM 内嵌无此诉求，但 CLI 期涉及
+  - `COPY --from=build-stage /repo/packages ./packages`：dist 以裸包名 import `@multi-admin/contracts`（exception-resolver 等），pnpm 链接指向 /repo/packages/contracts，缺该目录则 ERR_MODULE_NOT_FOUND（真实链路实测）
+  - `ENV PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false`：pnpm exec 前置依赖检查会按全 workspace 判定生产裁剪安装缺失，自动 install 在 /repo 根（root 属主）建临时文件，node 用户写入 EACCES 重启循环；显式关闭（见安全分析）
   - 清理 RUN 尾部加 `mkdir -p /tmp && chmod 1777 /tmp`：现清理命令删除了 /tmp 目录本身，重建标准可写临时目录（同层无体积成本）
 - compose 的 server 服务加 `security_opt: [no-new-privileges:true]`（纵深防御；不支持该选项的平台上 Docker 静默跳过）
 - nginx 不降权，设计文档记录触发条件：未来迁至 K8s restricted PSA 或 OpenShift 时，web 容器换 `nginxinc/nginx-unprivileged` 变体（听 8080）并同步改 compose 端口映射与 nginx.conf
@@ -63,10 +66,10 @@ nestjs-server `production-stage` 以 root 运行 entrypoint 链（migrate deploy
 
 | 关注点 | 结论 |
 |---|---|
-| entrypoint 链文件写 | migrate deploy / db seed / node 三者均只有网络 IO 与读文件；Prisma 7 driver adapter（adapter-pg）无引擎二进制下载、无 fs 写需求 |
+| entrypoint 链文件写 | node_modules 需归 node 属主（chown 并入依赖安装 RUN 同层执行）：Prisma CLI 的 migrate/seed 会向 @prisma/engines 写入引擎二进制，实测 root 属主下 node 用户启动即重启循环；属主让渡覆盖全量 node_modules——未收窄至 engines 路径（含 Prisma 版本目录段、升级脆弱），运行期 node 进程理论可改写依赖，已由 no-new-privileges + 镜像层内容不可变（构建期产物）缓解，权衡记录于此；运行时查询引擎为 TS/WASM 内嵌无此诉求，但 CLI 期涉及 |
 | 端口 | 3000 > 1024，非 root 可绑定 |
 | 临时目录 | prod 阶段清理命令 `rm -rf ... /tmp` 删除了 /tmp 目录本身；entrypoint 链无 /tmp 依赖（现行 root 冒烟即证）；实施时同步重建 1777 可写 /tmp 作防御性配套（见变更矩阵 #1） |
-| HOME | 官方镜像预置 `/home/node`（node 用户所有）可写；pnpm exec 仅解析 node_modules/.bin，无 store 写入 |
+| HOME | 官方镜像预置 `/home/node`（node 用户所有）可写；pnpm exec 仅解析 node_modules/.bin，无 store 写入；`PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false` 关闭依赖状态预检（否则在全 workspace 判定下降权后于 /repo 根自动 install、node 用户 EACCES） |
 | 文件可读性 | RUN/COPY 产物默认 root 所有 644/755，其他用户可读可执行 |
 | compose healthcheck | `node -e "fetch(...)"` 随容器 USER 以 node 身份运行，正常 |
 
