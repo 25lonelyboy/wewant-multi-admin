@@ -43,31 +43,26 @@ last_verified: 2026-08-26
 { "code": 40000, "message": "参数校验失败", "data": null }
 ```
 
-当前 ValidationPipe 未开启 `detailedOutputMessages`，`getResponse().message` 为纯字符串数组，无法提取字段名。
+当前 ValidationPipe 使用默认异常工厂，`getResponse().message` 为纯字符串数组，无法提取字段名。
 
 ### 设计
 
-#### 1a. ValidationPipe 开启详细输出 + 自定义异常工厂（`apply-app-defaults.ts`）
+#### 1a. ValidationPipe 自定义异常工厂（`apply-app-defaults.ts`）
+
+明细展开逻辑抽为纯函数 [toValidationErrorDetails](../../../apps/nestjs-server/src/common/errors/validation-error-details.ts)：递归遍历 `ValidationError[]`，`constraints` 逐条输出，嵌套 `children` 递归下钻并以 `.` 拼接字段路径（如 `meta.title`），覆盖 `@ValidateNested()` 嵌套 DTO 场景。
 
 ```ts
 app.useGlobalPipes(
   new ValidationPipe({
     whitelist: true,
     transform: true,
-    detailedOutputMessages: true,
-    exceptionFactory: (errors: ValidationError[]) => {
-      const details = errors.flatMap(err =>
-        Object.values(err.constraints ?? {}).map(msg => ({
-          field: err.property,
-          message: msg
-        }))
-      );
-      return new BadRequestException({
+    exceptionFactory: (errors: ValidationError[]) =>
+      new BadRequestException({
         statusCode: 400,
         message: '参数校验失败',
-        errors: details
-      });
-    }
+        // 递归展开嵌套 DTO：嵌套字段以点分路径输出（如 meta.title）
+        errors: toValidationErrorDetails(errors)
+      })
   })
 );
 ```
@@ -127,8 +122,8 @@ data: data ?? null
 ### 数据流
 
 ```
-请求 → ValidationPipe（detailedOutputMessages + exceptionFactory）
-→ 校验失败 → 将 ValidationError[] 映射为 { field, message } 数组 → 抛 BadRequestException
+请求 → ValidationPipe（自定义 exceptionFactory）
+→ 校验失败 → 递归展开 ValidationError[] 为 { field, message } 数组（嵌套字段点分路径） → 抛 BadRequestException
 → AllExceptionsFilter → resolveException 提取 exception.getResponse().errors
 → 返回 { code: 40000, message: '参数校验失败', data: { errors: [...] } }
 ```
@@ -258,15 +253,15 @@ export class PrismaService
 
   async onApplicationBootstrap(): Promise<void> {
     await this.$connect();
-    // 慢查询事件监听
+    // 慢查询事件监听：日志决策抽为纯函数 resolveQueryLog（query-log.ts）
     this.$on('query', (e: { query: string; duration: number }) => {
-      const threshold = this.config.prismaSlowQueryMs;
-      if (e.duration >= threshold || this.config.prismaQueryLog) {
-        this.logger.warn({
-          duration: e.duration,
-          threshold,
-          query: e.query
-        }, 'Slow query detected');
+      const resolved = resolveQueryLog(
+        e,
+        this.config.prismaSlowQueryMs,
+        this.config.prismaQueryLog
+      );
+      if (resolved) {
+        this.logger[resolved.level](resolved.message);
       }
     });
   }
@@ -279,6 +274,8 @@ export class PrismaService
 
 `.env.example` 新增三行示例。
 
+> 日志文案区分（fix 补丁）：`duration >= threshold` 输出 `warn` 级 `Slow query detected (<duration>ms >= <threshold>ms): <query>`（文案不变）；低于阈值且 `PRISMA_QUERY_LOG=true` 时输出 `log`（info）级 `Query log (<duration>ms): <query>`，不再误报 "Slow query detected"；低于阈值且未开启则不打日志。
+
 ### Logger 来源决策（实施时确认）
 
 `this.logger` 需使用 NestJS `Logger` 或 `nestjs-pino` 的日志。若 `PrismaService` 继承 `PrismaClient` 导致 DI 注入受限，实施时可选：
@@ -290,7 +287,7 @@ export class PrismaService
 
 ### 测试
 
-- `prisma.service.spec.ts`：断言构造参数含 `log` 和 `max`；mock `$on('query')` 验证阈值过滤逻辑；断言 `config` 正确存于实例
+- `prisma.service.spec.ts`：断言构造参数含 `log` 和 `max`；mock `$on('query')` 验证阈值过滤逻辑；断言 `config` 正确存于实例（日志决策由 `query-log.spec.ts` 覆盖：超阈值/恰等于阈值 → warn，低于阈值+开关 → log，低于阈值+关闭 → null）
 
 ## 错误处理与迁移影响
 

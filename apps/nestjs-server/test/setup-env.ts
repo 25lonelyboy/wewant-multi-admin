@@ -15,5 +15,5 @@ setIfAbsent(
 );
 setIfAbsent('REDIS_URL', 'redis://localhost:6379');
 setIfAbsent('ADMIN_INIT_PASSWORD', 'e2e-admin-password');
-setIfAbsent('JWT_ACCESS_SECRET', 'e2e-access-secret');
-setIfAbsent('JWT_REFRESH_SECRET', 'e2e-refresh-secret');
+setIfAbsent('JWT_ACCESS_SECRET', 'e2e-access-secret-minimum-32-char!');
+setIfAbsent('JWT_REFRESH_SECRET', 'e2e-refresh-secret-minimum-32-char!');

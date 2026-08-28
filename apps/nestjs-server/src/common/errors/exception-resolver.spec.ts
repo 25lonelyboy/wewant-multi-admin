@@ -56,6 +56,25 @@ describe('resolveException', () => {
     });
     expect(resolveException('string error').code).toBe(BizCode.INTERNAL_ERROR);
   });
+
+  it('BadRequestException 带 errors 数组时透传 data', () => {
+    const errors = [
+      { field: 'username', message: '用户名不能为空' },
+      { field: 'email', message: '邮箱格式不正确' }
+    ];
+    const ex = new BadRequestException({
+      statusCode: 400,
+      message: '参数校验失败',
+      errors
+    });
+    const resolved = resolveException(ex);
+    expect(resolved.data).toEqual({ errors });
+  });
+
+  it('BadRequestException 无 errors 时 data 为 undefined', () => {
+    const resolved = resolveException(new BadRequestException('简单错误'));
+    expect(resolved.data).toBeUndefined();
+  });
 });
 
 describe('resolveException · Prisma 已知错误分支', () => {

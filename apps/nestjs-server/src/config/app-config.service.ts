@@ -57,4 +57,24 @@ export class AppConfigService {
   get isProduction(): boolean {
     return this.nodeEnv === 'production';
   }
+
+  get bodyLimit(): string {
+    return this.config.get('BODY_LIMIT', { infer: true });
+  }
+
+  get uploadBodyLimit(): string {
+    return this.config.get('UPLOAD_BODY_LIMIT', { infer: true });
+  }
+
+  get prismaSlowQueryMs(): number {
+    return this.config.get('PRISMA_SLOW_QUERY_MS', { infer: true });
+  }
+
+  get databasePoolMax(): number {
+    return this.config.get('DATABASE_POOL_MAX', { infer: true });
+  }
+
+  get prismaQueryLog(): boolean {
+    return this.config.get('PRISMA_QUERY_LOG', { infer: true }) === 'true';
+  }
 }

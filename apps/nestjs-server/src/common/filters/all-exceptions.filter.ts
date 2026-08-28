@@ -15,7 +15,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const res = ctx.getResponse<Response>();
     const req = ctx.getRequest<Request>();
-    const { status, code, message } = resolveException(exception);
+    const { status, code, message, data } = resolveException(exception);
 
     if (status >= 500) {
       this.logger.error(
@@ -29,6 +29,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
         req.requestId
       );
     }
-    res.status(status).json({ code, message, data: null });
+    res.status(status).json({ code, message, data: data ?? null });
   }
 }
