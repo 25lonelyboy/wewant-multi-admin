@@ -126,9 +126,9 @@ apps/pure-web/tsconfig.strict.json ← 新增：extends internal/tsconfig/web.js
 依赖安装 → `vitest.config.ts` → scripts → eslint 测试块 → 样板模块全量测试（`wrapperEnv` 全分支 + 同步导出 + getPackageSize 闭包重构 + `tree.ts` 全 6 函数，glob 键阈值行+分支 ≥80% 实测达标）打通链路 → 两模块 strict 清零并当场迁入清单（三合一验收）→ CI `coverage-web` job。
 **验收**：`pnpm check` 全绿、check.mjs 覆盖枚举 ✔、两样板模块（`build/utils.ts` + `utils/tree.ts`）行+分支 ≥80% 实测达标、CI 四 job 变五 job 全绿。
 
-### B1 纯函数组（4 子任务，按依赖深度排序）
+### B1 纯函数组（5 子任务，按依赖深度排序）
 
-> B1 批次详细设计已定稿：见 [B1 设计文档](./2026-08-29-pure-web-testing-foundation-b1-design.md)（实际待执行 5 子任务 B1.3~B1.7 + localforage 归 B2；print.ts 豁免口径另定）。下表为摘要，B1 细节以批次设计为准。
+> B1 批次详细设计已定稿：见 [B1 设计文档](./2026-08-29-pure-web-testing-foundation-b1-design.md)（待执行 B1.3~B1.7 + localforage 归 B2；print.ts 薄测试 + 豁免清单口径见批次设计）。下表为摘要，B1 细节以批次设计为准。
 
 | 序 | 模块 | strict 实测 | 备注 |
 | --- | --- | --- | --- |

@@ -6,13 +6,13 @@
 
 B1 共 5 个待执行子任务 + 1 个归置动作；B1.1 / B1.2 已由 B0 完成（`build/utils.ts` + `utils/tree.ts` 已迁入清单）。
 
-| 子任务 | 模块 | 行数（设计期实测） | strict 错误（设计期估） |
+| 子任务 | 模块 | 规模参考（总行数，实测） | strict 错误 |
 | --- | --- | --- | --- |
-| B1.3 | `router/utils.ts` 纯函数簇 | 399 | 20 |
-| B1.4 | `utils/auth.ts` | 131 | 部分 |
-| B1.5 | 小工具群：`responsive` / `message` / `mitt` / `preventDefault` + `propTypes` / `progress` / `globalPolyfills` | 46+88+19+26+34+18+6 | 少量 |
-| B1.6 | `sso.ts` + `chinaArea.ts` | 50+168 | chinaArea 21 |
-| B1.7 | `print.ts`（新增） | 224 | 实测 13（豁免，见 2.7） |
+| B1.3 | `router/utils.ts` 纯函数簇 | 424 | 20（设计期估） |
+| B1.4 | `utils/auth.ts` | 142 | 部分 |
+| B1.5 | 小工具群：`responsive` / `message` / `mitt` / `preventDefault` + `propTypes` / `progress` / `globalPolyfills` | 48+95+21+28+39+17+7 | 少量 |
+| B1.6 | `sso.ts` + `chinaArea.ts` | 59+190 | chinaArea 实测 20（单文件 strict 实测，见 2.6） |
+| B1.7 | `print.ts`（新增） | 223 | 实测 13（豁免，见 2.7） |
 | 归置 | `localforage/index.ts` → B2 | — | — |
 
 ## 2. 子任务测试策略
@@ -45,7 +45,7 @@ B1 共 5 个待执行子任务 + 1 个归置动作；B1.1 / B1.2 已由 B0 完�
 ### 2.6 `sso.ts` + `chinaArea.ts`
 
 - `sso.ts` **可测性拆分重构**：IIFE 拆为导出函数（`getSsoParams` / `isSsoLogin` / `buildSsoRedirectUrl`）+ 5 行无逻辑入口 IIFE；三分支全测（非 SSO 早退 / 参数齐 setToken+replace / 参数不齐返回）；入口副作用 vi.mock `./auth` + jsdom `location`
-- `chinaArea.ts`：`convertTextToCode` 省市县路径测试铺底；21 个 strict 错误多为 REGION_DATA 索引访问，修 + 测同节奏，**不重构数据结构**
+- `chinaArea.ts`：`convertTextToCode` 省市县路径测试铺底；单文件 strict 实测 20 个错误，两类机械修复：9 个 TS7053 索引访问（`REGION_DATA['86']` 解构区）+ 11 个 TS7005/TS7034 隐式 any 变量（数据构造区），修 + 测同节奏，**不重构数据结构**
 
 ### 2.7 `print.ts`（薄测试 + 豁免清单）
 
@@ -86,7 +86,7 @@ B1 共 5 个待执行子任务 + 1 个归置动作；B1.1 / B1.2 已由 B0 完�
 | `import.meta.glob`（router/utils）在 vitest 环境 | B1.3 首个用例兑现验证 |
 | element-plus ElMessage（message.ts） | B1 阶段 vi.mock；真实插件基建留 B3.1 |
 | js-cookie / sso 的 `window.location` 浏览器 API | jsdom 原生支持 + sso 重构后入口副作用 mock |
-| chinaArea 数据模块 21 errors | REGION_DATA 索引访问类，修+测铺底，不重构数据结构 |
+| chinaArea 数据模块 20 errors | 索引访问 + 隐式 any 两类机械修复，修+测铺底，不重构数据结构 |
 | print.ts 豁免被误判污染 | 豁免条目写理由 + backlog 双向登记 |
 | B0 落盘晚于 B1 设计 | 设计→计划之间设事实校准步骤（第 3 节第 2 条） |
 | 清单变更为冲突热点 | 串行单 worktree，清单变更按序落盘零冲突 |
