@@ -34,9 +34,8 @@ export const multipleTabsKey = 'multiple-tabs';
 /** 获取`token` */
 export function getToken(): DataInfo<number> {
   // 此处与`TokenKey`相同，此写法解决初始化时`Cookies`中不存在`TokenKey`报错
-  return Cookies.get(TokenKey)
-    ? JSON.parse(Cookies.get(TokenKey))
-    : storageLocal().getItem(userKey);
+  const cookie = Cookies.get(TokenKey);
+  return cookie ? JSON.parse(cookie) : storageLocal().getItem(userKey);
 }
 
 /**
@@ -69,7 +68,19 @@ export function setToken(data: DataInfo<number>) {
       : {}
   );
 
-  function setUserKey({ avatar, username, nickname, roles, permissions }) {
+  function setUserKey({
+    avatar,
+    username,
+    nickname,
+    roles,
+    permissions
+  }: {
+    avatar: string;
+    username: string;
+    nickname: string;
+    roles: Array<string>;
+    permissions: Array<string>;
+  }) {
     useUserStoreHook().SET_AVATAR(avatar);
     useUserStoreHook().SET_USERNAME(username);
     useUserStoreHook().SET_NICKNAME(nickname);

@@ -27,6 +27,8 @@
     "src/utils/tree.ts",
     "src/utils/tree.spec.ts",
     "build/utils.ts",
-    "build/utils.spec.ts"
+    "build/utils.spec.ts",
+    "src/utils/auth.ts",
+    "src/utils/auth.spec.ts"
   ]
 }
