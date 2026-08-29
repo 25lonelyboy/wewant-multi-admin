@@ -68,7 +68,7 @@ const wrapperEnv = (envConf: Recordable): ViteEnv => {
     if (envName === 'VITE_PORT') {
       realName = Number(realName);
     }
-    ret[envName] = realName;
+    (ret as Recordable)[envName] = realName;
     if (typeof realName === 'string') {
       process.env[envName] = realName;
     } else if (typeof realName === 'object') {
@@ -78,33 +78,40 @@ const wrapperEnv = (envConf: Recordable): ViteEnv => {
   return ret;
 };
 
-const fileListTotal: number[] = [];
-
 /** 获取指定文件夹中所有文件的总大小 */
-const getPackageSize = options => {
+const getPackageSize = (options: {
+  folder?: string;
+  callback: (size: string | number) => void;
+  format?: boolean;
+}) => {
   const { folder = 'dist', callback, format = true } = options;
-  readdir(folder, (err, files: string[]) => {
-    if (err) throw err;
-    let count = 0;
-    const checkEnd = () => {
-      ++count == files.length &&
-        callback(format ? formatBytes(sum(fileListTotal)) : sum(fileListTotal));
-    };
-    files.forEach((item: string) => {
-      stat(`${folder}/${item}`, async (err, stats) => {
-        if (err) throw err;
-        if (stats.isFile()) {
-          fileListTotal.push(stats.size);
-          checkEnd();
-        } else if (stats.isDirectory()) {
-          getPackageSize({
-            folder: `${folder}/${item}/`,
-            callback: checkEnd
-          });
-        }
+  const fileListTotal: number[] = [];
+
+  const readDirRecursive = (dir: string, onDone: () => void) => {
+    readdir(dir, (err, files: string[]) => {
+      if (err) throw err;
+      let count = 0;
+      const checkEnd = () => {
+        ++count == files.length && onDone();
+      };
+      files.forEach((item: string) => {
+        stat(`${dir}/${item}`, async (err, stats) => {
+          if (err) throw err;
+          if (stats.isFile()) {
+            fileListTotal.push(stats.size);
+            checkEnd();
+          } else if (stats.isDirectory()) {
+            readDirRecursive(`${dir}/${item}/`, checkEnd);
+          }
+        });
       });
+      files.length === 0 && onDone();
     });
-    files.length === 0 && callback(0);
+  };
+
+  readDirRecursive(folder, () => {
+    const total = sum(fileListTotal) as number;
+    callback(format ? formatBytes(total) : total);
   });
 };
 

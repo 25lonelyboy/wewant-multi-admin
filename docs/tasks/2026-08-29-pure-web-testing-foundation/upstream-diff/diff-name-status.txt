@@ -1,0 +1,9 @@
+M	.nvmrc
+M	build/info.ts
+M	build/plugins.ts
+M	build/utils.ts
+M	package.json
+M	pnpm-lock.yaml
+M	pnpm-workspace.yaml
+M	tsconfig.json
+M	vite.config.ts

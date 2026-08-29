@@ -9,12 +9,15 @@
     "build:staging": "rimraf dist && cross-env NODE_OPTIONS=--max-old-space-size=8192 vite build --mode staging",
     "report": "rimraf dist && cross-env NODE_OPTIONS=--max-old-space-size=8192 vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit --skipLibCheck && vue-tsc --noEmit --skipLibCheck",
+    "typecheck": "tsc --noEmit --skipLibCheck && vue-tsc --noEmit --skipLibCheck && cross-env NODE_OPTIONS=--max-old-space-size=8192 vue-tsc -p tsconfig.strict.json --noEmit --skipLibCheck",
     "svgo": "svgo -f . -r",
     "lint": "eslint --cache --max-warnings 0 src mock build",
     "format": "prettier --write  \"src/**/*.{js,ts,json,tsx,css,scss,vue,html,md}\"",
     "stylelint": "stylelint --cache --max-warnings 0 \"**/*.{html,vue,css,scss}\" --cache-location node_modules/.cache/stylelint/",
-    "stylelint:fix": "stylelint --fix \"**/*.{html,vue,css,scss}\" --cache-location node_modules/.cache/stylelint/"
+    "stylelint:fix": "stylelint --fix \"**/*.{html,vue,css,scss}\" --cache-location node_modules/.cache/stylelint/",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "cross-env NODE_OPTIONS=--max-old-space-size=8192 vitest run --coverage"
   },
   "keywords": [
     "vue-pure-admin",
@@ -29,8 +32,8 @@
   ],
   "dependencies": {
     "@howdyjs/mouse-menu": "^2.1.7",
-    "@pureadmin/descriptions": "^1.2.1",
     "@multi-admin/contracts": "workspace:*",
+    "@pureadmin/descriptions": "^1.2.1",
     "@pureadmin/table": "^3.3.0",
     "@pureadmin/utils": "^2.6.4",
     "@vueuse/core": "^14.3.0",
@@ -84,6 +87,7 @@
     "@intlify/unplugin-vue-i18n": "catalog:",
     "@multi-admin/eslint-config": "workspace:*",
     "@multi-admin/stylelint-config": "workspace:*",
+    "@multi-admin/tsconfig": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@types/dagre": "^0.7.54",
     "@types/js-cookie": "^3.0.6",
@@ -95,7 +99,10 @@
     "@types/sortablejs": "^1.15.9",
     "@vitejs/plugin-vue": "catalog:",
     "@vitejs/plugin-vue-jsx": "catalog:",
+    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/eslint-plugin": "^1.6.27",
     "@vue/devtools-api": "^8.1.5",
+    "@vue/test-utils": "^2.5.0",
     "boxen": "^8.0.1",
     "code-inspector-plugin": "1.6.6",
     "cross-env": "^10.1.0",
@@ -103,6 +110,7 @@
     "dagre": "^0.8.5",
     "eslint": "catalog:",
     "gradient-string": "^3.0.0",
+    "jsdom": "^30.0.1",
     "postcss": "^8.5.20",
     "postcss-load-config": "^6.0.1",
     "prettier": "catalog:",
@@ -121,6 +129,7 @@
     "vite-plugin-remove-console": "^2.2.0",
     "vite-plugin-router-warn": "^2.0.0",
     "vite-svg-loader": "catalog:",
+    "vitest": "^4.1.11",
     "vue-tsc": "catalog:"
   },
   "engines": {

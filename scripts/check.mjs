@@ -22,6 +22,7 @@ run('prettier', 'pnpm', ['exec', 'prettier', '--check', '.']);
 run('typecheck', 'pnpm', ['exec', 'turbo', 'run', 'typecheck']);
 run('lint', 'pnpm', ['exec', 'turbo', 'run', 'lint']);
 run('stylelint', 'pnpm', ['exec', 'turbo', 'run', 'stylelint']);
+run('strict manifest 断言', 'node', ['scripts/assert-strict-manifest.mjs']);
 run('test', 'pnpm', ['exec', 'turbo', 'run', 'test']);
 
 // test 覆盖枚举：逐包显式报告有无 test 脚本，消除静默跳过

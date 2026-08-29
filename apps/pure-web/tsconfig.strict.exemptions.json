@@ -1,0 +1,14 @@
+{
+  "reason": "pure-admin 遗留组件（零引用，删除决策见 docs/governance/backlog.md「pure-web 遗留组件处置」）；目录删除后本条豁免自然失效（断言枚举不到对应文件），应同步移除条目保持清单整洁",
+  "files": [
+    "src/components/ReBarcode/**",
+    "src/components/ReDrawer/**",
+    "src/components/ReFlop/**",
+    "src/components/ReSeamlessScroll/**",
+    "src/components/ReSelector/**",
+    "src/components/ReSplitPane/**",
+    "src/components/ReTreeLine/**",
+    "src/components/ReCropper/**",
+    "src/components/ReVxeTableBar/**"
+  ]
+}

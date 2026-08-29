@@ -1,0 +1,10 @@
+ .nvmrc              |    2 +-
+ build/info.ts       |    2 +-
+ build/plugins.ts    |    8 +-
+ build/utils.ts      |    2 +-
+ package.json        |   72 +-
+ pnpm-lock.yaml      | 2857 ++++++++++++++++++++++++++-------------------------
+ pnpm-workspace.yaml |   20 +-
+ tsconfig.json       |    2 +
+ vite.config.ts      |    6 +-
+ 9 files changed, 1512 insertions(+), 1459 deletions(-)
