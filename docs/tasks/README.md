@@ -6,7 +6,7 @@
 
 | 任务 | 收口说明 |
 |---|---|
-| pure-web 测试基建与 strict 类型安全 | 总体设计已定稿（批次 A0 上游基线 → A strict 迁移 → B vitest 基建与模块测试）；批次 A0/A+B0 实施计划已定稿执行中；B1（纯函数组）、B2（状态机/store 组）批次设计已定稿；见 [2026-08-29-pure-web-testing-foundation/](2026-08-29-pure-web-testing-foundation/) |
+| pure-web 测试基建与 strict 类型安全 | 总体设计已定稿（批次 A0 上游基线 → A strict 迁移 → B vitest 基建与模块测试）；批次 A0/A+B0 已合并 master 验收通过；B1（纯函数组）实施计划已定稿待开工，B2（状态机/store 组）批次设计已定稿；见 [2026-08-29-pure-web-testing-foundation/](2026-08-29-pure-web-testing-foundation/) |
 
 ## 最近已完成
 
