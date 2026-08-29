@@ -1,6 +1,6 @@
 # pure-web 测试基建批次 B2 设计（状态机/store 组）
 
-> 分批次设计文档：承接 [总体设计](./2026-08-29-pure-web-testing-foundation-design.md) 第 6 章 B2 行。[B1 设计](./2026-08-29-pure-web-testing-foundation-b1-design.md) 已定稿并处于执行前沿；B2 实施前须满足 [前置依赖](#3-前置依赖与事实校准)。
+> 分批次设计文档：承接 [总体设计](./2026-08-29-pure-web-testing-foundation-design.md) 第 6 章 B2 行。[B1 设计](./2026-08-29-pure-web-testing-foundation-b1-design.md) 已定稿；第一批次（A0/A+B0，含 vitest 基建）已合入 master，B1 批次待执行；B2 实施前须满足 [前置依赖](#3-前置依赖与事实校准)。
 
 ## 1. 范围与子任务拆解
 
@@ -8,11 +8,11 @@ B2 共 5 个子任务；localforage 归置动作随 B2.5 一并落盘。strict �
 
 | 子任务 | 模块 | 规模（总行数，实测） | strict 错误（实测） |
 | --- | --- | --- | --- |
-| B2.1 | `utils/http/index.ts` token 刷新状态机 | 240 | 11（TS18048×4 + TS2345×5 + TS2349×2） |
+| B2.1 | `utils/http/index.ts` token 刷新状态机 | 237 | 11（TS18048×4 + TS2345×5 + TS2349×2） |
 | B2.2 | `store/modules/user.ts` | 131 | 3（TS2345×1 + TS7006×2） |
 | B2.3 | `store/modules/permission.ts` | 76 | 1（TS2345×1） |
 | B2.4 | `store/modules/multiTags.ts` | 139 | 14（TS2322×6 + TS2339×1 + TS2366×1 + TS2532×1 + TS7006×5） |
-| B2.5 | 小 store 群（`app` / `settings` / `epTheme`）+ `localforage` + store 基础设施（`index` / `utils` / `types`） | 91+36+50 + 110 + 10+29 | 5 + 7 + 0 + 3 + 0 |
+| B2.5 | 小 store 群（`app` / `settings` / `epTheme`）+ `localforage` + store 基础设施（`index` / `utils` / `types`） | 91+36+50 + 110 + 9+28 | 5 + 7 + 0 + 3 + 0 |
 
 ## 2. 子任务测试策略
 
@@ -39,14 +39,14 @@ B2 共 5 个子任务；localforage 归置动作随 B2.5 一并落盘。strict �
 ### 2.4 `store/modules/multiTags.ts`
 
 - state 初始化双支（multiTagsCache 开关 + fixedTag 过滤）；`multiTagsCacheChange` 双向 storage；`tagsCache`
-- `handleTags` 四模式全分支：equal / push（hiddenTag、isUrl、title 空、showLink false、去重、dynamicLevel 替换、MaxTagsLevel 裁剪六个早退 + 正常入列）/ splice（position 有无）/ slice
+- `handleTags` 四模式全分支：equal / push（五个 return 早退：hiddenTag、isUrl、title 空、showLink:false、path+query+params 去重；dynamicLevel 替换与 MaxTagsLevel 裁剪为 push 后处理）/ splice（position 有无）/ slice
 - mock 仅 storageLocal 与 permission hook
 
 ### 2.5 小 store 群 + 基础设施
 
 | 单元 | 策略 |
 | --- | --- |
-| `app.ts` | state 初始化回退链（storage 命中/未命中）、`TOGGLE_SIDEBAR` 三分支 + `toggleSideBar`、5 个 setter |
+| `app.ts` | state 初始化回退链（storage 命中/未命中；直读 `document.documentElement`，需 jsdom 或 stub）、`TOGGLE_SIDEBAR` 三分支 + `toggleSideBar`、4 个 setter |
 | `settings.ts` | `CHANGE_SETTING` 反射守卫两分支、`changeSetting` |
 | `epTheme.ts` | `fill` getter 双支、`setEpThemeColor`（layout 空值早退 + 正常写回） |
 | `localforage` | `StorageProxy` set/get/remove/clear/keys + 过期判定三分支（expires 0 永久 / 未过期 / 已过期） |
@@ -55,7 +55,7 @@ B2 共 5 个子任务；localforage 归置动作随 B2.5 一并落盘。strict �
 ## 3. 前置依赖与事实校准
 
 1. **B1 批次落盘**：B2.1 的真实 auth（B1.4 已测）、B2.3 的纯函数簇（B1.3 已测）、message（B1.5 已测）均已迁入清单且有测试——mock 最小化口径直接复用这些资产
-2. **事实校准窗口**：本设计期 strict 数据（44 个总错误）已是实测值（探针含 `types/*.d.ts`），校准需求低于 B1；计划编写时仅需复核「B1 执行期间是否触碰过 B2 模块」（预期不触碰）
+2. **事实校准窗口**：本设计期 strict 数据（44 个总错误）已于正式 strict 配置链（`tsconfig.strict.json` 继承基）下逐文件复验一致；第一批次合入已经 git log 确认未触碰 B2 模块源码。计划编写时仅需复核「B1 执行期间是否触碰过 B2 模块」
 3. **清单基线**：B2 开始时 `tsconfig.strict.json` 已含 B1 全部资产（router/utils、auth、小工具群等），B2 各子任务按域内文件 + spec 追加迁入
 4. **B2.2 的特殊依赖窗口**：`logOut` 引用真实 multiTags 实现，但 multiTags 的测试在 B2.4 才落——B2.2 期间 multiTags 处于「真实代码可运行、测试未覆盖」窗口期，由 B2.4 补测关闭，不构成负债（同一批次内闭环）
 
@@ -87,6 +87,7 @@ B2 共 5 个子任务；localforage 归置动作随 B2.5 一并落盘。strict �
 | multiTags state 初始化读 permission 资产 | B2.3 先行（既定顺序）保障 |
 | B2.5 混合 5 个单元测试面广 | 单元间互不依赖，spec 按单元分文件；barrel 随本任务末尾一次迁入 |
 | B1 执行期间触碰 B2 模块源码 | 事实校准第 2 条：计划编写时复核 |
+| B2.5 的 app.ts 直读 `document`（`deviceDetection` 经 barrel 来自 @pureadmin/utils）而 vitest 默认环境为 node | app.ts 单文件 `@vitest-environment jsdom`（必要时 stub `deviceDetection`），其余 store 保持 node |
 
 ## 7. 文档治理
 
