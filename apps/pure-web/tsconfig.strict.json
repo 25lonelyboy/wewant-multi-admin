@@ -18,5 +18,5 @@
       "@pureadmin/descriptions/volar"
     ]
   },
-  "include": ["src/utils/tree.ts", "types/*.d.ts"]
+  "include": ["src/utils/tree.ts"]
 }

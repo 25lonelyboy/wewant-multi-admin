@@ -1,1 +1,2 @@
 pnpm exec lint-staged
+node scripts/assert-strict-manifest.mjs
