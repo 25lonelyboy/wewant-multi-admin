@@ -29,8 +29,8 @@
   ],
   "dependencies": {
     "@howdyjs/mouse-menu": "^2.1.7",
-    "@pureadmin/descriptions": "^1.2.1",
     "@multi-admin/contracts": "workspace:*",
+    "@pureadmin/descriptions": "^1.2.1",
     "@pureadmin/table": "^3.3.0",
     "@pureadmin/utils": "^2.6.4",
     "@vueuse/core": "^14.3.0",
@@ -84,6 +84,7 @@
     "@intlify/unplugin-vue-i18n": "catalog:",
     "@multi-admin/eslint-config": "workspace:*",
     "@multi-admin/stylelint-config": "workspace:*",
+    "@multi-admin/tsconfig": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@types/dagre": "^0.7.54",
     "@types/js-cookie": "^3.0.6",
