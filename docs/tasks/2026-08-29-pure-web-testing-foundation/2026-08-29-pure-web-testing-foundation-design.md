@@ -137,9 +137,11 @@ apps/pure-web/tsconfig.strict.json ← 新增：extends internal/tsconfig/web.js
 | B1.3 | `router/utils.ts` 纯函数簇 | 20 个错误 | ascending / filterTree / getParentPaths / findRouteByPath / formatFlatteningRoutes / formatTwoStageRoutes / getHistoryMode 等；mock `storageLocal` 后脱离 router 实例测试 |
 | B1.4 | `utils/auth.ts` 纯函数部分 | 部分 | formatToken / hasPerms（mock pinia store）；setToken cookie 双写联动留 B2 与 store 集成测 |
 | B1.5 | `utils/responsive / message / mitt / preventDefault` 小工具群 | 少量 | 合并一个任务 |
-| B1.6 | `utils/sso.ts` + `utils/chinaArea.ts` | chinaArea 21 个错误 | 数据重模块独立任务 |
+| B1.6 | `utils/sso.ts` + `utils/chinaArea.ts` | chinaArea 20 个错误 | 数据重模块独立任务 |
 
 ### B2 状态机/store 组（5 子任务）
+
+> B2 批次详细设计已定稿：见 [B2 设计文档](./2026-08-29-pure-web-testing-foundation-b2-design.md)（B2.1~B2.5 + localforage 归 B2.5；mock 最小化口径详见批次设计）。下表为摘要，B2 细节以批次设计为准。
 
 | 序 | 模块 | 要点 |
 | --- | --- | --- |
