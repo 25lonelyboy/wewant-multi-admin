@@ -83,6 +83,8 @@ check-digests 远端比对依赖可联网环境：本机无 Registry 直连时�
 
 教训（2026-08-29，`server-smoke.sh` 实施期实测）：`set -o pipefail` 下 `docker logs X | grep -qF` 断言必假——grep -q 命中即退出使 docker logs 收到 SIGPIPE（exit 141），管道整体非零、`if` 恒假；写法必须是先捕获变量（`LOGS="$(docker logs X 2>&1 || true)"`）再 `echo "${LOGS}" | grep -qF` 断言。
 
+教训（2026-08-29，CI coverage 红）：jest 默认多 worker 并行跑 e2e spec，各套件共享同一 Redis 且限流按客户端 IP 计数时，A 套件的刻意限流用例会耗尽 B 套件登录所需配额（表现为登录必成断言随机 429，同代码可绿可红）；共享全局状态（数据库/Redis/限流计数）的集成测试必须串行执行，或在用例边界重置共享键。
+
 ## 已知环境事实
 
 - Windows 下 Electron 打包期可能出现 `dist-electron/` EPERM 文件锁：确保无残留 electron 进程后重跑。
@@ -90,7 +92,8 @@ check-digests 远端比对依赖可联网环境：本机无 Registry 直连时�
 
 ## nestjs-server e2e 测试
 
-- e2e 配置 `test/jest-e2e.cjs`（与单测 `jest.config.cjs` 共享 `test/jest.base.cjs` 基座，Task 4 P3 抽公共配置）。
+- e2e 配置 `test/jest-e2e.cjs`（与单测 `jest.config.cjs` 共享 `test/jest.base.cjs` 基座，Task 4 P3 抽公共配置）；`maxWorkers: 1` 串行执行——所有 spec 共享同一测试库与同一 Redis，并行会让 IP 维度限流计数、flushdb、令牌吊销键跨套件互踩。
+- 限流与用例的协作约束：限流按客户端 IP 计数（supertest 全为 127.0.0.1），必须成功的登录所在套件在用例前 `flushdb` 重置计数（如 `system.e2e-spec.ts` 的 `beforeEach`）；`auth.e2e-spec.ts` 的 429/锁定用例依赖计数累积，靠自身 `beforeEach flushdb` 隔离。新增会触发登录的 e2e 用例时遵循同一模式，不要突破登录限流 5 次/分（不放宽生产限额）。
 - 前置：`docker compose up -d postgres redis`，再跑 `turbo run test:e2e --filter=@multi-admin/nestjs-server`。
 - 全局 setup（`test/global-setup.ts` → `test/e2e-env.ts`）幂等建库 `multi_admin_test` + migrate deploy + seed；全局 teardown（`test/global-teardown.ts` → `test/helpers/cleanup.ts`）全表 truncate + FLUSHDB。
 - 测试 env 默认值由 `test/setup-env.ts` 注入（DATABASE_URL / REDIS_URL / ADMIN_INIT_PASSWORD / JWT_ACCESS_SECRET / JWT_REFRESH_SECRET），支持真机 env 覆盖。

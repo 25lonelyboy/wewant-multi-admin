@@ -3,6 +3,10 @@ const { coverageExclude, ...base } = require('./jest.base.cjs');
 
 module.exports = {
   ...base,
+  // 串行执行：所有 spec 共享同一 Postgres 测试库与同一 Redis，
+  // 并行 worker 会让 IP 维度限流计数（如登录 5 次/分，键含 127.0.0.1）
+  // 与 flushdb/令牌吊销键跨套件互踩（2026-08-29 CI 429 flake 根因）。
+  maxWorkers: 1,
   // jest 相对 rootDir 以【配置文件所在目录】解析：本文件位于 test/，
   // 故 rootDir='..' 才是应用根 apps/nestjs-server，与 collectCoverageFrom 的 src/ 前缀口径一致。
   rootDir: '..',

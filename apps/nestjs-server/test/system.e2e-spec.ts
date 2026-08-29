@@ -53,13 +53,21 @@ describe('system RBAC CRUD (e2e)', () => {
     applyAppDefaults(app);
     await app.init();
     redis = app.get(REDIS_CLIENT);
-    // 套件级 FLUSHDB：重置限流计数，防跨 spec 文件同分钟累积击穿限额
+    // 套件级 FLUSHDB：重置限流计数，防跨 spec 文件同分钟累积击穿限额；
+    // access 令牌校验走黑名单 + 实时查库，flush 不会失效后续登录所得令牌；
+    // 套件间互踩由 jest-e2e.cjs 的 maxWorkers: 1 串行执行消除。
     await redis.flushdb();
-    // 预登录缓存令牌：登录限额 5 次/分，全套件只登录 admin/common 各一次
+    // 预登录缓存令牌：登录限额 5 次/分（每用例前 flush 重置，见 beforeEach）
     adminToken = await loginToken('admin', ADMIN_PASSWORD);
     commonToken = await loginToken('common', COMMON_PASSWORD);
     await prisma.$connect();
   }, 30_000);
+
+  beforeEach(async () => {
+    // 套件自身 ~69 个请求会击穿全局限流 60 次/分（同 IP 共享计数）：
+    // 每用例前重置；套件不依赖 Redis 会话/吊销键，flush 无副作用。
+    await redis.flushdb();
+  });
 
   afterAll(async () => {
     await prisma.$disconnect();
