@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from 'eslint/config';
 import { vueConfig } from '@multi-admin/eslint-config/vue';
 import { tailwindConfig } from '@multi-admin/eslint-config/tailwind';
+import vitestPlugin from '@vitest/eslint-plugin';
 
 /**
  * pure-web ESLint 薄壳：一行引入仓库基线 vueConfig，
@@ -135,6 +136,10 @@ export default defineConfig([
         }
       ]
     }
+  },
+  {
+    files: ['**/*.spec.ts'],
+    ...vitestPlugin.configs.recommended
   },
   // Tailwind 类名一致性校验（warn 级），入口指向本端 tailwind 样式文件
   ...tailwindConfig({ entryPoint: 'src/style/tailwind.css' })

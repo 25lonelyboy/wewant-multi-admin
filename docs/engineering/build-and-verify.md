@@ -24,7 +24,7 @@ last_verified: 2026-08-29
 1. **实时拦截（本地，每次 commit）**：
    - **`pnpm check`**（`scripts/check.mjs`）：按序执行 Prettier 全量检查 → `turbo run typecheck / lint / stylelint` → strict 清单断言（防新文件漏加 + 防清单倒退）→ `turbo run test` → test 覆盖显式枚举，任一失败立即非零退出。纯校验不改文件。提交前必跑。
    - **husky 钩子**：`pre-commit` 跑 lint-staged（配置在 `.lintstagedrc.json`，只处理暂存文件）+ strict 清单断言；`commit-msg` 跑 commitlint（scope 强制 + 白名单，见 `commitlint.config.mjs`）。
-2. **异步兜底（入库后，每次 push master）**：`.github/workflows/ci.yml` 四 job 并行——`gate`（frozen-lockfile 安装 + `pnpm check` 服务端重验）、`docker-build`（双镜像构建验证 + web/server 双启动冒烟：web curl 200、server /health+entrypoint 三段断言，server 冒烟依赖 job services postgres/redis；不 push）、`coverage`（services 上 `test:coverage` ≥80% 报警式硬门槛）、`audit`（`pnpm audit --audit-level=high` 报警式）。定位与取舍见 `docs/decisions/ADR-006-github-ci.md`。
+2. **异步兜底（入库后，每次 push master）**：`.github/workflows/ci.yml` 五 job 并行——`gate`（frozen-lockfile 安装 + `pnpm check` 服务端重验）、`docker-build`（双镜像构建验证 + web/server 双启动冒烟：web curl 200、server /health+entrypoint 三段断言，server 冒烟依赖 job services postgres/redis；不 push）、`coverage`（services 上 `test:coverage` ≥80% 报警式硬门槛）、`coverage-web`（pure-web vitest 覆盖率报警式，`build/utils.ts` 与 `src/utils/tree.ts` glob 键 ≥80%）、`audit`（`pnpm audit --audit-level=high` 报警式）。定位与取舍见 `docs/decisions/ADR-006-github-ci.md`。
 3. **纪律条款**：报警式不拦截的代价是红了必须有人看——**CI 红 → 下一项工作先修 CI**；感知窗口为根 README badge 与 GitHub watch 通知。
 
 历史教训（pre hook 时代）：生命周期钩子按**精确脚本名**匹配变体（`prebuild` 与 `prebuild:dir` 需各自声明）；迁移到任务图后，变体（`build:dir` / `build:staging` / `build:mp-weixin`）在 `turbo.json` 显式声明，新增变体必须同步入图。
@@ -35,7 +35,7 @@ turbo env 透传约束：Turborepo 不透传自定义 env vars 到 task 子进�
 
 | 端 | 构建 | 说明 |
 |---|---|---|
-| pure-web | `vite build`（NODE_OPTIONS 加大内存） | 产物 `dist/` + `version.json`；staging 模式 `build:staging` |
+| pure-web | `vite build`（NODE_OPTIONS 加大内存） | 产物 `dist/` + `version.json`；staging 模式 `build:staging`；测试 `vitest run`（独立配置，不加载构建期插件）；覆盖率 `test:coverage`（v8 glob 键门槛） |
 | nestjs-server | `prisma generate && nest build` | 产物 `dist/`（Prisma Client 由 generate 先行产出） |
 | uni-mobile | `uni build`（按平台加 `-p`） | H5 / 小程序多目标 |
 | electron-desktop | turbo 图 `^build`（上游 pure-web）→ esbuild → electron-builder | 链路细节见 `docs/architecture/desktop-app.md` |
