@@ -7,7 +7,7 @@
     // 索引访问时，结果类型中会包含 undefined
     // "noUncheckedIndexedAccess": true,
     // 严格区分可选属性和值为 undefined 的属性
-    "exactOptionalPropertyTypes": true,
+    // "exactOptionalPropertyTypes": true,
     // 确保函数中的所有代码路径都有返回值
     "noImplicitReturns": true,
     // 要求重写基类方法时必须使用 override 关键字
