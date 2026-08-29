@@ -27,7 +27,8 @@
     "ops:smoke": "bash scripts/ops/docker-smoke.sh",
     "ops:server-smoke": "bash scripts/ops/server-smoke.sh",
     "ops:coverage": "node scripts/ops/coverage.mjs",
-    "ops:check-digests": "bash scripts/ops/check-digests.sh"
+    "ops:check-digests": "bash scripts/ops/check-digests.sh",
+    "ops:upstream-diff": "bash scripts/ops/upstream-diff.sh"
   },
   "keywords": [],
   "author": "wewant-rocky",
