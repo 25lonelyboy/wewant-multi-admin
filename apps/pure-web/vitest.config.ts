@@ -32,7 +32,9 @@ export default defineConfig({
           'src/utils/preventDefault.ts': { lines: 80, branches: 80 },
           'src/utils/propTypes.ts': { lines: 80, branches: 80 },
           'src/utils/progress/index.ts': { lines: 80, branches: 80 },
-          'src/utils/globalPolyfills.ts': { lines: 80, branches: 80 }
+          'src/utils/globalPolyfills.ts': { lines: 80, branches: 80 },
+          'src/utils/sso.ts': { lines: 80, branches: 80 },
+          'src/utils/chinaArea.ts': { lines: 80, branches: 80 }
         }
       }
     }

@@ -43,6 +43,11 @@
     "src/utils/progress/index.ts",
     "src/utils/progress/index.spec.ts",
     "src/utils/globalPolyfills.ts",
-    "src/utils/globalPolyfills.spec.ts"
+    "src/utils/globalPolyfills.spec.ts",
+    "types/china-area-data.d.ts",
+    "src/utils/sso.ts",
+    "src/utils/sso.spec.ts",
+    "src/utils/chinaArea.ts",
+    "src/utils/chinaArea.spec.ts"
   ]
 }
