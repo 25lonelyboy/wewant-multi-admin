@@ -28,25 +28,26 @@
 
 | # | 组件名 | 引用数 | 目录文件数 | 依赖复杂度 | strict 错误数 | 上游高危标记 |
 | --- | --- | ---: | ---: | :---: | ---: | :---: |
-| 1 | ReIcon | 22 | 9 | 重 | 0 | — |
-| 2 | ReCol | 5 | 1 | 轻 | 0 | — |
-| 3 | ReDialog | 5 | 3 | 轻 | 16 | — |
-| 4 | RePureTableBar | 5 | 2 | 轻 | 16 | — |
-| 5 | ReSegmented | 4 | 4 | 轻 | 0 | — |
-| 6 | ReCropperPreview | 2 | 2 | 轻 | 0 | — |
+| 1 | ReIcon | 22 | 9 | 重 | 14 | — |
+| 2 | ReCol | 5 | 1 | 轻 | 1 | — |
+| 3 | ReDialog | 5 | 3 | 轻 | 17 | — |
+| 4 | RePureTableBar | 5 | 2 | 轻 | 24 | — |
+| 5 | ReSegmented | 4 | 4 | 轻 | 7 | — |
+| 6 | ReCropperPreview | 2 | 2 | 轻 | 4 | — |
 | 7 | ReText | 2 | 2 | 轻 | 0 | — |
-| 8 | ReAnimateSelector | 1 | 3 | 轻 | 0 | — |
+| 8 | ReAnimateSelector | 1 | 3 | 轻 | 5 | — |
 | 9 | ReAuth | 1 | 2 | 轻 | 0 | — |
-| 10 | ReCountTo | 1 | 7 | 中 | 0 | — |
-| 11 | ReDrawer ⚠️ | 1 | 3 | 轻 | 14 | — |
+| 10 | ReCountTo | 1 | 7 | 中 | 6 | — |
+| 11 | ReDrawer ⚠️ | 1 | 3 | 轻 | 15 | — |
 | 12 | ReFlicker | 1 | 2 | 轻 | 0 | — |
-| 13 | ReImageVerify | 1 | 3 | 轻 | 0 | — |
+| 13 | ReImageVerify | 1 | 3 | 轻 | 1 | — |
 | 14 | RePerms | 1 | 2 | 轻 | 0 | — |
 | 15 | ReQrcode | 1 | 3 | 轻 | 0 | — |
 | 16 | ReTypeit | 1 | 2 | 轻 | 0 | — |
 
 > ⚠️ ReDrawer：实测有 1 处外部引用（`App.vue` 中 `<ReDrawer />`），但同时被列入
-> `tsconfig.strict.exemptions.json` 遗留豁免清单。见 §5 交叉验证结论。
+> `tsconfig.strict.exemptions.json` 遗留豁免清单。§5 交叉验证结论已被 B3 批次设计采纳：
+> B3.2 移出豁免（与迁入清单同一提交）。
 
 ### 依赖复杂度判定标准
 
@@ -147,6 +148,7 @@ ReDrawer 同时出现在：
 
 ### 5.4 strict 错误分布
 
-- 在用组件中仅 **3 个组件** 存在 strict 错误：ReDialog（16）、RePureTableBar（16）、ReDrawer（14），合计 46 个错误
-- 遗留组件中 **3 个组件** 存在 strict 错误：ReSelector（46）、ReSeamlessScroll（30）、ReVxeTableBar（11），合计 87 个错误（已被豁免）
-- 其余 18 个组件（75%）strict 零错误，类型质量良好
+- 在用组件中 **10 个组件** 存在 strict 错误，合计 94（正式链复验 2026-08-30，测法见下）：ReAnimateSelector（5）、ReCol（1）、ReCountTo（6）、ReCropperPreview（4）、ReDialog（17）、ReDrawer（15）、ReIcon（14）、ReImageVerify（1）、RePureTableBar（24，其中 5 个为 `*.svg?component` 类型声明缺失，随 B3 基建补 vite-svg-loader 声明后消失）、ReSegmented（7）
+- 零错误 **6 个组件**：ReAuth、ReFlicker、RePerms、ReQrcode、ReText、ReTypeit
+- 遗留组件中 **3 个组件** 存在 strict 错误：ReSelector（46）、ReSeamlessScroll（30）、ReVxeTableBar（11），合计 87 个错误（已被豁免；豁免件数字未复验，维持原口径）
+- 复验测法：临时探针 extends `tsconfig.strict.json`（正式链基座，含 noUnusedLocals/noUnusedParameters）+ `vue-tsc --noEmit` include 全组件文件；统计限定 `src/components/` 路径（探针已删）。原始盘点口径未记录测量法，46 系旧口径，本节数字以复验为准
