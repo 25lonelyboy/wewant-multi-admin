@@ -109,8 +109,10 @@ pnpm install
 // 用途：TS 5.9 无 per-reference noCheck（`--noCheck` 为 TS 5.6 起的整项目跳过开关）。
 // tsconfig.strict.json 的 include 仅含已迁移清单文件，但 TS 会对 program 内所有文件报错
 // （import 链拉入的 layout/store 等存量宽松文件）。本脚本运行 vue-tsc 后仅保留
-// 「清单 ∪ 豁免」域内文件的诊断行，清单外诊断丢弃并计数——与 assert-strict-manifest.mjs
-// 的「新文件 ⊆ 清单 ∪ 豁免」口径成对。
+// strict include 清单域内文件的诊断行，清单外诊断丢弃并计数。
+// 注意：豁免文件（tsconfig.strict.exemptions.json）的诊断按「清单外」滤除——豁免条目的
+// 防漏由 assert-strict-manifest.mjs 登记保证，其存量诊断不属于「清单域内必零错误」承诺
+// （如 print.ts 依赖的 jsdom 不可达 API），域内口径只算 include、不含豁免 glob。
 // 未来仓库 TypeScript 升级至支持 per-reference `noCheck` 的版本后可移除本脚本。
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -122,12 +124,10 @@ const APP = path.join(ROOT, 'apps', 'pure-web');
 const strict = JSON.parse(
   readFileSync(path.join(APP, 'tsconfig.strict.json'), 'utf8')
 );
-const exemptions = JSON.parse(
-  readFileSync(path.join(APP, 'tsconfig.strict.exemptions.json'), 'utf8')
-);
 
-// 将 include 条目与豁免 glob 归一化为小写前缀：exact 命中 或 `前缀/` 命中
-const prefixes = [...strict.include, ...exemptions.files].map(p =>
+// 仅将 include 条目归一化为小写前缀：exact 命中 或 `前缀/` 命中。
+// 豁免 glob 不参与「域内必零错误」计算——豁免条目防漏由 assert-strict-manifest.mjs 保证。
+const prefixes = strict.include.map(p =>
   p.toLowerCase().replace(/\/+$/, '').replace(/\/\*\*$/, '')
 );
 const inScope = file => {
@@ -148,9 +148,23 @@ const res = spawnSync(
 
 const output = `${res.stdout ?? ''}${res.stderr ?? ''}`;
 const kept = [];
+let keptErrors = 0;
 let dropped = 0;
 // vue-tsc 相对 cwd 输出，形如 `src/router/utils.ts(63,11): error TS7008: ...`
 const ERROR_RE = /^([^(]+\((\d+),(\d+)\)): (error TS\d+): (.+)$/;
+
+// 失败传播防假绿：vue-tsc 无法启动（未安装/环境损坏）时拒绝放行
+if (res.error) {
+  process.stderr.write(`check-strict-web: 无法启动 vue-tsc：${res.error.message}\n`);
+  process.exit(1);
+}
+// 退出码非零但输出中无任何可解析诊断（如 TS18003 配置错误行不携带行列号）→ 视为工具/配置失败
+if (res.status !== 0 && !ERROR_RE.test(output)) {
+  process.stderr.write(
+    `check-strict-web: vue-tsc 退出码 ${res.status} 且无 (行,列) 形态诊断，疑似配置/环境错误，原样输出：\n${output}\n`
+  );
+  process.exit(1);
+}
 for (const line of output.split(/\r?\n/)) {
   const m = line.match(ERROR_RE);
   if (!m) {
@@ -159,15 +173,16 @@ for (const line of output.split(/\r?\n/)) {
   }
   if (inScope(m[1].slice(0, m[1].indexOf('(')))) {
     kept.push(line);
+    keptErrors++;
   } else {
     dropped++;
   }
 }
 
-if (kept.length > 0) {
+if (keptErrors > 0) {
   process.stdout.write(kept.join('\n') + '\n');
   process.stderr.write(
-    `check-strict-web: 清单域内存在 ${kept.length} 条诊断（另滤除清单外诊断 ${dropped} 条）。\n`
+    `check-strict-web: 清单域内存在 ${keptErrors} 条诊断（另滤除清单外诊断 ${dropped} 条）。\n`
   );
   process.exit(1);
 } else {
@@ -309,8 +324,17 @@ import { setConfig } from '@/config';
 import { usePermissionStoreHook } from '@/store/modules/permission';
 import { createWebHashHistory, createWebHistory } from 'vue-router';
 
-type TestRoute = RouteRecordRaw & {
-  meta: { rank?: number; showLink?: boolean; roles?: Array<string>; frameSrc?: string; auths?: Array<string>; fixedTag?: boolean };
+// 独立测试路由类型：不交叉 RouteRecordRaw（RouteMeta 的 title 必填会使交叉类型 meta: {} 报错），
+// meta 全可选；backstage 供 addAsyncRoutes 断言；CustomizeRouteMeta 来自 types/router.d.ts 全局声明
+// （Step 2.0 已将其收入 strict include）。
+type TestRoute = {
+  path: string;
+  name?: string;
+  redirect?: string;
+  component?: RouteComponent | string;
+  meta: Partial<CustomizeRouteMeta> & { rank?: number; backstage?: boolean; fixedTag?: boolean };
+  children?: TestRoute[];
+  parentId?: unknown;
 };
 
 const mk = (path: string, extra: Partial<TestRoute> = {}): TestRoute => ({
@@ -322,7 +346,7 @@ const mk = (path: string, extra: Partial<TestRoute> = {}): TestRoute => ({
 const routeWithChildren = (
   path: string,
   children: TestRoute[]
-): TestRoute => ({ path, meta: {}, children: children as RouteRecordRaw[] });
+): TestRoute => ({ path, meta: {}, children });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -339,20 +363,24 @@ describe('ascending', () => {
       { path: '/b', meta: { rank: 0 } }
     ];
     const sorted = ascending(routes as Array<RouteComponent>);
-    // '/' rank=1 恒第一；'/b'（rank 0 且 path!=/）补 0+2=2；'/a' 缺省补 1+2=3
-    expect(sorted.map(v => (v as unknown as { path: string }).path)).toEqual(['/', '/b', '/a']);
-    expect((routes[0].meta as { rank?: number }).rank).toBe(3);
+    // 实测源码语义（handRank + index+2）：'/' rank=1 恒第一；'/a'（index 0）补 0+2=2；
+    // '/b'（rank 0 且 path!=='/'）补 2+2=4 → 升序 ['/', '/a', '/b']
+    expect(sorted.map(v => (v as unknown as { path: string }).path)).toEqual(['/', '/a', '/b']);
+    // sort 原地重排后 routes[1]/routes[2] 即原 '/a'、'/b'
+    expect((routes[1].meta as { rank?: number }).rank).toBe(2);
+    expect((routes[2].meta as { rank?: number }).rank).toBe(4);
   });
 
-  it('存在 parentId 的空参不赋值直接参与排序', () => {
+  it('存在 parentId 的节点不补 rank', () => {
     const routes: Array<{ meta: { rank?: number }; parentId: unknown; path: string }> = [
       { parentId: null, path: '/a', meta: { rank: 5 } },
       { parentId: 1, path: '/b', meta: {} }
     ];
-    const sorted = ascending(routes as Array<RouteComponent>);
-    expect(sorted.map(v => (v as unknown as { path: string }).path)).toEqual(['/b', '/a']);
-    // 有 parentId 的节点不补 rank（保持 undefined），排序按 undefined < 5
+    ascending(routes as Array<RouteComponent>);
+    // 有 parentId 的节点不补 rank（保持 undefined）；rank 5 保持原值。
+    // 不断言 undefined 与 5 的比较排序（NaN 比较依赖引擎稳定排序，属未定义行为，非本测试承诺）。
     expect((routes[1].meta as { rank?: number }).rank).toBeUndefined();
+    expect((routes[0].meta as { rank?: number }).rank).toBe(5);
   });
 });
 
@@ -569,7 +597,8 @@ describe('initRouter', () => {
     } as Awaited<ReturnType<typeof getAsyncRoutes>>);
     await expect(initRouter()).resolves.toBe(router);
     expect(permissionActions.handleWholeMenus).toHaveBeenCalled();
-    expect(multiTagsActions.handleTags).not.toHaveBeenCalled(); // getMultiTagsCache=false 时走缓存推进
+    // 源码：`if (!getMultiTagsCache) handleTags('equal', [...])`——mock getMultiTagsCache=false ⇒ 必被调用
+    expect(multiTagsActions.handleTags).toHaveBeenCalledWith('equal', expect.any(Array));
   });
 
   it('本地缓存命中时不再请求远端', async () => {
@@ -692,8 +721,10 @@ function handleAsyncRoutes(routeList: RouteRecordRaw[]) {
 
 7. `addAsyncRoutes`（L323 TS18048）：
 
+> 顶部 `vue-router` 类型导入追加 `type RouteMeta`。注意:`v.meta` 类型为 `RouteMeta | undefined`,`RouteMeta`（= CustomizeRouteMeta）要求 `title` 必填且无索引签名——直接 `??= {}` 会引入新的 TS2322/TS2339,须双断言:
+
 ```typescript
-    (v.meta ??= {}).backstage = true;
+    ((v.meta ??= {} as RouteMeta) as RouteMeta & { backstage?: boolean }).backstage = true;
 ```
 
 8. `getHistoryMode`（L347 TS7006 / TS2366）：
@@ -752,7 +783,7 @@ function handleTopMenu(route: menuType): menuType {
 - [ ] **Step 2.4: 只跑 strict 链验证域内清零**
 
 Run: `node scripts/check-strict-web.mjs`
-Expected: exit 0（此时清单尚未加本模块，清单内 6 项零错误；本模块错误属清单外被滤除——**此步仅验证修复未打扰基线**。域内清零在 Step 2.7 入清单后生效）。
+Expected: exit 0（此时清单尚未加本模块，清单内 7 项零错误；本模块错误属清单外被滤除——**此步仅验证修复未打扰基线**。域内清零在 Step 2.7 入清单后生效）。
 
 - [ ] **Step 2.5: 测试全绿 + 覆盖率达标**
 
@@ -805,15 +836,21 @@ import { storageLocal } from '@pureadmin/utils';
 
 // 设计 2.4：useUserStoreHook 一律 vi.mock；storageLocal 采用真实实现
 // （jsdom 提供 localStorage，细化为不 mock，验证面更真）。
-const userActions = {
+// 单例状态：vi.mock 工厂内箭头函数对 userStore 的读取延迟到调用时（无提升期 TDZ）；
+// 若工厂每次调用返回新对象，hasPerms 每次读 useUserStoreHook() 都拿不到测试写入的 permissions
+// → 必须共享同一实例。
+const userStore = {
+  isRemembered: false,
+  loginDay: 7,
   SET_AVATAR: vi.fn(),
   SET_USERNAME: vi.fn(),
   SET_NICKNAME: vi.fn(),
   SET_ROLES: vi.fn(),
-  SET_PERMS: vi.fn()
+  SET_PERMS: vi.fn(),
+  permissions: undefined as Array<string> | undefined
 };
 vi.mock('@/store/modules/user', () => ({
-  useUserStoreHook: () => ({ isRemembered: false, loginDay: 7, ...userActions })
+  useUserStoreHook: () => userStore
 }));
 
 import {
@@ -889,10 +926,10 @@ describe('setToken', () => {
       permissions: ['system:add']
     };
     setToken(data);
-    expect(userActions.SET_AVATAR).toHaveBeenCalledWith('avatars/x.png');
-    expect(userActions.SET_USERNAME).toHaveBeenCalledWith('sso-user');
-    expect(userActions.SET_ROLES).toHaveBeenCalledWith(['admin']);
-    expect(userActions.SET_PERMS).toHaveBeenCalledWith(['system:add']);
+    expect(userStore.SET_AVATAR).toHaveBeenCalledWith('avatars/x.png');
+    expect(userStore.SET_USERNAME).toHaveBeenCalledWith('sso-user');
+    expect(userStore.SET_ROLES).toHaveBeenCalledWith(['admin']);
+    expect(userStore.SET_PERMS).toHaveBeenCalledWith(['system:add']);
     const stored = storageLocal().getItem<DataInfo<number>>(userKey);
     expect(stored?.username).toBe('sso-user');
     expect(Cookies.get(multipleTabsKey)).toBe('true');
@@ -907,9 +944,9 @@ describe('setToken', () => {
       permissions: ['x']
     });
     setToken({ ...baseData });
-    expect(userActions.SET_AVATAR).toHaveBeenCalledWith('backup.png');
-    expect(userActions.SET_USERNAME).toHaveBeenCalledWith('backup-user');
-    expect(userActions.SET_ROLES).toHaveBeenCalledWith(['user']);
+    expect(userStore.SET_AVATAR).toHaveBeenCalledWith('backup.png');
+    expect(userStore.SET_USERNAME).toHaveBeenCalledWith('backup-user');
+    expect(userStore.SET_ROLES).toHaveBeenCalledWith(['user']);
 
     const stored = storageLocal().getItem<DataInfo<number>>(userKey);
     expect(stored?.refreshToken).toBe('r-token');
@@ -1021,14 +1058,16 @@ Expected: all passed；`src/utils/auth.ts` 行、分支 ≥80%。（`DATA` 上 `
     "src/utils/auth.spec.ts",
 ```
 
-- [ ] **Step 3.5: 双守卫验证 + 提交**
+- [ ] **Step 3.5: 设计 2.4 口径校准 + 双守卫验证 + 提交**
+
+设计 2.4 原文「pinia store hook 与 `storageLocal` 一律 vi.mock」与本任务实际采真实 `storageLocal`（jsdom localStorage 双写验证面更真）冲突——同步将设计 2.4 该句改为「pinia store hook 一律 vi.mock；`storageLocal` 采真实实现（jsdom localStorage）」，与代码同提交（文档-实现一致硬规则）。
 
 Run: `node scripts/check-strict-web.mjs; node scripts/assert-strict-manifest.mjs`
 Expected: 双 exit 0；域内 6 诊断清零。
 
 ```bash
-git add apps/pure-web/src/utils/auth.ts apps/pure-web/src/utils/auth.spec.ts apps/pure-web/tsconfig.strict.json apps/pure-web/vitest.config.ts
-git commit -m "test(web): B1.4 utils/auth 测试+strict 迁移"
+git add apps/pure-web/src/utils/auth.ts apps/pure-web/src/utils/auth.spec.ts apps/pure-web/tsconfig.strict.json apps/pure-web/vitest.config.ts docs/tasks/2026-08-29-pure-web-testing-foundation/2026-08-29-pure-web-testing-foundation-b1-design.md
+git commit -m "test(web): B1.4 utils/auth 测试+strict 迁移（校准设计 2.4 storageLocal 口径）"
 ```
 
 ---
@@ -1143,20 +1182,14 @@ describe('closeAllMessage', () => {
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { App } from 'vue';
 
-const getData = vi.fn();
-const install = vi.fn();
-vi.mock('responsive-storage', () => ({
-  default: { getData, install }
-}));
+// vi.mock 被提升：工厂内简写 { getData, install } 会在 import 阶段立即读取顶层 const → TDZ。
+// 必须用 vi.hoisted 提升共享引用。
+const storageMocks = vi.hoisted(() => ({ getData: vi.fn(), install: vi.fn() }));
+vi.mock('responsive-storage', () => ({ default: storageMocks }));
 
 import Storage from 'responsive-storage';
 import { injectResponsiveStorage } from './responsive';
 import { setConfig } from '@/config';
-
-const StorageMock = Storage as unknown as {
-  getData: typeof getData;
-  install: typeof install;
-};
 
 const makeApp = (): App => ({ use: vi.fn() }) as unknown as App;
 
@@ -1167,18 +1200,18 @@ beforeEach(() => {
 
 describe('injectResponsiveStorage', () => {
   it('Storage 未命中时以 config 缺省值合并', () => {
-    StorageMock.getData.mockReturnValue(undefined);
+    storageMocks.getData.mockReturnValue(undefined);
     const app = makeApp();
     injectResponsiveStorage(app, { Locale: 'en', Theme: 'dark' } as PlatformConfigs);
     const [, options] = vi.mocked(app.use).mock.calls[0];
     const memory = (options as { memory: { locale: { locale: string }; layout: { theme: string } } }).memory;
     expect(memory.locale.locale).toBe('en');
     expect(memory.layout.theme).toBe('dark');
-    expect(StorageMock.install).toBeDefined();
+    expect(storageMocks.install).toBeDefined();
   });
 
   it('Storage 命中时优先缓存值', () => {
-    StorageMock.getData.mockImplementation((key: string) =>
+    storageMocks.getData.mockImplementation((key: string) =>
       key === 'layout' ? { layout: 'horizontal', theme: 'dark' } : undefined
     );
     const app = makeApp();
@@ -1189,7 +1222,7 @@ describe('injectResponsiveStorage', () => {
   });
 
   it('MultiTagsCache=true 时并入 tags 键', () => {
-    StorageMock.getData.mockReturnValue(undefined);
+    storageMocks.getData.mockReturnValue(undefined);
     const app = makeApp();
     injectResponsiveStorage(app, { MultiTagsCache: true } as PlatformConfigs);
     const [, options] = vi.mocked(app.use).mock.calls[0];
@@ -1457,6 +1490,8 @@ git commit -m "test(web): B1.5 小工具群 7 模块测试+strict 迁移"
 - [ ] Step 5.1.0: 写测试（TDD 先落测试再重构，红跑在旧实现上以「导出不存在」失败）
 
 ```typescript
+// @vitest-environment jsdom
+// 入口 IIFE 在模块导入时即执行（默认参数 window.location），必须 jsdom，node 环境会 ReferenceError
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('./auth', () => ({
@@ -1691,7 +1726,10 @@ describe('导出数据形状', () => {
 // code转汉字大对象,例：CodeToText['110000']输出北京市
 const CodeToText: Record<string, string> = {};
 // 汉字转code大对象,例：TextToCode['北京市']['市辖区']['朝阳区'].code输出110105
-const TextToCode: Record<string, Record<string, { code: string }>> = {};
+const TextToCode: Record<
+  string,
+  { code: string } & Record<string, { code: string } & Record<string, { code: string }>>
+> = {};
 // 省份对象
 const provinceObject = REGION_DATA['86'];
 // 省市区三级联动数据（不带“全部”选项）
@@ -1854,21 +1892,11 @@ Expected: all passed（7 用例）。
 - [ ] **Step 6.4: 双守卫 + 提交**
 
 Run: `node scripts/assert-strict-manifest.mjs; node scripts/check-strict-web.mjs`
-Expected: 双 exit 0（print.ts 因豁免条目成为域内文件，其 13 个存量诊断被检查器视为域内保留——**注意**：`check-strict-web.mjs` 的域内口径含豁免目录，print.ts 的 13 个错误会令其 exit 1！→ 此处必须给出豁免域诊断过滤语义的裁决：print.ts 属豁免文件，其诊断不属于「清单域内必零错误」承诺范围。执行时若 check-strict-web 报 print.ts 13 错误，将 `check-strict-web.mjs` 的域内口径进一步收窄为「strict include 条目 ± 剥离 spec/类型后缀」……
-
-> **为消除上述咬合问题，机制裁决如下（Task 6 执行时据此落地）：** `check-strict-web.mjs` 的 inScope 只在 `strict.include` 上计算（**不含豁免 glob**）。豁免文件的存量诊断按「清单外」滤除，防漏仍由 `assert-strict-manifest.mjs` 的豁免登记保证。即 Step 6.4 前先修改 `check-strict-web.mjs` 第 2 行附近：
-
-```javascript
-// 豁免 glob 不参与「域内必零错误」计算——豁免条目已由 assert-strict-manifest.mjs 登记防漏，
-// 其存量 strict 诊断不属于清单承诺范围（如 print.ts 的 jsdom 不可达 API）。
-const prefixes = strict.include.map(p =>
-  p.toLowerCase().replace(/\/+$/, '').replace(/\/\*\*$/, '')
-);
-```
+Expected: 双 exit 0。`check-strict-web.mjs` 的域内口径只含 `strict.include`（已于 Task 1 定稿，不含豁免 glob）——print.ts 属豁免文件，其 13 个存量诊断按「清单外」滤除并计数，不会触发域内失败；防漏由 `assert-strict-manifest.mjs` 的豁免登记保证。
 
 ```bash
-git add apps/pure-web/src/utils/print.spec.ts apps/pure-web/tsconfig.strict.exemptions.json scripts/check-strict-web.mjs docs/governance/backlog.md
-git commit -m "test(web): B1.7 print 薄测试+架构性豁免登记，豁免诊断不计入 strict 域内"
+git add apps/pure-web/src/utils/print.spec.ts apps/pure-web/tsconfig.strict.exemptions.json docs/governance/backlog.md
+git commit -m "test(web): B1.7 print 薄测试+架构性豁免登记"
 ```
 
 ---
@@ -1886,12 +1914,12 @@ Expected: 全链绿（prettier → typecheck（含新过滤链）→ lint → st
 - [ ] **Step 7.2: B1 全量 vitest 回归**
 
 Run: `pnpm --filter @multi-admin/pure-web run test:coverage`
-Expected: 全部 spec（B0 2 个 + B1 12 个）绿；glob 阈值列表共 14 键逐项 ≥80。
+Expected: 全部 spec（B0 2 个 + B1 12 个）绿；glob 阈值列表共 13 键逐项 ≥80（B0 2 + B1 11；print.ts 走豁免流无键）。
 
 - [ ] **Step 7.3: 防漏断言计数确认只增不减**
 
 Run: `node scripts/assert-strict-manifest.mjs`
-Expected: exit 0，输出清单 20 项 / 豁免 29 项（相对 B0 基线 6+28 的增量全为本批次合法收录）。
+Expected: exit 0，输出清单 30 项 / 豁免 29 项（相对 B0 基线 6+28 的增量——本批新增清单 24 项、豁免 1 项——全为本批次合法收录）。
 
 - [ ] **Step 7.4: 文档索引核对（索引登记已于计划定稿时完成）**
 
@@ -1904,7 +1932,7 @@ git commit -m "docs(repo): B1 实施计划登记与任务目录索引更新"
 
 - [ ] **Step 7.5: 完成报告（执行会话末）**
 
-汇总：15 提交（Task 1-7 单测链）、14 个 glob 阈值键、strict 清单域 20 项全部零错误、豁免 29 项、`pnpm check` 全绿；对照 B1 设计「统一验收」表逐行打勾；将执行中与计划的偏差回写本计划文档（同 Step 7.4 提交或独立 `docs(web)` 提交）。
+汇总：7 提交（Task 1-7 各一）、13 个 glob 阈值键、strict 清单域 30 项全部零错误、豁免 29 项、`pnpm check` 全绿；对照 B1 设计「统一验收」表逐行打勾；将执行中与计划的偏差回写本计划文档（同 Step 7.4 提交或独立 `docs(web)` 提交）。
 
 ---
 
@@ -1912,8 +1940,8 @@ git commit -m "docs(repo): B1 实施计划登记与任务目录索引更新"
 
 **1. 设计覆盖：** B1.3 router/utils ✅（Task 2）；B1.4 auth ✅（Task 3）；B1.5 小工具群 7 件 ✅（Task 4）；B1.6 sso+chinaArea ✅（Task 5）；B1.7 print 豁免流 ✅（Task 6）；归置动作 localforage → B2 ✅（不在本计划，B2 承接）；前置校准 65 errors ✅（事实校准表）。
 
-**2. 无占位符：** 全部修复代码、测试代码、命令、提交信息均已落笔；Task 6 的豁免×过滤咬合已事前裁决，不留「执行时再定」。
+**2. 无占位符：** 全部修复代码、测试代码、命令、提交信息均已落笔；豁免×过滤咬合的裁决已前移至 Task 1（inScope 只算 include、不含豁免 glob），Task 6 无需中途改脚本，不留「执行时再定」。
 
 **3. 类型一致性：** `getSsoParams`/`isSsoLogin`/`buildSsoRedirectUrl`/`handleSsoLogin` 四导出在 Task 5 测试与实现间一致；`ToRouteType` 依赖 types/router.d.ts 入清单（Task 2 Step 2.0）与 Test 2.1 的 `Parameters<typeof handleAliveRoute>[0]` 用法一致；glob 键与 coverage include 路径形制一致（`src/utils/progress/index.ts` 注意斜杠）。
 
-**4. 已核实的风险前置判断：** `import.meta.glob` 在 vitest 下原生支持（Task 2 首个用例验证）；jsdom pragma 按 spec 精确启用（mitt/message/responsive/propTypes/progress/chinaArea/sso 用 node，其余 DOM 系 6 个用 jsdom）；`(v.meta ??= {})` 为 ES2021 语法、target ESNext 无碍；`keyword override` 由 noImplicitOverride 要求、TS 5.9 支持。
+**4. 已核实的风险前置判断：** `import.meta.glob` 在 vitest 下原生支持（Task 2 首个用例验证）；jsdom pragma 按 spec 精确启用（mitt/message/responsive/propTypes/progress/chinaArea 六者用 node；router/utils、auth、preventDefault、globalPolyfills、sso、print 六者用 jsdom——sso 入口 IIFE 依赖 `window.location` 必须 jsdom）；`(v.meta ??= {})` 为 ES2021 语法、target ESNext 无碍；`keyword override` 由 noImplicitOverride 要求、TS 5.9 支持。
