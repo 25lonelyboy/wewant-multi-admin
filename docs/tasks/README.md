@@ -4,7 +4,9 @@
 
 ## 进行中
 
-_（暂无进行中任务）_
+| 任务 | 收口说明 |
+|---|---|
+| pure-web 测试基建与 strict 类型安全 | 总体设计已定稿（批次 A0 上游基线 → A strict 迁移 → B vitest 基建与模块测试）；见 [2026-08-29-pure-web-testing-foundation/](2026-08-29-pure-web-testing-foundation/) |
 
 ## 最近已完成
 

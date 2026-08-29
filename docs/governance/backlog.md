@@ -50,6 +50,10 @@ last_verified: 2026-08-29
 | CD 制品策略规划 | 无镜像版本 / tag 策略（CI 仅 `multi-admin-*:ci`）、无 registry 选型、无多环境变量矩阵（仅一套 `.env.example`）、未定 secrets 注入路径（GitHub Secrets → 部署目标）；方向已定（ADR-007 D3）：自建 registry（Harbor 类），部署 VM docker 优先、K8s 可选（OCI 镜像兼容两者） | 阶段 E（第二协作者或 CD 立项） | 2026-08-26 |
 | system 域只读查询门面 | `auth.service` 直查 system 域表（permissionsOf / getAsyncRoutes / findUserWithRoles 直接 `prisma.role/menu/user`），监控 / dept 域立项后多域直查将使表结构变更影响面发散；方案：抽取 `SystemQueryService` 只读门面，各域统一经门面访问 | 第二个需用户/角色信息的域立项 | 2026-08-26 |
 | Prisma 迁移回滚预案 | Prisma 不支持 down 迁移，`migrate deploy` 单向，生产迁移中途失败无回退剧本；方案：破坏性迁移（删列/改类型）提交时附带手写回滚 SQL（migration 注释或独立文件） | 第一次破坏性 schema 变更前 | 2026-08-26 |
+| pure-web 测试基建与 strict 类型安全 | pure-web 零测试（0 spec 文件、无 vitest 依赖）且为全仓唯一 `strict: false` 端（纯 TS 384 个 strict 错误实测），token 刷新状态机 / 动态路由重建 / 按钮级鉴权均无回归保护；总体设计已定稿（双 tsconfig 分层 + vitest 基建 + 模块级 ≥80% 覆盖 + 上游基线前置） | 本任务立项执行中（见 docs/tasks/2026-08-29-pure-web-testing-foundation/） | 2026-08-29 |
+| pure-web E2E 测试基建 | 组件级测试完成后仍缺登录 → 动态路由全链路浏览器级回归；方案：Playwright，登录全链路 + 关键页面冒烟 | B2（状态机/store 测试）完成后评估启动 | 2026-08-29 |
+| pure-web 遗留组件处置 | 24 个组件目录中 9 个零引用（ReBarcode/ReDrawer/ReFlop/ReSeamlessScroll/ReSelector/ReSplitPane/ReTreeLine/ReCropper/ReVxeTableBar），pure-admin 遗留资产；本任务只盘点豁免不删除，删除/保留决策待盘点清单入库后另行立项 | 盘点清单入库后决策 | 2026-08-29 |
+| pure-web 上游同步周期评估 | vue-pure-admin template 衍生（接入 2026-08-10），无 fork 跟踪机制；方案：基线 SHA 记录 + ops/upstream-diff.sh 差异报告 + 选择性吸收（吸收项走 strict 迁入 + 测试验收） | 上游大版本发布或季度触发 | 2026-08-29 |
 
 ## 已关闭
 
