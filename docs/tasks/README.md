@@ -10,7 +10,7 @@ _（暂无进行中任务）_
 
 | 任务 | 收口说明 |
 |---|---|
-| server 镜像启动冒烟（Tier 2） | CI 构建即测：/health 探针 + entrypoint 三段断言 + job services 双依赖（digest pin 沿用安全基线），server-smoke.sh 本地/CI 同源；backlog 已关闭并登记演进行；设计 → [design.md](2026-08-28-server-image-smoke/2026-08-28-server-image-smoke-design.md)，计划 → [plan.md](2026-08-28-server-image-smoke/2026-08-28-server-image-smoke-plan.md) |
+| server 镜像启动冒烟（Tier 2） | 合并 master、CI 首跑四 job 全绿（CI 构建即测：/health 探针 + entrypoint 三段断言 + job services 双依赖，server-smoke.sh 本地/CI 同源）；backlog 已关闭并登记演进行；结论 → [build-and-verify.md](../engineering/build-and-verify.md)；已归档 [archive/2026-08-28-server-image-smoke/](archive/2026-08-28-server-image-smoke/) |
 | 生产安全基线（Tier 2 #6） | 7 提交已合并 master（非 root + digest pin 8 处 + check-digests 巡检 + 运行链 3 项修复）；backlog ①② 已关闭；结论 → [build-and-verify.md](../engineering/build-and-verify.md)；已归档 [archive/2026-08-27-server-security-baseline/](archive/2026-08-27-server-security-baseline/) |
 | 登录限流账号维度与失败锁定（Tier 2） | 6 提交已合并 master（42301 契约 + LoginLockService/Guard + validateUser 插桩 + e2e 三用例）；backlog 条目已关闭并登记管理员解锁端点；错误码 42301 → [contracts.md](../architecture/contracts.md)，限流行为 → [backend.md](../architecture/backend.md)；已归档 [archive/2026-08-27-login-account-lockout/](archive/2026-08-27-login-account-lockout/) |
 | Server 基建速赢（Tier 1） | 4 项改动 + 2 fix 已合并 master；backlog 相关条目已关闭；信封/请求链/数据库新行为同步 → [backend.md](../architecture/backend.md)、[contracts.md](../architecture/contracts.md)；已归档 [archive/2026-08-26-server-infra-quickwins/](archive/2026-08-26-server-infra-quickwins/) |

@@ -81,6 +81,8 @@ turbo env 透传约束：Turborepo 不透传自定义 env vars 到 task 子进�
 
 check-digests 远端比对依赖可联网环境：本机无 Registry 直连时按设计输出「远端 digest 获取失败」exit 1（本地同 tag 一致性检查仍有效）；CI 目前无该巡检 step（设计 D5 不新增 CI 验证逻辑），首次在线巡检需在可联网环境手动执行一次。
 
+教训（2026-08-29，`server-smoke.sh` 实施期实测）：`set -o pipefail` 下 `docker logs X | grep -qF` 断言必假——grep -q 命中即退出使 docker logs 收到 SIGPIPE（exit 141），管道整体非零、`if` 恒假；写法必须是先捕获变量（`LOGS="$(docker logs X 2>&1 || true)"`）再 `echo "${LOGS}" | grep -qF` 断言。
+
 ## 已知环境事实
 
 - Windows 下 Electron 打包期可能出现 `dist-electron/` EPERM 文件锁：确保无残留 electron 进程后重跑。

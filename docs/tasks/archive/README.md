@@ -102,3 +102,14 @@
 结论去向：镜像 pin 约定与季度巡检 → [build-and-verify.md](../../engineering/build-and-verify.md)；已关闭条目 ①② → [backlog.md](../../governance/backlog.md)；巡检脚本 → [scripts/ops/check-digests.sh](../../../scripts/ops/check-digests.sh)；速查 → [AGENTS.md](../../../AGENTS.md)。
 
 归档日期：2026-08-29（worktree + Subagent-Driven 实施，7 提交合并 master，非 root 真实链路验收通过、pnpm check 全绿、最终审查 Ready to merge、结论提升完毕）。
+
+## 2026-08-28-server-image-smoke —— server 镜像启动冒烟（Tier 2）
+
+| 文件 | 说明 |
+|---|---|
+| `2026-08-28-server-image-smoke-design.md` | 设计文档（7 项锁定决策 D1-D7：探针深度 / 双分支宿主适配 / 三段断言 / CI services 集成） |
+| `2026-08-28-server-image-smoke-plan.md` | 实施计划（Task 0-7 全部勾选；含 SIGPIPE/pipefail 修正同步与 Self-Review 记录） |
+
+结论去向：冒烟机制与 `ops:server-smoke` 速查、pipefail 教训 → [build-and-verify.md](../../engineering/build-and-verify.md)；已关闭条目与演进信号登记 → [backlog.md](../../governance/backlog.md)；探针脚本 → [scripts/ops/server-smoke.sh](../../../scripts/ops/server-smoke.sh)；CI 集成 → [.github/workflows/ci.yml](../../../.github/workflows/ci.yml)。
+
+归档日期：2026-08-29（worktree + Subagent-Driven 实施，3 提交合并 master，本地端到端 + CI 首跑双验证通过、最终审查 Ready to merge、结论提升完毕）。
