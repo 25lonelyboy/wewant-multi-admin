@@ -12,6 +12,7 @@
 | [ADR-004-contracts-and-backend-stack.md](ADR-004-contracts-and-backend-stack.md) | 前后端契约走独立 contracts 包；Prisma / 自研 JWT 认证 / class-validator 选型 | accepted |
 | [ADR-005-turbo-build-orchestration.md](ADR-005-turbo-build-orchestration.md) | 构建编排采纳 Turborepo 任务图（取代 pre hook；部分取代 ADR-003 编排条款） | accepted |
 | [ADR-006-github-ci.md](ADR-006-github-ci.md) | GitHub CI 四 job 异步安全网（报警式不拦截，单人直推工作流兜底） | accepted |
+| [ADR-007-backend-evolution.md](ADR-007-backend-evolution.md) | 后端演进方向：长期模块化单体 + 终态微服务分段路线（D1-D4 与阶段 A 范围决策） | accepted |
 
 ## 规则
 
