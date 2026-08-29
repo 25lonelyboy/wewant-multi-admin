@@ -55,6 +55,7 @@ last_verified: 2026-08-29
 | pure-web 遗留组件处置 | 24 个组件目录中 9 个零引用（ReBarcode/ReDrawer/ReFlop/ReSeamlessScroll/ReSelector/ReSplitPane/ReTreeLine/ReCropper/ReVxeTableBar），pure-admin 遗留资产；本任务只盘点豁免不删除，删除/保留决策待盘点清单入库后另行立项 | 盘点清单入库后决策 | 2026-08-29 |
 | pure-web 上游同步周期评估 | vue-pure-admin template 衍生（接入 2026-08-10），无 fork 跟踪机制；方案：基线 SHA 记录 + ops/upstream-diff.sh 差异报告 + 选择性吸收（吸收项走 strict 迁入 + 测试验收） | 上游大版本发布或季度触发 | 2026-08-29 |
 | pure-web strict 迁移最终态收口 | 双 tsconfig + 清单断言 + pre-commit 拦截均为迁移期机制；存量全部迁入后须一次性收口：`tsconfig.strict.json` 清单并回 `tsconfig.json`（strict 直承）、删除 strict config / exemptions / `assert-strict-manifest.mjs`、`check.mjs` 与 `.husky/pre-commit` 移除断言阶段 | 批次 B 全部子任务完成（存量文件全部迁入清单）后 | 2026-08-29 |
+| print.ts strict+覆盖补全 | `utils/print.ts`（224 行 DOM 打印模块，pure-admin 移植）B1.7 采用薄测试 + 豁免清单口径：jsdom 不实现 iframe 打印行为（onload/execCommand/setDomHeight），80% 行+分支不可达；strict 修复本身便宜（实测 13 errors + 9 处注解）但覆盖率是真实门槛 | jsdom 打印能力成熟或 Playwright E2E 基建落地后回补（免豁登记于 strict 豁免清单，理由双向登记） | 2026-08-29 |
 
 ## 已关闭
 

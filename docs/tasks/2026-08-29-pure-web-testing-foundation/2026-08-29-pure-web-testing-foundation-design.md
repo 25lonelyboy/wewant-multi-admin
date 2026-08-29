@@ -128,6 +128,8 @@ apps/pure-web/tsconfig.strict.json ← 新增：extends internal/tsconfig/web.js
 
 ### B1 纯函数组（4 子任务，按依赖深度排序）
 
+> B1 批次详细设计已定稿：见 [B1 设计文档](./2026-08-29-pure-web-testing-foundation-b1-design.md)（实际待执行 5 子任务 B1.3~B1.7 + localforage 归 B2；print.ts 豁免口径另定）。下表为摘要，B1 细节以批次设计为准。
+
 | 序 | 模块 | strict 实测 | 备注 |
 | --- | --- | --- | --- |
 | B1.1 | ~~`build/utils.ts`~~ | ~~2 个（`TS7053:71` + `TS7006:84`）~~ | **B0 已完成**：wrapperEnv 全分支 + 同步导出 + getPackageSize 闭包重构，修复后当场迁入清单 |
