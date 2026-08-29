@@ -1,5 +1,5 @@
 {
-  "reason": "pure-admin 遗留组件（零引用，删除决策见 docs/governance/backlog.md「pure-web 遗留组件处置」）；目录删除后本条豁免自然失效（断言枚举不到对应文件），应同步移除条目保持清单整洁",
+  "reason": "①pure-admin 遗留组件（零引用，删除决策见 docs/governance/backlog.md「pure-web 遗留组件处置」）；目录删除后本条豁免自然失效（断言枚举不到对应文件），应同步移除条目保持清单整洁。②监控域页面 src/views/monitor/logs/**：2026-08-30 修正 .gitignore 的 **/logs 误伤后与断言豁免同行入库；属存量待迁移页面，随 B 批次对其迁移测试+strict 的同提交移除条目",
   "files": [
     "src/components/ReBarcode/**",
     "src/components/ReDrawer/**",
@@ -9,6 +9,7 @@
     "src/components/ReSplitPane/**",
     "src/components/ReTreeLine/**",
     "src/components/ReCropper/**",
-    "src/components/ReVxeTableBar/**"
+    "src/components/ReVxeTableBar/**",
+    "src/views/monitor/logs/**"
   ]
 }

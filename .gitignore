@@ -43,6 +43,9 @@ target
 **/*.log
 **/*.log*
 
+# 例外：pure-web 监控域页面源码目录（views/monitor/logs 是页面源码，非运行日志，须入库跟踪）
+!apps/pure-web/src/views/monitor/logs/
+
 # temp directory
 .temp
 .tmp
