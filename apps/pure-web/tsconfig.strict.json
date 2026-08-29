@@ -29,6 +29,20 @@
     "build/utils.ts",
     "build/utils.spec.ts",
     "src/utils/auth.ts",
-    "src/utils/auth.spec.ts"
+    "src/utils/auth.spec.ts",
+    "src/utils/mitt.ts",
+    "src/utils/mitt.spec.ts",
+    "src/utils/message.ts",
+    "src/utils/message.spec.ts",
+    "src/utils/responsive.ts",
+    "src/utils/responsive.spec.ts",
+    "src/utils/preventDefault.ts",
+    "src/utils/preventDefault.spec.ts",
+    "src/utils/propTypes.ts",
+    "src/utils/propTypes.spec.ts",
+    "src/utils/progress/index.ts",
+    "src/utils/progress/index.spec.ts",
+    "src/utils/globalPolyfills.ts",
+    "src/utils/globalPolyfills.spec.ts"
   ]
 }

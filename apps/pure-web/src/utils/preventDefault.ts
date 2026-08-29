@@ -1,10 +1,10 @@
 import { useEventListener } from '@vueuse/core';
 
 /** 是否为`img`标签 */
-function isImgElement(element) {
+function isImgElement(element: EventTarget | null): boolean {
   return typeof HTMLImageElement !== 'undefined'
     ? element instanceof HTMLImageElement
-    : element.tagName.toLowerCase() === 'img';
+    : (element as Element)?.tagName.toLowerCase() === 'img';
 }
 
 // 在 src/main.ts 引入并调用即可 import { addPreventDefault } from "@/utils/preventDefault"; addPreventDefault();

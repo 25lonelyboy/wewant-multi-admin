@@ -25,7 +25,14 @@ export default defineConfig({
           'build/utils.ts': { lines: 80, branches: 80 },
           'src/utils/tree.ts': { lines: 80, branches: 80 },
           'src/router/utils.ts': { lines: 80, branches: 80 },
-          'src/utils/auth.ts': { lines: 80, branches: 80 }
+          'src/utils/auth.ts': { lines: 80, branches: 80 },
+          'src/utils/mitt.ts': { lines: 80, branches: 80 },
+          'src/utils/message.ts': { lines: 80, branches: 80 },
+          'src/utils/responsive.ts': { lines: 80, branches: 80 },
+          'src/utils/preventDefault.ts': { lines: 80, branches: 80 },
+          'src/utils/propTypes.ts': { lines: 80, branches: 80 },
+          'src/utils/progress/index.ts': { lines: 80, branches: 80 },
+          'src/utils/globalPolyfills.ts': { lines: 80, branches: 80 }
         }
       }
     }
