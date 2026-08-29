@@ -4,7 +4,7 @@ covers:
   - apps/nestjs-server/
   - docker-compose.yml
   - .github/workflows/
-last_verified: 2026-08-29
+last_verified: 2026-08-30
 ---
 
 # 全局 backlog
@@ -52,10 +52,11 @@ last_verified: 2026-08-29
 | Prisma 迁移回滚预案 | Prisma 不支持 down 迁移，`migrate deploy` 单向，生产迁移中途失败无回退剧本；方案：破坏性迁移（删列/改类型）提交时附带手写回滚 SQL（migration 注释或独立文件） | 第一次破坏性 schema 变更前 | 2026-08-26 |
 | pure-web 测试基建与 strict 类型安全 | pure-web 零测试（0 spec 文件、无 vitest 依赖）且为全仓唯一 `strict: false` 端（纯 TS 384 个 strict 错误实测），token 刷新状态机 / 动态路由重建 / 按钮级鉴权均无回归保护；总体设计已定稿（双 tsconfig 分层 + vitest 基建 + 模块级 ≥80% 覆盖 + 上游基线前置） | 本任务立项执行中（见 docs/tasks/2026-08-29-pure-web-testing-foundation/） | 2026-08-29 |
 | pure-web E2E 测试基建 | 组件级测试完成后仍缺登录 → 动态路由全链路浏览器级回归；方案：Playwright，登录全链路 + 关键页面冒烟 | B2（状态机/store 测试）完成后评估启动 | 2026-08-29 |
-| pure-web 遗留组件处置 | 24 个组件目录中 9 个零引用（ReBarcode/ReDrawer/ReFlop/ReSeamlessScroll/ReSelector/ReSplitPane/ReTreeLine/ReCropper/ReVxeTableBar），pure-admin 遗留资产；本任务只盘点豁免不删除，删除/保留决策待盘点清单入库后另行立项 | 盘点清单入库后决策 | 2026-08-29 |
+| pure-web 遗留组件处置 | 24 个组件目录中 8 个零引用（ReBarcode/ReFlop/ReSeamlessScroll/ReSelector/ReSplitPane/ReTreeLine/ReCropper/ReVxeTableBar），pure-admin 遗留资产；ReDrawer 经 A3 盘点实测有 1 处 App.vue 引用，已转在用归 B3.2 测试（豁免清单条目随 B3.2 移出）；本任务只盘点豁免不删除，删除/保留决策待盘点清单入库后另行立项 | 盘点清单入库后决策 | 2026-08-29 |
 | pure-web 上游同步周期评估 | vue-pure-admin template 衍生（接入 2026-08-10），无 fork 跟踪机制；方案：基线 SHA 记录 + ops/upstream-diff.sh 差异报告 + 选择性吸收（吸收项走 strict 迁入 + 测试验收） | 上游大版本发布或季度触发 | 2026-08-29 |
 | pure-web strict 迁移最终态收口 | 双 tsconfig + 清单断言 + pre-commit 拦截均为迁移期机制；存量全部迁入后须一次性收口：`tsconfig.strict.json` 清单并回 `tsconfig.json`（strict 直承）、删除 strict config / exemptions / `assert-strict-manifest.mjs`、`check.mjs` 与 `.husky/pre-commit` 移除断言阶段 | 批次 B 全部子任务完成（存量文件全部迁入清单）后 | 2026-08-29 |
 | print.ts strict+覆盖补全 | `utils/print.ts`（223 行 DOM 打印模块，pure-admin 移植）B1.7 采用薄测试 + 豁免清单口径：jsdom 不实现 iframe 打印行为（onload/execCommand/setDomHeight），80% 行+分支不可达；strict 修复本身便宜（实测 13 errors + 9 处注解）但覆盖率是真实门槛 | jsdom 打印能力成熟或 Playwright E2E 基建落地后回补（豁免登记于 strict 豁免清单，理由双向登记） | 2026-08-29 |
+| B3 Canvas 绘制豁免回补 | `ReImageVerify`（验证码绘制）/ `ReCropperPreview`（cropperjs 裁剪渲染）/ `ReQrcode`（二维码绘制）三类 Canvas 行为的 jsdom 不可达，B3 按 B1.7 先例采用薄测试 + 豁免清单口径，绘制行双侧豁免登记 | jsdom canvas 能力成熟或 Playwright E2E 基建落地后回补 | 2026-08-30 |
 
 ## 已关闭
 

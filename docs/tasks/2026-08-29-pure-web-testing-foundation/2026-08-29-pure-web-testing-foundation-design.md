@@ -153,15 +153,17 @@ apps/pure-web/tsconfig.strict.json ← 新增：extends internal/tsconfig/web.js
 
 ### B3 在用组件组（前置细化盘点后 3 批）
 
-**B3.0 前置**：15 个在用组件逐个标注依赖与 strict 错误数（依赖 A3 清单细化）。
+> B3 批次详细设计已定稿：见 [B3 设计文档](./2026-08-29-pure-web-testing-foundation-b3-design.md)（B3.1 基建+低复杂度 7 件、B3.2 中复杂度 6 件含 ReDrawer、B3.3 高复杂度 3 件；Canvas 豁免口径详见批次设计）。下表为摘要，B3 细节以批次设计为准。
+
+**B3.0 前置（已兑现）**：在用组件逐个标注依赖与 strict 错误数（见 A3 盘点 [component-inventory.md](./component-inventory.md)；实测 16 在用——ReDrawer 有 1 处 App.vue 引用，从遗留在用）。
 
 | 批 | 组件 | 策略 |
 | --- | --- | --- |
 | B3.1 低复杂度 | ReCol、ReText、ReIcon、ReSegmented、ReAnimateSelector、ReCountTo、ReFlicker | 直接 VTU 测；先沉淀组件测试基建（element-plus 插件注册、ResizeObserver mock、`~icons/` 虚拟导入 alias） |
-| B3.2 中复杂度 | ReAuth、RePerms、ReDialog、ReTypeit、ReImageVerify | 复用 B2 的 store mock 资产 |
+| B3.2 中复杂度 | ReAuth、RePerms、ReDialog、ReTypeit、ReImageVerify、ReDrawer | 复用 B2 的 store mock 资产 |
 | B3.3 高复杂度 | RePureTableBar、ReCropperPreview、ReQrcode | 重型依赖（@pureadmin/table / cropperjs / qrcode），每组件独立任务，只测容器与关键行为不测第三方内部 |
 
-**9 个遗留组件**（ReBarcode、ReDrawer、ReFlop、ReSeamlessScroll、ReSelector、ReSplitPane、ReTreeLine、ReCropper、ReVxeTableBar）：不测、不进 strict 清单（豁免区），删除决策登记 backlog。
+**8 个遗留组件**（ReBarcode、ReFlop、ReSeamlessScroll、ReSelector、ReSplitPane、ReTreeLine、ReCropper、ReVxeTableBar）：不测、不进 strict 清单（豁免区），删除决策登记 backlog。
 
 ## 7. 统一验收标准与组织约束
 
