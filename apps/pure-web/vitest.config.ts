@@ -23,7 +23,8 @@ export default defineConfig({
       thresholds: {
         glob: {
           'build/utils.ts': { lines: 80, branches: 80 },
-          'src/utils/tree.ts': { lines: 80, branches: 80 }
+          'src/utils/tree.ts': { lines: 80, branches: 80 },
+          'src/router/utils.ts': { lines: 80, branches: 80 }
         }
       }
     }

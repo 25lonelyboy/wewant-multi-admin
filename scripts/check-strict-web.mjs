@@ -53,7 +53,7 @@ const kept = [];
 let keptErrors = 0;
 let dropped = 0;
 // vue-tsc 相对 cwd 输出，形如 `src/router/utils.ts(63,11): error TS7008: ...`
-const ERROR_RE = /^([^(]+\((\d+),(\d+)\)): (error TS\d+): (.+)$/;
+const ERROR_RE = /^([^(]+\((\d+),(\d+)\)): (error TS\d+): (.+)$/m;
 
 // 失败传播防假绿：vue-tsc 无法启动（未安装/环境损坏）时拒绝放行
 if (res.error) {

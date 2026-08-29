@@ -21,6 +21,9 @@
   "include": [
     "types/index.d.ts",
     "types/global.d.ts",
+    "types/router.d.ts",
+    "src/router/utils.ts",
+    "src/router/utils.spec.ts",
     "src/utils/tree.ts",
     "src/utils/tree.spec.ts",
     "build/utils.ts",
