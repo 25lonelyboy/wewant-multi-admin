@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import type { RouteRecordRaw } from 'vue-router';
 import {
   type cacheType,
   store,
@@ -24,7 +25,7 @@ export const usePermissionStore = defineStore('pure-permission', {
   }),
   actions: {
     /** 组装整体路由生成的菜单 */
-    handleWholeMenus(routes: any[]) {
+    handleWholeMenus(routes: RouteRecordRaw[]) {
       this.wholeMenus = filterNoPermissionTree(
         filterTree(ascending(this.constantMenus.concat(routes)))
       );

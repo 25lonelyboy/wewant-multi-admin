@@ -54,6 +54,8 @@
     "src/utils/http/index.spec.ts",
     "src/store/modules/user.ts",
     "src/store/modules/user.spec.ts",
-    "src/store/modules/user.integration.spec.ts"
+    "src/store/modules/user.integration.spec.ts",
+    "src/store/modules/permission.ts",
+    "src/store/modules/permission.spec.ts"
   ]
 }
