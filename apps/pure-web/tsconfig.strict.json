@@ -114,6 +114,12 @@
     "src/components/ReCountTo/src/normal/index.spec.ts",
     "src/components/ReCountTo/src/rebound/index.tsx",
     "src/components/ReCountTo/src/rebound/props.ts",
-    "src/components/ReCountTo/src/rebound/index.spec.ts"
+    "src/components/ReCountTo/src/rebound/index.spec.ts",
+    "src/components/ReAuth/index.ts",
+    "src/components/ReAuth/src/auth.tsx",
+    "src/components/ReAuth/src/auth.spec.ts",
+    "src/components/RePerms/index.ts",
+    "src/components/RePerms/src/perms.tsx",
+    "src/components/RePerms/src/perms.spec.ts"
   ]
 }

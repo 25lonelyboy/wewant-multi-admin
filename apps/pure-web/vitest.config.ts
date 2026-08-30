@@ -118,7 +118,9 @@ export default defineConfig({
         'src/components/ReCountTo/src/rebound/props.ts': {
           lines: 80,
           branches: 80
-        }
+        },
+        'src/components/ReAuth/src/auth.tsx': { lines: 80, branches: 80 },
+        'src/components/RePerms/src/perms.tsx': { lines: 80, branches: 80 }
       }
     }
   }
