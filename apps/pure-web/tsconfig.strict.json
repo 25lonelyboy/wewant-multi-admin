@@ -79,6 +79,9 @@
     "src/components/ReCol/index.ts",
     "src/components/ReCol/index.spec.ts",
     "src/components/ReFlicker/index.ts",
-    "src/components/ReFlicker/index.spec.ts"
+    "src/components/ReFlicker/index.spec.ts",
+    "src/components/ReText/index.ts",
+    "src/components/ReText/src/index.vue",
+    "src/components/ReText/src/index.spec.ts"
   ]
 }

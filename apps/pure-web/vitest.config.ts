@@ -68,7 +68,8 @@ export default defineConfig({
         'src/store/index.ts': { lines: 80, branches: 80 },
         'src/store/utils.ts': { lines: 80, branches: 80 },
         'src/components/ReCol/index.ts': { lines: 80, branches: 80 },
-        'src/components/ReFlicker/index.ts': { lines: 80, branches: 80 }
+        'src/components/ReFlicker/index.ts': { lines: 80, branches: 80 },
+        'src/components/ReText/src/index.vue': { lines: 80, branches: 80 }
       }
     }
   }
