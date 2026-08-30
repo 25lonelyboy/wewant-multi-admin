@@ -6,7 +6,7 @@
 
 | 任务 | 收口说明 |
 |---|---|
-| pure-web 测试基建与 strict 类型安全 | 总体设计已定稿（批次 A0 上游基线 → A strict 迁移 → B vitest 基建与模块测试）；批次 A0/A+B0/B1/B2 已合并 master 验收通过；B1（纯函数组）7 提交实施完成（14 spec 文件、strict 清单 6→31 项含 print.spec.ts 防御性纳入、print.ts 架构性豁免），覆盖率 glob 阈值经审查修复为 vitest 4 顶层键形式后 13 键真实生效；B2（状态机/store 组）实施完成（11 spec 新增含 user↔http 40102 真实联动集成、strict 清单 31→53 项、覆盖率键 13→23）；B3（在用组件组）设计已定稿待实施；见 [2026-08-29-pure-web-testing-foundation/](2026-08-29-pure-web-testing-foundation/) |
+| pure-web 测试基建与 strict 类型安全 | 总体设计已定稿（批次 A0 上游基线 → A strict 迁移 → B vitest 基建与模块测试）；批次 A0/A+B0/B1/B2/B3 已合并 master 验收通过；B1（纯函数组）7 提交、B2（状态机/store 组）11 spec、B3（在用组件组）23 spec 新增、双 stub 图标 alias + mountWithEP helper、strict 清单 53→125 项、豁免 29→26 项（ReDrawer 移出）、覆盖率键 23→48；Canvas 三件按豁免口径薄测试；剩余：存量待迁移 129 项（页面/视图域，待 B4+）；见 [2026-08-29-pure-web-testing-foundation/](2026-08-29-pure-web-testing-foundation/) |
 
 ## 最近已完成
 
