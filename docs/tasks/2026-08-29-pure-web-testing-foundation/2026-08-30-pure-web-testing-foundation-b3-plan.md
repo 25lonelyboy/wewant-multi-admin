@@ -41,7 +41,7 @@
 
 **Files:**
 
-- Modify: `apps/pure-web/vitest.config.ts`（alias 数组化 + 三条正则）
+- Modify: `apps/pure-web/vitest.config.ts`（alias 数组化 + 三条正则；`test.include` 补 `.spec.tsx`）
 - Create: `apps/pure-web/src/test-utils/svg-raw-stub.ts`
 - Create: `apps/pure-web/src/test-utils/svg-component-stub.ts`
 - Create: `apps/pure-web/src/test-utils/mount.ts`
@@ -52,7 +52,7 @@
 
 - [ ] **Step 0.1: vitest.config.ts alias 数组化 + 图标正则 stub**
 
-`vitest.config.ts` 现 `resolve: { alias }`（对象，仅 `@` / `@build`）。vitest（vite）的 `resolve.alias` 支持数组形态且正则 `find` 按数组顺序匹配——在既有两条之前插入三条正则：
+`vitest.config.ts` 现 `resolve: { alias }`（对象，仅 `@` / `@build`）。vitest（vite）的 `resolve.alias` 支持数组形态且正则 `find` 按数组顺序匹配——在既有两条之前插入三条正则。同时必须改 `test.include`：现值 `['src/**/*.spec.ts', 'build/*.spec.ts']` 不匹配 `.spec.tsx`，Task 11（`bar.spec.tsx`）与 Task 12（ReQrcode `index.spec.tsx`）会被静默跳过、`Test Files 47 passed` 预期破功，须补 `{ts,tsx}` 双扩展名：
 
 ```ts
 import { fileURLToPath } from 'node:url';
@@ -87,7 +87,12 @@ export default defineConfig({
     ]
   },
   plugins: [vue(), vueJsx()],
-  // ... define / test 块保持不变
+  // define 块保持不变；test 块仅 include 一处改动（其余保持）：
+  test: {
+    // ... 既有 env / environment / coverage（含 thresholds）等保持不变
+    // 原值 ['src/**/*.spec.ts', 'build/*.spec.ts']——不收 .spec.tsx
+    include: ['src/**/*.spec.{ts,tsx}', 'build/*.spec.ts']
+  }
 });
 ```
 
@@ -560,7 +565,7 @@ vi.mock('@iconify/vue/dist/offline', async () => {
   };
 });
 
-import { useRenderIcon } from './src/hooks';
+import { useRenderIcon } from './hooks';
 
 describe('useRenderIcon', () => {
   it('SVG 字符串：剥离 width/height 后原样渲染，二次调用命中缓存', () => {
@@ -923,7 +928,7 @@ vi.mock('element-plus', async () => {
 });
 
 import IconSelect from './Select.vue';
-import { IconJson } from './data';
+import { IconJson } from '../data';
 import SvgIconStub from '@/test-utils/svg-component-stub';
 
 function mountSelect(initial = ''): VueWrapper {
@@ -1559,7 +1564,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 
 // router 实例 mock（形态对齐 B1 router-utils.spec）：阻断 createRouter 副作用，
-// 提供可控 currentRoute.value.meta 驱动真实 hasAuth 链
+// 提供可控 currentRoute.value.meta 驱动真实 hasAuth 链；
+// 注意 @/utils/auth 保持真实——hasAuth 即被测对象（真实模块仅依赖
+// js-cookie + store hooks，jsdom 下可直接加载，禁止整模块 mock）
 vi.mock('@/router', () => ({
   router: {
     currentRoute: { value: { meta: {} as Record<string, unknown> } }
@@ -1571,7 +1578,6 @@ vi.mock('@/store/modules/permission', () => ({
 vi.mock('@/api/routes', () => ({
   getAsyncRoutes: vi.fn(() => Promise.resolve({ code: 0, data: [] }))
 }));
-vi.mock('@/utils/auth', () => ({ userKey: 'user-info' }));
 
 import Auth from './auth';
 import { router } from '@/router';
@@ -2046,7 +2052,7 @@ const goMock = vi.hoisted(() => vi.fn());
 const TypeItMock = vi.hoisted(() => vi.fn(() => ({ go: goMock })));
 vi.mock('typeit', () => ({ default: TypeItMock }));
 
-import TypeIt from './src/index';
+import TypeIt from './index';
 
 const instanceSentinel = Symbol('typeit-instance');
 
@@ -2136,8 +2142,8 @@ git commit -m "test(web): b3.2 补齐 ReTypeit 打字机接线测试并迁入 st
 import { describe, it, expect } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { defineComponent, h } from 'vue';
-import { useImageVerify } from './src/hooks';
-import ReImageVerify from './src/index.vue';
+import { useImageVerify } from './hooks';
+import ReImageVerify from './index.vue';
 
 describe('useImageVerify', () => {
   it('domRef 未绑定：getImgCode 早退，setImgCode 可写', () => {
