@@ -21,6 +21,7 @@ import {
   userKey,
   type DataInfo
 } from '@/utils/auth';
+import { router } from '@/router';
 import { useUserStoreHook } from './user';
 
 // 真实链：auth.setToken 双写 cookie+storage、logout 真实 multiTags+router（jsdom 已打通）
@@ -32,7 +33,8 @@ beforeEach(() => {
   Cookies.remove(TokenKey);
   Cookies.remove(multipleTabsKey);
   hook().$reset();
-  // 路由跳转静默：真实 router 可用，push 前守卫走白名单放行
+  // 路由跳转静默：spy router.push 避免触发 ~icons/* 虚拟模块解析（不影响 store 清理链真实性）
+  vi.spyOn(router, 'push').mockResolvedValue(undefined as any);
 });
 
 describe('SET 动作', () => {

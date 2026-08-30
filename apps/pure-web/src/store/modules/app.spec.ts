@@ -73,6 +73,30 @@ it('TOGGLE_SIDEBAR 无参切换分支：翻转 + isClickCollapse + 持久化', (
   });
 });
 
+it('TOGGLE_SIDEBAR(opened=true, resize 缺省)：不匹配任何分支，state 不变', () => {
+  seedLayout({ sidebarStatus: true });
+  hook().$reset();
+  const before = hook().sidebar.opened;
+  hook().TOGGLE_SIDEBAR(true);
+  expect(hook().sidebar.opened).toBe(before);
+  expect(hook().sidebar.withoutAnimation).toBe(false);
+  expect(storageLocal().getItem(layoutKey)).toMatchObject({
+    sidebarStatus: true
+  });
+});
+
+it('getConfig 缺省键：opened ?? false / layout ?? "" 兜底分支', () => {
+  storageLocal().clear();
+  setConfig({
+    SidebarStatus: undefined,
+    Layout: undefined,
+    ResponsiveStorageNameSpace: 'responsive-'
+  });
+  hook().$reset();
+  expect(hook().sidebar.opened).toBe(false);
+  expect(hook().layout).toBe('');
+});
+
 it('TOGGLE_SIDEBAR layout 为 null 时仅变更 state、不持久化', () => {
   storageLocal().clear();
   hook().$reset();

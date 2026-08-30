@@ -32,20 +32,6 @@ import {
   createRouter
 } from 'vue-router';
 
-// buildHierarchyTree 运行时为路由节点赋值 parentId（L186 消费），
-// 类型侧无对应声明——补模块增强对齐运行时事实（纯类型护栏）
-declare module 'vue-router' {
-  interface RouteRecordSingleView {
-    parentId?: number | string | null;
-  }
-  interface RouteRecordMultipleViews {
-    parentId?: number | string | null;
-  }
-  interface RouteRecordRedirect {
-    parentId?: number | string | null;
-  }
-}
-
 import {
   type DataInfo,
   userKey,
@@ -198,11 +184,8 @@ router.beforeEach((to: ToRouteType, _from) => {
             getTopMenu(true);
             // query、params模式路由传参数的标签页不在此处处理
             if (route && route.meta?.title) {
-              // buildHierarchyTree 运行时赋值 parentId，类型侧通过 types/router.d.ts 模块增强补充
-              if (
-                isAllEmpty((route as any).parentId) &&
-                route.meta?.backstage
-              ) {
+              // buildHierarchyTree 运行时赋值 parentId，类型侧由 types/router.d.ts 模块增强覆盖
+              if (isAllEmpty(route.parentId) && route.meta?.backstage) {
                 // 此处为动态顶级路由（目录）
                 const { path, name, meta } = route.children[0];
                 useMultiTagsStoreHook().handleTags('push', {

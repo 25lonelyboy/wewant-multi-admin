@@ -43,3 +43,15 @@ it('getters 直读 state', () => {
   expect(hook().getTitle).toBe('admin');
   expect(hook().getFixedHeader).toBe(true);
 });
+
+it('getConfig 缺省键：title/fixedHeader/hiddenSideBar 的 ?? 默认分支', () => {
+  setConfig({
+    Title: undefined,
+    FixedHeader: undefined,
+    HiddenSideBar: undefined
+  });
+  hook().$reset();
+  expect(hook().title).toBe('');
+  expect(hook().fixedHeader).toBe(false);
+  expect(hook().hiddenSideBar).toBe(false);
+});

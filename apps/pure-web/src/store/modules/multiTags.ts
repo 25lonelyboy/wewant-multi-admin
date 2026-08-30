@@ -124,7 +124,7 @@ export const useMultiTagsStore = defineStore('pure-multiTags', {
           } else {
             this.multiTags.splice(
               position.startIndex ?? 0,
-              position.length ?? 0
+              position.length ?? Infinity
             );
           }
           this.tagsCache(this.multiTags);

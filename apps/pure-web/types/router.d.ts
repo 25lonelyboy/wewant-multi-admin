@@ -108,4 +108,22 @@ declare global {
 declare module 'vue-router' {
   // eslint-disable-next-line
   interface RouteMeta extends CustomizeRouteMeta {}
+
+  // buildHierarchyTree 运行时为路由节点赋值 parentId（router/index.ts 消费），
+  // 类型侧无对应声明——补模块增强对齐运行时事实（纯类型护栏）
+  interface RouteRecordSingleView {
+    parentId?: number | string | null;
+  }
+  interface RouteRecordSingleViewWithChildren {
+    parentId?: number | string | null;
+  }
+  interface RouteRecordMultipleViews {
+    parentId?: number | string | null;
+  }
+  interface RouteRecordMultipleViewsWithChildren {
+    parentId?: number | string | null;
+  }
+  interface RouteRecordRedirect {
+    parentId?: number | string | null;
+  }
 }

@@ -36,7 +36,7 @@ import type { multiType } from '../types';
 
 const hook = useMultiTagsStoreHook;
 
-// 默认 meta 必含 title：push 链 L78 `tagVal?.meta?.title.length === 0` 对 undefined.title 抛 TypeError
+// 默认 meta 必含 title：源码 push 链已有 !title 守卫早退，默认补 title 仅为例用简洁
 const tag = (
   over: Partial<{
     path: string;
@@ -158,7 +158,7 @@ describe('handleTags', () => {
     const t = tag({ path: '/dup', query: { a: 1 }, params: { b: 2 } });
     const initialLen = hook().multiTags.length;
     hook().handleTags('push', t);
-    // 第二次 push 须保留 title：meta 覆盖为 {} 会在 push 链 L78 抛 TypeError
+    // 第二次 push 须保留 title：源码 !title 守卫会早退（同标题去重）
     hook().handleTags('push', { ...t });
     expect(hook().multiTags).toHaveLength(initialLen + 1); // 初始长度 + /dup
   });
