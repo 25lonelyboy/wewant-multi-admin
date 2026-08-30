@@ -10,50 +10,46 @@ import { subBefore, getQueryMap } from '@pureadmin/utils';
  * 3.删除不需要显示在 url 的参数
  * 4.使用 window.location.replace 跳转正确页面
  */
-(function () {
-  // 获取 url 中的参数
-  const params = getQueryMap(location.href) as DataInfo<number>;
-  const must = ['username', 'roles', 'accessToken'];
-  const mustLength = must.length;
-  if (Object.keys(params).length !== mustLength) return;
 
-  // url 参数满足 must 里的全部值，才判定为单点登录，避免非单点登录时刷新页面无限循环
-  let sso = [];
-  let start = 0;
+const SSO_MUST_KEYS = ['username', 'roles', 'accessToken'] as const;
 
-  while (start < mustLength) {
-    if (Object.keys(params).includes(must[start]) && sso.length <= mustLength) {
-      sso.push(must[start]);
-    } else {
-      sso = [];
-    }
-    start++;
-  }
+/** 解析 url 参数；键数恰为 3 且 must 三键齐备时判定为单点登录参数，否则返回 null */
+export function getSsoParams(url: string): DataInfo<number> | null {
+  const params = getQueryMap(url) as DataInfo<number>;
+  const keys = Object.keys(params);
+  if (keys.length !== SSO_MUST_KEYS.length) return null;
+  const matched = SSO_MUST_KEYS.filter(k => keys.includes(k));
+  return matched.length === SSO_MUST_KEYS.length ? params : null;
+}
 
-  if (sso.length === mustLength) {
-    // 判定为单点登录
+export function isSsoLogin(
+  params: DataInfo<number> | null
+): params is DataInfo<number> {
+  return params !== null;
+}
 
-    // 清空本地旧信息
-    removeToken();
+/** 拼接去除 roles/accessToken 后的跳转地址（url 中不再暴露敏感参数） */
+export function buildSsoRedirectUrl(
+  params: DataInfo<number>,
+  loc: Pick<Location, 'origin' | 'pathname' | 'hash'>
+): string {
+  const { roles: _roles, accessToken: _accessToken, ...rest } = params;
+  const query = JSON.stringify(rest)
+    .replace(/["{}]/g, '')
+    .replace(/:/g, '=')
+    .replace(/,/g, '&');
+  const hashPath = loc.hash.includes('?') ? subBefore(loc.hash, '?') : loc.hash;
+  return `${loc.origin}${loc.pathname}${hashPath}?${query}`;
+}
 
-    // 保存新信息到本地
-    setToken(params);
+/** 单点登录主流程：非单点参数早退；命中则清旧 → 存新 → 替换跳转 */
+export function handleSsoLogin(loc: Location = window.location): void {
+  const params = getSsoParams(loc.href);
+  if (!isSsoLogin(params)) return;
 
-    // 删除不需要显示在 url 的参数
-    delete params.roles;
-    delete params.accessToken;
+  removeToken();
+  setToken(params);
+  loc.replace(buildSsoRedirectUrl(params, loc));
+}
 
-    const newUrl = `${location.origin}${location.pathname}${subBefore(
-      location.hash,
-      '?'
-    )}?${JSON.stringify(params)
-      .replace(/["{}]/g, '')
-      .replace(/:/g, '=')
-      .replace(/,/g, '&')}`;
-
-    // 替换历史记录项
-    window.location.replace(newUrl);
-  } else {
-    return;
-  }
-})();
+handleSsoLogin();

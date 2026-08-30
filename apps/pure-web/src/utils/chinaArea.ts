@@ -8,15 +8,15 @@ interface ProvinceData {
 }
 
 // code转汉字大对象,例：CodeToText['110000']输出北京市
-const CodeToText = {};
+const CodeToText: Record<string, string> = {};
 // 汉字转code大对象,例：TextToCode['北京市']['市辖区']['朝阳区'].code输出110105
-const TextToCode = {};
+const TextToCode: { code?: string } & Record<string, any> = {};
 // 省份对象
 const provinceObject = REGION_DATA['86'];
-// 省市区三级联动数据（不带“全部”选项）
-const regionData = [];
-// 省市二级联动数据（不带“全部”选项）
-let provinceAndCityData = [];
+// 省市区三级联动数据（不带"全部"选项）
+const regionData: ProvinceData[] = [];
+// 省市二级联动数据（不带"全部"选项）
+let provinceAndCityData: ProvinceData[] = [];
 
 const ALL_TEXT = '全部';
 
@@ -42,7 +42,7 @@ Object.keys(provinceObject).forEach(prop => {
 regionData.forEach((item: ProvinceData) => {
   const provinceCode = item.value;
   const provinceText = item.label;
-  const provinceChildren = [];
+  const provinceChildren: ProvinceData[] = [];
   const provinceData = REGION_DATA[provinceCode] ?? {};
 
   Object.keys(provinceData).forEach(prop => {
@@ -74,7 +74,7 @@ regionData.forEach((item: ProvinceData) => {
     province.forEach(pItem => {
       const cityCode = pItem.value;
       const cityText = pItem.label;
-      const cityChildren = [];
+      const cityChildren: ProvinceData[] = [];
       const cityData = REGION_DATA[cityCode] ?? {};
 
       Object.keys(cityData).forEach(prop => {
