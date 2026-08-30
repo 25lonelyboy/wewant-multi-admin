@@ -69,7 +69,20 @@ export default defineConfig({
         'src/store/utils.ts': { lines: 80, branches: 80 },
         'src/components/ReCol/index.ts': { lines: 80, branches: 80 },
         'src/components/ReFlicker/index.ts': { lines: 80, branches: 80 },
-        'src/components/ReText/src/index.vue': { lines: 80, branches: 80 }
+        'src/components/ReText/src/index.vue': { lines: 80, branches: 80 },
+        'src/components/ReIcon/data.ts': { lines: 80, branches: 80 },
+        'src/components/ReIcon/src/hooks.ts': { lines: 80, branches: 80 },
+        'src/components/ReIcon/src/iconifyIconOffline.ts': {
+          lines: 80,
+          branches: 80
+        },
+        'src/components/ReIcon/src/iconifyIconOnline.ts': {
+          lines: 80,
+          branches: 80
+        },
+        'src/components/ReIcon/src/iconfont.ts': { lines: 80, branches: 80 },
+        'src/components/ReIcon/src/offlineIcon.ts': { lines: 80, branches: 80 },
+        'src/components/ReIcon/src/Select.vue': { lines: 80, branches: 80 }
       }
     }
   }

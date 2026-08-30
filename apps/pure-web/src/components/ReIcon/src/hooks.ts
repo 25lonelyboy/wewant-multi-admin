@@ -69,7 +69,7 @@ export function useRenderIcon(icon: any, attrs?: iconType): Component {
     });
   } else if (typeof icon === 'function' || typeof icon?.render === 'function') {
     // SVG 函数组件
-    return attrs ? h(icon, { ...attrs }) : icon;
+    return icon;
   } else if (typeof icon === 'object') {
     return defineComponent({
       name: 'OfflineIcon',
@@ -89,7 +89,7 @@ export function useRenderIcon(icon: any, attrs?: iconType): Component {
         const IconifyIcon = icon.includes(':')
           ? IconifyIconOnline
           : IconifyIconOffline;
-        return h(IconifyIcon, {
+        return h(IconifyIcon as any, {
           icon,
           ...attrs
         });

@@ -82,6 +82,22 @@
     "src/components/ReFlicker/index.spec.ts",
     "src/components/ReText/index.ts",
     "src/components/ReText/src/index.vue",
-    "src/components/ReText/src/index.spec.ts"
+    "src/components/ReText/src/index.spec.ts",
+    "src/components/ReIcon/index.ts",
+    "src/components/ReIcon/data.ts",
+    "src/components/ReIcon/src/hooks.ts",
+    "src/components/ReIcon/src/iconfont.ts",
+    "src/components/ReIcon/src/iconifyIconOffline.ts",
+    "src/components/ReIcon/src/iconifyIconOnline.ts",
+    "src/components/ReIcon/src/offlineIcon.ts",
+    "src/components/ReIcon/src/Select.vue",
+    "src/components/ReIcon/src/types.ts",
+    "src/components/ReIcon/data.spec.ts",
+    "src/components/ReIcon/src/hooks.spec.ts",
+    "src/components/ReIcon/src/iconifyIconOffline.spec.ts",
+    "src/components/ReIcon/src/iconifyIconOnline.spec.ts",
+    "src/components/ReIcon/src/iconfont.spec.ts",
+    "src/components/ReIcon/src/offlineIcon.spec.ts",
+    "src/components/ReIcon/src/Select.spec.ts"
   ]
 }
