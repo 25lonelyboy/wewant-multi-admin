@@ -38,7 +38,13 @@ export default defineConfig({
         'src/utils/http/index.ts': { lines: 80, branches: 80 },
         'src/store/modules/user.ts': { lines: 80, branches: 80 },
         'src/store/modules/permission.ts': { lines: 80, branches: 80 },
-        'src/store/modules/multiTags.ts': { lines: 80, branches: 80 }
+        'src/store/modules/multiTags.ts': { lines: 80, branches: 80 },
+        'src/store/modules/app.ts': { lines: 80, branches: 80 },
+        'src/store/modules/settings.ts': { lines: 80, branches: 80 },
+        'src/store/modules/epTheme.ts': { lines: 80, branches: 80 },
+        'src/utils/localforage/index.ts': { lines: 80, branches: 80 },
+        'src/store/index.ts': { lines: 80, branches: 80 },
+        'src/store/utils.ts': { lines: 80, branches: 80 }
       }
     }
   }

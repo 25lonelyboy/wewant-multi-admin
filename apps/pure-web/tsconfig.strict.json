@@ -58,6 +58,19 @@
     "src/store/modules/permission.ts",
     "src/store/modules/permission.spec.ts",
     "src/store/modules/multiTags.ts",
-    "src/store/modules/multiTags.spec.ts"
+    "src/store/modules/multiTags.spec.ts",
+    "src/store/modules/app.ts",
+    "src/store/modules/app.spec.ts",
+    "src/store/modules/settings.ts",
+    "src/store/modules/settings.spec.ts",
+    "src/store/modules/epTheme.ts",
+    "src/store/modules/epTheme.spec.ts",
+    "src/utils/localforage/index.ts",
+    "src/utils/localforage/index.spec.ts",
+    "src/store/index.ts",
+    "src/store/index.spec.ts",
+    "src/store/utils.ts",
+    "src/store/utils.spec.ts",
+    "src/store/types.ts"
   ]
 }

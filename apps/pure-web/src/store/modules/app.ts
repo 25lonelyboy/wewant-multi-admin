@@ -54,18 +54,26 @@ export const useAppStore = defineStore('pure-app', {
       if (opened && resize) {
         this.sidebar.withoutAnimation = true;
         this.sidebar.opened = true;
-        layout.sidebarStatus = true;
+        if (layout) {
+          layout.sidebarStatus = true;
+        }
       } else if (!opened && resize) {
         this.sidebar.withoutAnimation = true;
         this.sidebar.opened = false;
-        layout.sidebarStatus = false;
+        if (layout) {
+          layout.sidebarStatus = false;
+        }
       } else if (!opened && !resize) {
         this.sidebar.withoutAnimation = false;
         this.sidebar.opened = !this.sidebar.opened;
         this.sidebar.isClickCollapse = !this.sidebar.opened;
-        layout.sidebarStatus = this.sidebar.opened;
+        if (layout) {
+          layout.sidebarStatus = this.sidebar.opened;
+        }
       }
-      storageLocal().setItem(`${responsiveStorageNameSpace()}layout`, layout);
+      if (layout) {
+        storageLocal().setItem(`${responsiveStorageNameSpace()}layout`, layout);
+      }
     },
     async toggleSideBar(opened?: boolean, resize?: string) {
       await this.TOGGLE_SIDEBAR(opened, resize);
@@ -73,13 +81,13 @@ export const useAppStore = defineStore('pure-app', {
     toggleDevice(device: string) {
       this.device = device;
     },
-    setLayout(layout) {
+    setLayout(layout: appType['layout']) {
       this.layout = layout;
     },
-    setViewportSize(size) {
+    setViewportSize(size: appType['viewportSize']) {
       this.viewportSize = size;
     },
-    setSortSwap(val) {
+    setSortSwap(val: boolean) {
       this.sortSwap = val;
     }
   }
