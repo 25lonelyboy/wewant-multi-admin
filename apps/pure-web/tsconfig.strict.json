@@ -103,6 +103,10 @@
     "src/components/ReSegmented/index.ts",
     "src/components/ReSegmented/src/index.tsx",
     "src/components/ReSegmented/src/type.ts",
-    "src/components/ReSegmented/src/index.spec.ts"
+    "src/components/ReSegmented/src/index.spec.ts",
+    "src/components/ReAnimateSelector/index.ts",
+    "src/components/ReAnimateSelector/src/animate.ts",
+    "src/components/ReAnimateSelector/src/index.vue",
+    "src/components/ReAnimateSelector/src/index.spec.ts"
   ]
 }

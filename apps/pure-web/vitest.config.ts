@@ -94,6 +94,14 @@ export default defineConfig({
         'src/components/ReSegmented/src/index.tsx': {
           lines: 80,
           branches: 80
+        },
+        'src/components/ReAnimateSelector/src/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/components/ReAnimateSelector/src/animate.ts': {
+          lines: 80,
+          branches: 80
         }
       }
     }

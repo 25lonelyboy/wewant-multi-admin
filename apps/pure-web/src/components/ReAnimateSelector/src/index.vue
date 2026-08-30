@@ -60,7 +60,7 @@ function filterMethod(value: any) {
   );
 }
 
-const animateMap = ref({});
+const animateMap = ref<Record<string | number, { loading: boolean }>>({});
 function onMouseEnter(index: string | number) {
   animateMap.value[index] = animateMap.value[index]?.loading
     ? Object.assign({}, animateMap.value[index], {
