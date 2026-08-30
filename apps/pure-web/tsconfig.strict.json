@@ -76,6 +76,7 @@
     "src/test-utils/svg-raw-stub.ts",
     "src/test-utils/svg-component-stub.ts",
     "src/test-utils/mount.ts",
+    "src/test-utils/vue-jsx-ssr-helper-stub.ts",
     "src/components/ReCol/index.ts",
     "src/components/ReCol/index.spec.ts",
     "src/components/ReFlicker/index.ts",
@@ -98,6 +99,10 @@
     "src/components/ReIcon/src/iconifyIconOnline.spec.ts",
     "src/components/ReIcon/src/iconfont.spec.ts",
     "src/components/ReIcon/src/offlineIcon.spec.ts",
-    "src/components/ReIcon/src/Select.spec.ts"
+    "src/components/ReIcon/src/Select.spec.ts",
+    "src/components/ReSegmented/index.ts",
+    "src/components/ReSegmented/src/index.tsx",
+    "src/components/ReSegmented/src/type.ts",
+    "src/components/ReSegmented/src/index.spec.ts"
   ]
 }

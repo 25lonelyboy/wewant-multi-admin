@@ -10,6 +10,9 @@ const svgRawStub = fileURLToPath(
 const svgComponentStub = fileURLToPath(
   new URL('./src/test-utils/svg-component-stub.ts', import.meta.url)
 );
+const vueJsxSsrHelperStub = fileURLToPath(
+  new URL('./src/test-utils/vue-jsx-ssr-helper-stub.ts', import.meta.url)
+);
 
 // 独立于 vite.config.ts（设计 3.2）：测试环境不加载 fake-server / cdn-import /
 // compression 等构建期插件，不继承 rolldownOptions 等 Vite 8 专属构建配置
@@ -23,6 +26,11 @@ export default defineConfig({
       { find: /^~icons\/.*/, replacement: svgComponentStub },
       // `*.svg?component`（vite-svg-loader 为构建期插件，测试链不加载）
       { find: /\.svg\?component$/, replacement: svgComponentStub },
+      // @vitejs/plugin-vue-jsx v5 在 vitest node 环境下注入的 SSR 虚拟模块
+      {
+        find: '/__vue-jsx-ssr-register-helper',
+        replacement: vueJsxSsrHelperStub
+      },
       ...Object.entries(alias).map(([find, replacement]) => ({
         find,
         replacement
@@ -36,7 +44,7 @@ export default defineConfig({
   },
   test: {
     env: { VITE_ROUTER_HISTORY: 'hash' },
-    environment: 'node',
+    environment: 'jsdom',
     include: ['src/**/*.spec.{ts,tsx}', 'build/*.spec.ts'],
     coverage: {
       provider: 'v8',
@@ -82,7 +90,11 @@ export default defineConfig({
         },
         'src/components/ReIcon/src/iconfont.ts': { lines: 80, branches: 80 },
         'src/components/ReIcon/src/offlineIcon.ts': { lines: 80, branches: 80 },
-        'src/components/ReIcon/src/Select.vue': { lines: 80, branches: 80 }
+        'src/components/ReIcon/src/Select.vue': { lines: 80, branches: 80 },
+        'src/components/ReSegmented/src/index.tsx': {
+          lines: 80,
+          branches: 80
+        }
       }
     }
   }

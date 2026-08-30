@@ -36,7 +36,9 @@ describe('ReText', () => {
     expect(useTippyMock).toHaveBeenCalledTimes(1);
     expect((wrapper.element as HTMLElement).textContent).toContain('hello');
     // 未传 tippyProps 时走默认空对象工厂，props 仅 content
-    expect(useTippyMock.mock.calls[0][1]).toHaveProperty('content');
+    expect((useTippyMock.mock.calls[0] as unknown[])[1]).toHaveProperty(
+      'content'
+    );
   });
 
   it('单行省略：溢出时悬停启用 tippy 并刷新 props', async () => {
@@ -74,7 +76,9 @@ describe('ReText', () => {
       props: { tippyProps: { placement: 'top' } },
       slots: { default: 'd', content: '<b>tip</b>' }
     });
-    const initProps = useTippyMock.mock.calls[0][1] as Recordable;
+    const initProps = (
+      useTippyMock.mock.calls[0] as unknown[]
+    )[1] as Recordable;
     expect(initProps).toMatchObject({ placement: 'top' });
     expect(initProps).toHaveProperty('content');
   });

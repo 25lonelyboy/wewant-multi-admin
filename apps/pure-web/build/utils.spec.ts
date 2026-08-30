@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { root, pathResolve, alias, __APP_INFO__, wrapperEnv } from './utils';
 
