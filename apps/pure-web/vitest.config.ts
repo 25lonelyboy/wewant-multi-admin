@@ -120,7 +120,9 @@ export default defineConfig({
           branches: 80
         },
         'src/components/ReAuth/src/auth.tsx': { lines: 80, branches: 80 },
-        'src/components/RePerms/src/perms.tsx': { lines: 80, branches: 80 }
+        'src/components/RePerms/src/perms.tsx': { lines: 80, branches: 80 },
+        'src/components/ReDialog/index.ts': { lines: 80, branches: 80 },
+        'src/components/ReDialog/index.vue': { lines: 80, branches: 80 }
       }
     }
   }

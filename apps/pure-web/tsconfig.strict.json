@@ -120,6 +120,10 @@
     "src/components/ReAuth/src/auth.spec.ts",
     "src/components/RePerms/index.ts",
     "src/components/RePerms/src/perms.tsx",
-    "src/components/RePerms/src/perms.spec.ts"
+    "src/components/RePerms/src/perms.spec.ts",
+    "src/components/ReDialog/index.ts",
+    "src/components/ReDialog/index.vue",
+    "src/components/ReDialog/type.ts",
+    "src/components/ReDialog/index.spec.ts"
   ]
 }

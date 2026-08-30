@@ -43,7 +43,7 @@ const closeDialog = (options: DialogOptions, index: number, args?: any) => {
  * @param index 弹框索引（默认`0`，代表只有一个弹框，对于嵌套弹框要改哪个弹框的属性值就把该弹框索引赋给`index`）
  */
 const updateDialog = (value: any, key = 'title', index = 0) => {
-  dialogStore.value[index][key] = value;
+  (dialogStore.value[index] as Recordable)[key] = value;
 };
 
 /** 关闭所有弹框 */

@@ -15,23 +15,22 @@ defineOptions({
   name: 'ReDialog'
 });
 
-const sureBtnMap = ref({});
+const sureBtnMap = ref<Record<number, { loading: boolean }>>({});
 const fullscreen = ref(false);
 
 const footerButtons = computed(() => {
   return (options: DialogOptions) => {
-    return options?.footerButtons?.length > 0
+    return (options?.footerButtons?.length ?? 0) > 0
       ? options.footerButtons
       : ([
           {
             label: '取消',
             text: true,
             bg: true,
-            btnClick: ({ dialog: { options, index } }) => {
-              const done = () =>
-                closeDialog(options, index, { command: 'cancel' });
-              if (options?.beforeCancel && isFunction(options?.beforeCancel)) {
-                options.beforeCancel(done, { options, index });
+            btnClick: ({ dialog: { options: o, index: i } }) => {
+              const done = () => closeDialog(o!, i!, { command: 'cancel' });
+              if (o?.beforeCancel && isFunction(o?.beforeCancel)) {
+                o.beforeCancel(done, { options: o!, index: i! });
               } else {
                 done();
               }
@@ -43,27 +42,23 @@ const footerButtons = computed(() => {
             text: true,
             bg: true,
             popconfirm: options?.popconfirm,
-            btnClick: ({ dialog: { options, index } }) => {
-              if (options?.sureBtnLoading) {
-                sureBtnMap.value[index] = Object.assign(
-                  {},
-                  sureBtnMap.value[index],
-                  {
-                    loading: true
-                  }
-                );
+            btnClick: ({ dialog: { options: o, index: i } }) => {
+              if (o?.sureBtnLoading) {
+                sureBtnMap.value[i!] = Object.assign({}, sureBtnMap.value[i!], {
+                  loading: true
+                });
               }
               const closeLoading = () => {
-                if (options?.sureBtnLoading) {
-                  sureBtnMap.value[index].loading = false;
+                if (o?.sureBtnLoading) {
+                  sureBtnMap.value[i!].loading = false;
                 }
               };
               const done = () => {
                 closeLoading();
-                closeDialog(options, index, { command: 'sure' });
+                closeDialog(o!, i!, { command: 'sure' });
               };
-              if (options?.beforeSure && isFunction(options?.beforeSure)) {
-                options.beforeSure(done, { options, index, closeLoading });
+              if (o?.beforeSure && isFunction(o?.beforeSure)) {
+                o.beforeSure(done, { options: o!, index: i!, closeLoading });
               } else {
                 done();
               }
@@ -90,8 +85,9 @@ function eventsCallBack(
   isClickFullScreen = false
 ) {
   if (!isClickFullScreen) fullscreen.value = options?.fullscreen ?? false;
-  if (options?.[event] && isFunction(options?.[event])) {
-    return options?.[event]({ options, index });
+  const handler = options?.[event];
+  if (handler && isFunction(handler)) {
+    return (handler as Function)({ options, index });
   }
 }
 
@@ -153,14 +149,14 @@ function handleClose(
         </i>
       </div>
       <component
-        :is="options?.headerRenderer({ close, titleId, titleClass })"
+        :is="options?.headerRenderer!({ close, titleId, titleClass })"
         v-else
       />
     </template>
     <component
       v-bind="options?.props"
-      :is="options.contentRenderer({ options, index })"
-      @close="args => handleClose(options, index, args)"
+      :is="options.contentRenderer!({ options, index })"
+      @close="(args: any) => handleClose(options, index, args)"
     />
     <!-- footer -->
     <template v-if="!options?.hideFooter" #footer>
@@ -173,7 +169,7 @@ function handleClose(
             v-if="btn.popconfirm"
             v-bind="btn.popconfirm"
             @confirm="
-              btn.btnClick({
+              btn.btnClick?.({
                 dialog: { options, index },
                 button: { btn, index: key }
               })
@@ -188,7 +184,7 @@ function handleClose(
             v-bind="btn"
             :loading="key === 1 && sureBtnMap[index]?.loading"
             @click="
-              btn.btnClick({
+              btn.btnClick?.({
                 dialog: { options, index },
                 button: { btn, index: key }
               })
