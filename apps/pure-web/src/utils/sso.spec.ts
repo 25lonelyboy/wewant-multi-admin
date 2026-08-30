@@ -48,6 +48,12 @@ describe('getSsoParams', () => {
       )
     ).toBeNull();
   });
+
+  it('键数恰为 3 但 must 键缺失时返回 null', () => {
+    expect(
+      getSsoParams('http://xx.com/#/?username=sso&roles=admin&other=x')
+    ).toBeNull();
+  });
 });
 
 describe('isSsoLogin', () => {
@@ -59,6 +65,13 @@ describe('isSsoLogin', () => {
 describe('buildSsoRedirectUrl', () => {
   it('剥除 roles/accessToken，username 以 query 保留', () => {
     const loc = fakeLocation('#/permission/page/index');
+    expect(buildSsoRedirectUrl(params, loc)).toBe(
+      'http://localhost:8848/#/permission/page/index?username=sso'
+    );
+  });
+
+  it('hash 已含 query 时剥离后拼接', () => {
+    const loc = fakeLocation('#/permission/page/index?old=1');
     expect(buildSsoRedirectUrl(params, loc)).toBe(
       'http://localhost:8848/#/permission/page/index?username=sso'
     );

@@ -605,10 +605,10 @@ export default defineConfig({
       include: ['src/**/*.{ts,tsx,vue}', 'build/*.ts'],
       exclude: ['**/*.d.ts', '**/*.spec.ts'],
       thresholds: {
-        glob: {
-          'build/utils.ts': { lines: 80, branches: 80 },
-          'src/utils/tree.ts': { lines: 80, branches: 80 }
-        }
+        // vitest 4 的 glob 阈值键必须是顶层形式（`coverage.thresholds[glob-pattern]`），
+        // 嵌套 `thresholds.glob: {}` 会被当作字面 glob 模式 'glob' 匹配 0 文件而静默失效
+        'build/utils.ts': { lines: 80, branches: 80 },
+        'src/utils/tree.ts': { lines: 80, branches: 80 }
       }
     }
   }
