@@ -14,7 +14,9 @@ export const useAppStore = defineStore('pure-app', {
       opened:
         storageLocal().getItem<StorageConfigs>(
           `${responsiveStorageNameSpace()}layout`
-        )?.sidebarStatus ?? getConfig().SidebarStatus,
+        )?.sidebarStatus ??
+        getConfig().SidebarStatus ??
+        false,
       withoutAnimation: false,
       isClickCollapse: false
     },
@@ -22,7 +24,9 @@ export const useAppStore = defineStore('pure-app', {
     layout:
       storageLocal().getItem<StorageConfigs>(
         `${responsiveStorageNameSpace()}layout`
-      )?.layout ?? getConfig().Layout,
+      )?.layout ??
+      getConfig().Layout ??
+      '',
     device: deviceDetection() ? 'mobile' : 'desktop',
     // 浏览器窗口的可视区域大小
     viewportSize: {

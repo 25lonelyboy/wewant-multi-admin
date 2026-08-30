@@ -82,7 +82,7 @@ export const useUserStore = defineStore('pure-user', {
         getLogin(data)
           .then(data => {
             if (data.code === 0) {
-              setToken(data.data);
+              setToken(data.data as unknown as DataInfo<number>);
               resolve(data);
             } else {
               reject(data.message);

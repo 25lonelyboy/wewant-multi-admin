@@ -15,24 +15,23 @@ import {
 import { usePermissionStoreHook } from './permission';
 
 export const useMultiTagsStore = defineStore('pure-multiTags', {
-  state: () => ({
-    // 存储标签页信息（路由信息）
-    multiTags: storageLocal().getItem<StorageConfigs>(
+  state: (): { multiTags: multiType[]; multiTagsCache: boolean } => {
+    const configure = storageLocal().getItem<StorageConfigs>(
       `${responsiveStorageNameSpace()}configure`
-    )?.multiTagsCache
-      ? storageLocal().getItem<StorageConfigs>(
+    );
+    const multiTagsCache = configure?.multiTagsCache ?? false;
+    const multiTags: multiType[] = multiTagsCache
+      ? (storageLocal().getItem<StorageConfigs>(
           `${responsiveStorageNameSpace()}tags`
-        )
+        ) as multiType[]) || []
       : ([
           ...routerArrays,
           ...usePermissionStoreHook().flatteningRoutes.filter(
             v => v?.meta?.fixedTag
           )
-        ] as any),
-    multiTagsCache: storageLocal().getItem<StorageConfigs>(
-      `${responsiveStorageNameSpace()}configure`
-    )?.multiTagsCache
-  }),
+        ] as multiType[]);
+    return { multiTags, multiTagsCache };
+  },
   getters: {
     getMultiTagsCache(state) {
       return state.multiTagsCache;
@@ -50,37 +49,38 @@ export const useMultiTagsStore = defineStore('pure-multiTags', {
         storageLocal().removeItem(`${responsiveStorageNameSpace()}tags`);
       }
     },
-    tagsCache(multiTags) {
+    tagsCache(multiTags: multiType[]) {
       this.getMultiTagsCache &&
         storageLocal().setItem(
           `${responsiveStorageNameSpace()}tags`,
           multiTags
         );
     },
-    handleTags<T>(
+    handleTags(
       mode: string,
-      value?: T | multiType,
+      value?: any,
       position?: positionType
-    ): T {
+    ): multiType[] | undefined {
       switch (mode) {
         case 'equal':
-          this.multiTags = value;
+          this.multiTags = value as multiType[];
           this.tagsCache(this.multiTags);
-          break;
+          return undefined;
         case 'push':
           {
             const tagVal = value as multiType;
             // 不添加到标签页
-            if (tagVal?.meta?.hiddenTag) return;
+            if (tagVal?.meta?.hiddenTag) return undefined;
             // 如果是外链无需添加信息到标签页
-            if (isUrl(tagVal?.name)) return;
+            if (isUrl(tagVal?.name)) return undefined;
             // 如果title为空拒绝添加空信息到标签页
-            if (tagVal?.meta?.title.length === 0) return;
+            if (!tagVal?.meta?.title || tagVal?.meta?.title.length === 0)
+              return undefined;
             // showLink:false 不添加到标签页
             if (isBoolean(tagVal?.meta?.showLink) && !tagVal?.meta?.showLink)
-              return;
+              return undefined;
             const tagPath = tagVal.path;
-            const tagHasExits = this.multiTags.some(tag => {
+            const tagHasExits = this.multiTags.some((tag: multiType) => {
               return (
                 tag.path === tagPath &&
                 isEqual(tag?.query, tagVal?.query) &&
@@ -88,46 +88,51 @@ export const useMultiTagsStore = defineStore('pure-multiTags', {
               );
             });
 
-            if (tagHasExits) return;
+            if (tagHasExits) return undefined;
 
             // 动态路由可打开的最大数量
             const dynamicLevel = tagVal?.meta?.dynamicLevel ?? -1;
             if (dynamicLevel > 0) {
               if (
-                this.multiTags.filter(e => e?.path === tagPath).length >=
-                dynamicLevel
+                this.multiTags.filter((e: multiType) => e?.path === tagPath)
+                  .length >= dynamicLevel
               ) {
                 // 如果当前已打开的动态路由数大于dynamicLevel，替换第一个动态路由标签
                 const index = this.multiTags.findIndex(
-                  item => item?.path === tagPath
+                  (item: multiType) => item?.path === tagPath
                 );
                 index !== -1 && this.multiTags.splice(index, 1);
               }
             }
-            this.multiTags.push(value);
+            this.multiTags.push(value as multiType);
             this.tagsCache(this.multiTags);
-            if (
-              getConfig()?.MaxTagsLevel &&
-              isNumber(getConfig().MaxTagsLevel)
-            ) {
-              if (this.multiTags.length > getConfig().MaxTagsLevel) {
+            const maxTagsLevel = getConfig()?.MaxTagsLevel;
+            if (maxTagsLevel && isNumber(maxTagsLevel)) {
+              if (this.multiTags.length > maxTagsLevel) {
                 this.multiTags.splice(1, 1);
               }
             }
           }
-          break;
+          return undefined;
         case 'splice':
           if (!position) {
-            const index = this.multiTags.findIndex(v => v.path === value);
-            if (index === -1) return;
+            const index = this.multiTags.findIndex(
+              (v: multiType) => v.path === value
+            );
+            if (index === -1) return undefined;
             this.multiTags.splice(index, 1);
           } else {
-            this.multiTags.splice(position?.startIndex, position?.length);
+            this.multiTags.splice(
+              position.startIndex ?? 0,
+              position.length ?? 0
+            );
           }
           this.tagsCache(this.multiTags);
           return this.multiTags;
         case 'slice':
           return this.multiTags.slice(-1);
+        default:
+          return undefined;
       }
     }
   }
