@@ -11,16 +11,15 @@ vi.mock('@iconify/vue/dist/offline', async () => {
     Icon: dc({
       name: 'IconifyIconStub',
       props: { icon: { type: String, default: '' } },
-      render(
-        this: { icon: string },
-        _ctx: unknown,
-        $attrs: { style?: string }
-      ) {
-        return vh(
-          'i',
-          { class: 'iconify-stub', style: $attrs?.style },
-          this.icon
-        );
+      render(this: {
+        icon: string;
+        $slots?: Record<string, Function>;
+        $attrs: { style?: string };
+      }) {
+        return vh('i', { class: 'iconify-stub', style: this.$attrs?.style }, [
+          this.icon,
+          this.$slots?.default?.()
+        ]);
       }
     })
   };

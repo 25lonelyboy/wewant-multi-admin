@@ -333,6 +333,22 @@ describe('PureTableBar', () => {
     expect(wrapper.find('.slot-default').text()).toBe('["乙","丙","甲"]');
   });
 
+  it('右固定：右 pin 切换 + isFixedColumn right 分支', async () => {
+    const wrapper = mountBar();
+    const pinIcons = wrapper
+      .findAll('svg')
+      .filter(s => s.classes().includes('size-4'));
+    // 每列 2 枚 pin（左、右）；右 pin 含 scale-x-[-1] class
+    const rightPins = pinIcons.filter(s =>
+      s.classes().some(c => c.includes('scale-x'))
+    );
+    expect(rightPins.length).toBeGreaterThanOrEqual(1);
+    await rightPins[0].trigger('click');
+    expect(rightPins[0].classes()).toContain('text-primary');
+    await rightPins[0].trigger('click'); // 取消右固定
+    expect(wrapper.find('.slot-default').text()).toContain('甲');
+  });
+
   it('默认槽收到 size 与 dynamicColumns 实时引用', () => {
     const seen: Recordable[] = [];
     mountBar({

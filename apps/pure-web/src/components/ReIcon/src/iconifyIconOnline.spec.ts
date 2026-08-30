@@ -8,8 +8,11 @@ vi.mock('@iconify/vue', async () => {
     Icon: defineComponent({
       name: 'OnlineIconStub',
       props: { icon: { type: String, default: '' } },
-      render(this: { icon: string }) {
-        return h('i', { class: 'online-stub' }, this.icon);
+      render(this: { icon: string; $slots?: Record<string, Function> }) {
+        return h('i', { class: 'online-stub' }, [
+          this.icon,
+          this.$slots?.default?.()
+        ]);
       }
     })
   };
