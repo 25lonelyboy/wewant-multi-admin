@@ -131,6 +131,10 @@
     "src/components/ReImageVerify/index.ts",
     "src/components/ReImageVerify/src/hooks.ts",
     "src/components/ReImageVerify/src/index.vue",
-    "src/components/ReImageVerify/src/index.spec.ts"
+    "src/components/ReImageVerify/src/index.spec.ts",
+    "src/components/ReDrawer/index.ts",
+    "src/components/ReDrawer/index.vue",
+    "src/components/ReDrawer/type.ts",
+    "src/components/ReDrawer/index.spec.ts"
   ]
 }
