@@ -15,7 +15,8 @@
       "element-plus/global",
       "@pureadmin/table/volar",
       "unplugin-icons/types/vue",
-      "@pureadmin/descriptions/volar"
+      "@pureadmin/descriptions/volar",
+      "vite-svg-loader"
     ]
   },
   "include": [
@@ -71,6 +72,13 @@
     "src/store/index.spec.ts",
     "src/store/utils.ts",
     "src/store/utils.spec.ts",
-    "src/store/types.ts"
+    "src/store/types.ts",
+    "src/test-utils/svg-raw-stub.ts",
+    "src/test-utils/svg-component-stub.ts",
+    "src/test-utils/mount.ts",
+    "src/components/ReCol/index.ts",
+    "src/components/ReCol/index.spec.ts",
+    "src/components/ReFlicker/index.ts",
+    "src/components/ReFlicker/index.spec.ts"
   ]
 }
