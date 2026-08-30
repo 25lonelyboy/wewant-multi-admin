@@ -49,6 +49,8 @@
     "src/utils/sso.spec.ts",
     "src/utils/chinaArea.ts",
     "src/utils/chinaArea.spec.ts",
-    "src/utils/print.spec.ts"
+    "src/utils/print.spec.ts",
+    "src/utils/http/index.ts",
+    "src/utils/http/index.spec.ts"
   ]
 }

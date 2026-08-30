@@ -13,6 +13,7 @@ export default defineConfig({
     __APP_INFO__: JSON.stringify(__APP_INFO__)
   },
   test: {
+    env: { VITE_ROUTER_HISTORY: 'hash' },
     environment: 'node',
     include: ['src/**/*.spec.ts', 'build/*.spec.ts'],
     coverage: {
@@ -33,7 +34,8 @@ export default defineConfig({
         'src/utils/progress/index.ts': { lines: 80, branches: 80 },
         'src/utils/globalPolyfills.ts': { lines: 80, branches: 80 },
         'src/utils/sso.ts': { lines: 80, branches: 80 },
-        'src/utils/chinaArea.ts': { lines: 80, branches: 80 }
+        'src/utils/chinaArea.ts': { lines: 80, branches: 80 },
+        'src/utils/http/index.ts': { lines: 80, branches: 80 }
       }
     }
   }
