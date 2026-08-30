@@ -102,6 +102,22 @@ export default defineConfig({
         'src/components/ReAnimateSelector/src/animate.ts': {
           lines: 80,
           branches: 80
+        },
+        'src/components/ReCountTo/src/normal/index.tsx': {
+          lines: 80,
+          branches: 80
+        },
+        'src/components/ReCountTo/src/normal/props.ts': {
+          lines: 80,
+          branches: 80
+        },
+        'src/components/ReCountTo/src/rebound/index.tsx': {
+          lines: 80,
+          branches: 80
+        },
+        'src/components/ReCountTo/src/rebound/props.ts': {
+          lines: 80,
+          branches: 80
         }
       }
     }

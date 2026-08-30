@@ -13,7 +13,7 @@ export default defineComponent({
   name: 'ReNormalCountTo',
   props: countToProps,
   emits: ['mounted', 'callback'],
-  setup(props, { emit }) {
+  setup(props, { emit, expose }) {
     const state = reactive<{
       localStartVal: number;
       printVal: number | null;
@@ -24,7 +24,7 @@ export default defineComponent({
       timestamp: number | null;
       rAF: any;
       remaining: number | null;
-      color: string;
+      color: string | null;
       fontSize: string;
     }>({
       localStartVal: props.startVal,
@@ -162,6 +162,8 @@ export default defineComponent({
       }
       emit('mounted');
     });
+
+    expose({ pauseResume, reset });
 
     return () => (
       <>

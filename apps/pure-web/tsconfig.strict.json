@@ -107,6 +107,13 @@
     "src/components/ReAnimateSelector/index.ts",
     "src/components/ReAnimateSelector/src/animate.ts",
     "src/components/ReAnimateSelector/src/index.vue",
-    "src/components/ReAnimateSelector/src/index.spec.ts"
+    "src/components/ReAnimateSelector/src/index.spec.ts",
+    "src/components/ReCountTo/index.ts",
+    "src/components/ReCountTo/src/normal/index.tsx",
+    "src/components/ReCountTo/src/normal/props.ts",
+    "src/components/ReCountTo/src/normal/index.spec.ts",
+    "src/components/ReCountTo/src/rebound/index.tsx",
+    "src/components/ReCountTo/src/rebound/props.ts",
+    "src/components/ReCountTo/src/rebound/index.spec.ts"
   ]
 }
