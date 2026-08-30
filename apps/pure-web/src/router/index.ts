@@ -25,7 +25,12 @@ import {
   formatTwoStageRoutes,
   formatFlatteningRoutes
 } from './utils';
-import { type Router, type RouteRecordRaw, createRouter } from 'vue-router';
+import {
+  type Router,
+  type RouteRecordRaw,
+  type RouteComponent,
+  createRouter
+} from 'vue-router';
 
 // buildHierarchyTree 运行时为路由节点赋值 parentId（L186 消费），
 // 类型侧无对应声明——补模块增强对齐运行时事实（纯类型护栏）
