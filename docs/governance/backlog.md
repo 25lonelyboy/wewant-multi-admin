@@ -57,6 +57,7 @@ last_verified: 2026-08-30
 | pure-web strict 迁移最终态收口 | 双 tsconfig + 清单断言 + pre-commit 拦截均为迁移期机制；存量全部迁入后须一次性收口：`tsconfig.strict.json` 清单并回 `tsconfig.json`（strict 直承）、删除 strict config / exemptions / `assert-strict-manifest.mjs`、`check.mjs` 与 `.husky/pre-commit` 移除断言阶段 | 批次 B 全部子任务完成（存量文件全部迁入清单）后 | 2026-08-29 |
 | print.ts strict+覆盖补全 | `utils/print.ts`（223 行 DOM 打印模块，pure-admin 移植）B1.7 采用薄测试 + 豁免清单口径：jsdom 不实现 iframe 打印行为（onload/execCommand/setDomHeight），80% 行+分支不可达；strict 修复本身便宜（实测 13 errors + 9 处注解）但覆盖率是真实门槛 | jsdom 打印能力成熟或 Playwright E2E 基建落地后回补（豁免登记于 strict 豁免清单，理由双向登记） | 2026-08-29 |
 | B3 Canvas 绘制豁免回补 | `ReImageVerify`（验证码绘制）/ `ReCropperPreview`（cropperjs 裁剪渲染）/ `ReQrcode`（二维码绘制）三类 Canvas 行为的 jsdom 不可达，B3 按 B1.7 先例采用薄测试 + 豁免清单口径，绘制行双侧豁免登记 | jsdom canvas 能力成熟或 Playwright E2E 基建落地后回补 | 2026-08-30 |
+| vitest 配置未来兼容 | `vitest.config.ts` 触发 Vite `configLoader: 'native'`（未来默认）告警：`import './build/utils'` 缺扩展名 + `build/utils.ts` 的 JSON import 缺 `with { type: 'json' }` attributes；`check-strict-web.mjs` 的 `shell: true`（Windows 下 pnpm 必需）触发 Node DEP0190 告警，均为纯提示性不破当前版本 | Vite 大版本升级前修复（补扩展名与 JSON attributes；DEP0190 保持现状或换 spawn 变体） | 2026-08-30 |
 
 ## 已关闭
 
