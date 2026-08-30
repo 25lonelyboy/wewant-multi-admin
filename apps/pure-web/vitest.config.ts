@@ -37,7 +37,8 @@ export default defineConfig({
         'src/utils/chinaArea.ts': { lines: 80, branches: 80 },
         'src/utils/http/index.ts': { lines: 80, branches: 80 },
         'src/store/modules/user.ts': { lines: 80, branches: 80 },
-        'src/store/modules/permission.ts': { lines: 80, branches: 80 }
+        'src/store/modules/permission.ts': { lines: 80, branches: 80 },
+        'src/store/modules/multiTags.ts': { lines: 80, branches: 80 }
       }
     }
   }
