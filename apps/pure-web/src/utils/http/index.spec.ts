@@ -121,7 +121,9 @@ describe('request 拦截 fulfilled', () => {
     const config = { headers: {}, url: '/api/v1/auth/refresh-token' };
     const result = await requestFulfilled(config);
     expect(result).toBe(config);
-    expect(config.headers['Authorization']).toBeUndefined();
+    expect(
+      (config.headers as Record<string, string>)['Authorization']
+    ).toBeUndefined();
   });
 
   it('白名单 /login 直接放行', async () => {
@@ -146,7 +148,9 @@ describe('request 拦截 fulfilled', () => {
     const config = { headers: {}, url: '/api/v1/system/user/list' };
     const result = await requestFulfilled(config);
     expect(result).toBe(config);
-    expect(config.headers['Authorization']).toBe(`Bearer ${accessToken}`);
+    expect((config.headers as Record<string, string>)['Authorization']).toBe(
+      `Bearer ${accessToken}`
+    );
   });
 
   it('token 过期：单飞刷新后以新 token 重放入队请求', async () => {
@@ -164,7 +168,9 @@ describe('request 拦截 fulfilled', () => {
     await vi.runAllTicks();
     const result = await pending;
     expect(result).toBe(config);
-    expect(config.headers['Authorization']).toBe('Bearer fresh-token');
+    expect((config.headers as Record<string, string>)['Authorization']).toBe(
+      'Bearer fresh-token'
+    );
   });
 });
 
@@ -193,7 +199,9 @@ describe('response 拦截 rejected', () => {
     expect(userStoreFake.handRefreshToken).toHaveBeenCalledWith({
       refreshToken: 'r-token'
     });
-    expect(retryConfig.headers['Authorization']).toBe('Bearer fresh-token');
+    expect(
+      (retryConfig.headers as Record<string, string>)['Authorization']
+    ).toBe('Bearer fresh-token');
   });
 
   it('并发 3 个 40102：handRefreshToken 只发一次，队列全员重放', async () => {

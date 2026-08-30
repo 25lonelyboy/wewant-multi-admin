@@ -270,20 +270,28 @@ function deleteDynamicTag(obj: any, current: any, tag?: string) {
   if (current === route.path) {
     // 如果删除当前激活tag就自动切换到最后一个tag
     if (tag === 'left') return;
-    if (newRoute[0]?.query) {
-      router.push({ name: newRoute[0].name, query: newRoute[0].query });
-    } else if (newRoute[0]?.params) {
-      router.push({ name: newRoute[0].name, params: newRoute[0].params });
+    if (!newRoute || !newRoute[0]) return;
+    if (newRoute[0].query) {
+      router.push({ name: newRoute[0].name, query: newRoute[0].query as any });
+    } else if (newRoute[0].params) {
+      router.push({
+        name: newRoute[0].name,
+        params: newRoute[0].params as any
+      });
     } else {
       router.push({ path: newRoute[0].path });
     }
   } else {
     if (!multiTags.value.length) return;
     if (multiTags.value.some(item => item.path === route.path)) return;
-    if (newRoute[0]?.query) {
-      router.push({ name: newRoute[0].name, query: newRoute[0].query });
-    } else if (newRoute[0]?.params) {
-      router.push({ name: newRoute[0].name, params: newRoute[0].params });
+    if (!newRoute || !newRoute[0]) return;
+    if (newRoute[0].query) {
+      router.push({ name: newRoute[0].name, query: newRoute[0].query as any });
+    } else if (newRoute[0].params) {
+      router.push({
+        name: newRoute[0].name,
+        params: newRoute[0].params as any
+      });
     } else {
       router.push({ path: newRoute[0].path });
     }

@@ -32,6 +32,7 @@ vi.mock('./permission', () => ({
 
 import { setConfig } from '@/config';
 import { useMultiTagsStoreHook } from './multiTags';
+import type { multiType } from '../types';
 
 const hook = useMultiTagsStoreHook;
 
@@ -182,9 +183,9 @@ describe('handleTags', () => {
     );
     expect(hook().multiTags).toHaveLength(initialLen + 1); // 初始长度 + 唯一 /dyn
     // 须按 path 定位 /dyn
-    const dynTag = hook().multiTags.find(t => t.path === '/dyn');
+    const dynTag = hook().multiTags.find((t: multiType) => t.path === '/dyn');
     expect(dynTag).toBeDefined();
-    expect(dynTag.query).toEqual({ q: 2 });
+    expect(dynTag!.query).toEqual({ q: 2 });
   });
 
   it('push：MaxTagsLevel 裁剪（push 之后 length 超上限则 splice(1,1)）', () => {
@@ -194,7 +195,7 @@ describe('handleTags', () => {
     hook().handleTags('push', tag({ path: '/m2' }));
     hook().handleTags('push', tag({ path: '/m3' }));
     // 每次 push 后超限删除 index 1（保留首个标签，通常是 fixedTag 或 routerArrays）
-    const paths = hook().multiTags.map(t => t.path);
+    const paths = hook().multiTags.map((t: multiType) => t.path);
     expect(paths.length).toBe(2);
     expect(paths[paths.length - 1]).toBe('/m3');
   });
@@ -203,7 +204,9 @@ describe('handleTags', () => {
     hook().handleTags('equal', [tag({ path: '/s1' }), tag({ path: '/s2' })]);
     const result = hook().handleTags('splice', '/s1');
     expect(result).toHaveLength(1);
-    expect(hook().multiTags.map(t => t.path)).toEqual(['/s2']);
+    expect(
+      (result as unknown as multiType[]).map((t: multiType) => t.path)
+    ).toEqual(['/s2']);
   });
 
   it('splice 无 position：path 不存在时早退返回 undefined', () => {
@@ -220,12 +223,12 @@ describe('handleTags', () => {
       tag({ path: '/r3' })
     ]);
     hook().handleTags('splice', undefined, { startIndex: 0, length: 2 });
-    expect(hook().multiTags.map(t => t.path)).toEqual(['/r3']);
+    expect(hook().multiTags.map((t: multiType) => t.path)).toEqual(['/r3']);
   });
 
   it('slice：返回最后一个标签', () => {
     hook().handleTags('equal', [tag({ path: '/f1' }), tag({ path: '/f2' })]);
     expect(hook().handleTags('slice')).toHaveLength(1);
-    expect(hook().handleTags('slice')[0].path).toBe('/f2');
+    expect((hook().handleTags('slice') as multiType[])[0].path).toBe('/f2');
   });
 });

@@ -13,7 +13,12 @@ import {
 import { useMultiTagsStoreHook } from './multiTags';
 
 export const usePermissionStore = defineStore('pure-permission', {
-  state: () => ({
+  state: (): {
+    constantMenus: any[];
+    wholeMenus: any[];
+    flatteningRoutes: any[];
+    cachePageList: string[];
+  } => ({
     // 静态路由生成的菜单
     constantMenus,
     // 整体路由生成的菜单（静态、动态）
@@ -55,7 +60,7 @@ export const usePermissionStore = defineStore('pure-permission', {
           this.clearCache();
           break;
         case 'add':
-          this.cachePageList.push(name);
+          this.cachePageList.push(name as string);
           break;
         case 'delete':
           delIndex !== -1 && this.cachePageList.splice(delIndex, 1);

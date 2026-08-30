@@ -38,7 +38,7 @@ class PureHttp {
   }
 
   /** `token`过期后，暂存待执行的请求 */
-  private static requests = [];
+  private static requests: Array<(token: string) => void> = [];
 
   /** 防止重复刷新`token` */
   private static isRefreshing = false;
@@ -53,7 +53,7 @@ class PureHttp {
   private static retryOriginalRequest(config: PureHttpRequestConfig) {
     return new Promise(resolve => {
       PureHttp.requests.push((token: string) => {
-        config.headers['Authorization'] = formatToken(token);
+        config.headers!['Authorization'] = formatToken(token);
         resolve(config);
       });
     });
@@ -68,7 +68,7 @@ class PureHttp {
         .handRefreshToken({ refreshToken: data?.refreshToken })
         .then(res => {
           const token = res.data.accessToken;
-          PureHttp.requests.forEach(cb => cb(token));
+          PureHttp.requests.forEach((cb: (token: string) => void) => cb(token));
           PureHttp.requests = [];
         })
         .catch(_err => {
@@ -83,8 +83,8 @@ class PureHttp {
         });
     }
     return PureHttp.retryOriginalRequest(config).then(
-      (retryConfig: PureHttpRequestConfig) =>
-        PureHttp.axiosInstance.request(retryConfig)
+      (retryConfig: unknown): Promise<any> =>
+        PureHttp.axiosInstance.request(retryConfig as PureHttpRequestConfig)
     );
   }
 
@@ -103,7 +103,7 @@ class PureHttp {
         }
         /** 请求白名单，放置一些不需要`token`的接口（通过设置请求白名单，防止`token`过期后再请求造成的死循环问题） */
         const whiteList = ['/refresh-token', '/login'];
-        return whiteList.some(url => config.url.endsWith(url))
+        return whiteList.some(url => config.url?.endsWith(url))
           ? config
           : new Promise(resolve => {
               const data = getToken();
@@ -118,8 +118,10 @@ class PureHttp {
                       .handRefreshToken({ refreshToken: data.refreshToken })
                       .then(res => {
                         const token = res.data.accessToken;
-                        config.headers['Authorization'] = formatToken(token);
-                        PureHttp.requests.forEach(cb => cb(token));
+                        config.headers!['Authorization'] = formatToken(token);
+                        PureHttp.requests.forEach(
+                          (cb: (token: string) => void) => cb(token)
+                        );
                         PureHttp.requests = [];
                       })
                       .catch(_err => {
@@ -135,7 +137,7 @@ class PureHttp {
                   }
                   resolve(PureHttp.retryOriginalRequest(config));
                 } else {
-                  config.headers['Authorization'] = formatToken(
+                  config.headers!['Authorization'] = formatToken(
                     data.accessToken
                   );
                   resolve(config);
@@ -145,7 +147,7 @@ class PureHttp {
               }
             });
       },
-      error => {
+      (error: any) => {
         return Promise.reject(error);
       }
     );
@@ -178,7 +180,7 @@ class PureHttp {
         const body = ($error.response?.data ?? {}) as Record<string, any>;
         // 信封非 0 码（server 按码段返 HTTP 4xx/5xx）：40102 无感刷新重试，其余 toast 后端 message
         if (body.code === BizCode.ACCESS_TOKEN_EXPIRED) {
-          return PureHttp.refreshAndRetry($error.config);
+          return PureHttp.refreshAndRetry($error.config!);
         }
         if (body.message) {
           message(body.message, { type: 'error' });
@@ -206,10 +208,10 @@ class PureHttp {
     return new Promise((resolve, reject) => {
       PureHttp.axiosInstance
         .request(config)
-        .then((response: undefined) => {
+        .then((response: any) => {
           resolve(response);
         })
-        .catch(error => {
+        .catch((error: any) => {
           reject(error);
         });
     });

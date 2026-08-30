@@ -67,7 +67,7 @@ describe('clearCache', () => {
     tagsFake.multiTags = [
       { name: 'keep', path: '/keep', query: {}, params: {} }
     ];
-    hook().cachePageList = ['keep', 'gone'];
+    hook().cachePageList = ['keep', 'gone'] as string[];
     hook().clearCache();
     expect(hook().cachePageList).toEqual(['keep']);
   });
@@ -77,7 +77,7 @@ describe('clearCache', () => {
       { name: 'a', path: '/a', query: {}, params: {} },
       { name: 'b', path: '/b', query: {}, params: {} }
     ];
-    hook().cachePageList = ['a', 'b'];
+    hook().cachePageList = ['a', 'b'] as string[];
     hook().clearCache();
     expect(hook().cachePageList).toEqual(['a', 'b']);
   });
@@ -86,7 +86,7 @@ describe('clearCache', () => {
 describe('cacheOperate', () => {
   it('refresh：移除自身并清理孤儿缓存', () => {
     tagsFake.multiTags = [{ name: 'a', path: '/a', query: {}, params: {} }];
-    hook().cachePageList = ['a', 'b'];
+    hook().cachePageList = ['a', 'b'] as string[];
     hook().cacheOperate({ mode: 'refresh', name: 'a' });
     // filter 后剩 ['b']，clearCache 因 'b' 不在 tags 名列表而清除
     expect(hook().cachePageList).toEqual([]);
@@ -102,7 +102,7 @@ describe('cacheOperate', () => {
       { name: 'a', path: '/a', query: {}, params: {} },
       { name: 'b', path: '/b', query: {}, params: {} }
     ];
-    hook().cachePageList = ['a', 'b'];
+    hook().cachePageList = ['a', 'b'] as string[];
     hook().cacheOperate({ mode: 'delete', name: 'a' });
     expect(hook().cachePageList).toEqual(['b']);
     hook().cacheOperate({ mode: 'delete', name: 'x' });

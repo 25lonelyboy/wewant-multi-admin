@@ -91,5 +91,7 @@ it('40102 → 真实 user.handRefreshToken → setToken 双写 → 原请求以�
     'fresh-token'
   );
   expect(axiosFake.instance.request).toHaveBeenCalledWith(retryConfig);
-  expect(retryConfig.headers['Authorization']).toBe('Bearer fresh-token');
+  expect((retryConfig.headers as Record<string, string>)['Authorization']).toBe(
+    'Bearer fresh-token'
+  );
 });
