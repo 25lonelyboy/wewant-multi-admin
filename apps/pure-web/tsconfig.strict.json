@@ -127,6 +127,10 @@
     "src/components/ReDialog/index.spec.ts",
     "src/components/ReTypeit/index.ts",
     "src/components/ReTypeit/src/index.tsx",
-    "src/components/ReTypeit/src/index.spec.ts"
+    "src/components/ReTypeit/src/index.spec.ts",
+    "src/components/ReImageVerify/index.ts",
+    "src/components/ReImageVerify/src/hooks.ts",
+    "src/components/ReImageVerify/src/index.vue",
+    "src/components/ReImageVerify/src/index.spec.ts"
   ]
 }

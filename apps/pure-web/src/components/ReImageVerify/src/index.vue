@@ -20,7 +20,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>();
 
-const { domRef, imgCode, setImgCode, getImgCode } = useImageVerify();
+const { imgCode, setImgCode, getImgCode } = useImageVerify();
 
 watch(
   () => props.code,
@@ -36,11 +36,5 @@ defineExpose({ getImgCode });
 </script>
 
 <template>
-  <canvas
-    ref="domRef"
-    width="120"
-    height="40"
-    class="cursor-pointer"
-    @click="getImgCode"
-  />
+  <canvas width="120" height="40" class="cursor-pointer" @click="getImgCode" />
 </template>
