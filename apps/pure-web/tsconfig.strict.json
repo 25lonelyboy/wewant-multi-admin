@@ -124,6 +124,9 @@
     "src/components/ReDialog/index.ts",
     "src/components/ReDialog/index.vue",
     "src/components/ReDialog/type.ts",
-    "src/components/ReDialog/index.spec.ts"
+    "src/components/ReDialog/index.spec.ts",
+    "src/components/ReTypeit/index.ts",
+    "src/components/ReTypeit/src/index.tsx",
+    "src/components/ReTypeit/src/index.spec.ts"
   ]
 }
