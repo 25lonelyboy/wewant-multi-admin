@@ -1,4 +1,4 @@
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { defineConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
 import vueJsx from '@vitejs/plugin-vue-jsx';
@@ -24,8 +24,7 @@ export default defineConfig({
       { find: /^~icons\/.*\?raw$/, replacement: svgRawStub },
       // `~icons/*` 组件形态（ReDialog / Select.vue / ReQrcode / bar.tsx 等）
       { find: /^~icons\/.*/, replacement: svgComponentStub },
-      // `*.svg?component`（vite-svg-loader 为构建期插件，测试链不加载）
-      { find: /\.svg\?component$/, replacement: svgComponentStub },
+      // `*.svg?component` 由下方 svgComponentPlugin 插件处理
       // @vitejs/plugin-vue-jsx v5 在 vitest node 环境下注入的 SSR 虚拟模块
       {
         find: '/__vue-jsx-ssr-register-helper',
@@ -37,7 +36,22 @@ export default defineConfig({
       }))
     ]
   },
-  plugins: [vue(), vueJsx()],
+  plugins: [
+    // `*.svg?component`（vite-svg-loader 为构建期插件，测试链不加载）
+    // 使用插件而非 alias：Vite 在 alias 解析前剥离 query string，导致正则无法匹配 ?component
+    {
+      name: 'svg-component-stub',
+      enforce: 'pre' as const,
+      resolveId(id) {
+        if (id.endsWith('.svg?component')) {
+          // 必须用 file URL 或正斜杠路径；Windows 反斜杠会导致模块加载失败
+          return pathToFileURL(svgComponentStub).href;
+        }
+      }
+    },
+    vue(),
+    vueJsx()
+  ],
   define: {
     __INTLIFY_PROD_DEVTOOLS__: false,
     __APP_INFO__: JSON.stringify(__APP_INFO__)
@@ -125,7 +139,8 @@ export default defineConfig({
         'src/components/ReDialog/index.vue': { lines: 80, branches: 80 },
         'src/components/ReDrawer/index.ts': { lines: 80, branches: 80 },
         'src/components/ReDrawer/index.vue': { lines: 80, branches: 80 },
-        'src/components/ReTypeit/src/index.tsx': { lines: 80, branches: 80 }
+        'src/components/ReTypeit/src/index.tsx': { lines: 80, branches: 80 },
+        'src/components/RePureTableBar/src/bar.tsx': { lines: 80, branches: 80 }
       }
     }
   }

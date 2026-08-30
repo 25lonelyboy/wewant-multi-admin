@@ -1,4 +1,4 @@
-import Sortable from 'sortablejs';
+import Sortable, { type SortableEvent } from 'sortablejs';
 import { $t, transformI18n } from '@/plugins/i18n';
 import type { CheckboxValueType } from 'element-plus';
 import { useEpThemeStoreHook } from '@/store/modules/epTheme';
@@ -66,7 +66,7 @@ export default defineComponent({
     const isIndeterminate = ref(false);
     const instance = getCurrentInstance()!;
     const isExpandAll = ref(props.isExpandAll);
-    const filterColumns = cloneDeep(props?.columns).filter(column =>
+    const filterColumns = cloneDeep(props?.columns).filter((column: any) =>
       isBoolean(column?.hide)
         ? !column.hide
         : !(isFunction(column?.hide) && column?.hide())
@@ -76,7 +76,7 @@ export default defineComponent({
     const dynamicColumns = ref(cloneDeep(props?.columns));
 
     const getDropdownItemStyle = computed(() => {
-      return s => {
+      return (s: string) => {
         return {
           background:
             s === size.value ? useEpThemeStoreHook().epThemeColor : '',
@@ -125,7 +125,7 @@ export default defineComponent({
       emit('fullscreen', isFullscreen.value);
     }
 
-    function toggleRowExpansionAll(data, isExpansion) {
+    function toggleRowExpansionAll(data: any[], isExpansion: boolean) {
       data.forEach(item => {
         props.tableRef.toggleRowExpansion(item, isExpansion);
         if (item.children !== undefined && item.children !== null) {
@@ -137,7 +137,7 @@ export default defineComponent({
     function handleCheckAllChange(val: CheckboxValueType) {
       checkedColumns.value = val ? checkColumnList : [];
       isIndeterminate.value = false;
-      dynamicColumns.value.map(column =>
+      dynamicColumns.value.map((column: any) =>
         val ? (column.hide = false) : (column.hide = true)
       );
     }
@@ -155,13 +155,13 @@ export default defineComponent({
       label: string
     ) {
       dynamicColumns.value.filter(
-        item => transformI18n(item.label) === transformI18n(label)
+        (item: any) => transformI18n(item.label) === transformI18n(label)
       )[0].hide = !val;
     }
 
-    function handleToggleColumnFixed(fixed, label: string) {
+    function handleToggleColumnFixed(fixed: boolean | string, label: string) {
       const column = dynamicColumns.value.find(
-        item => transformI18n(item.label) === transformI18n(label)
+        (item: any) => transformI18n(item.label) === transformI18n(label)
       );
       if (column) {
         column.fixed = fixed;
@@ -212,7 +212,8 @@ export default defineComponent({
         Sortable.create(wrapper, {
           animation: 300,
           handle: '.drag-btn',
-          onEnd: ({ newIndex, oldIndex, item }) => {
+          onEnd: ({ newIndex, oldIndex, item }: SortableEvent) => {
+            if (newIndex == null || oldIndex == null) return;
             const targetThElem = item;
             const wrapperElem = targetThElem.parentNode as HTMLElement;
             const oldColumn = dynamicColumns.value[oldIndex];
@@ -239,9 +240,9 @@ export default defineComponent({
 
     const isFixedColumn = (label: string) => {
       const column = dynamicColumns.value.find(
-        item => transformI18n(item.label) === transformI18n(label)
+        (item: any) => transformI18n(item.label) === transformI18n(label)
       );
-      const fixedOption = column?.fixed;
+      const fixedOption: boolean | string | undefined = column?.fixed;
       const left = fixedOption === 'left';
       const right = fixedOption === true || fixedOption === 'right';
       return { fixed: left || right, left, right };
@@ -346,7 +347,9 @@ export default defineComponent({
                     label={transformI18n($t('tableBar.pureColumnDisplay'))}
                     v-model={checkAll.value}
                     indeterminate={isIndeterminate.value}
-                    onChange={value => handleCheckAllChange(value)}
+                    onChange={(value: CheckboxValueType) =>
+                      handleCheckAllChange(value)
+                    }
                   />
                   <el-button type="primary" link onClick={() => onReset()}>
                     {transformI18n($t('tableBar.pureReset'))}
@@ -358,7 +361,9 @@ export default defineComponent({
                     <el-checkbox-group
                       ref={`GroupRef${unref(props.tableKey)}`}
                       modelValue={checkedColumns.value}
-                      onChange={value => handleCheckedColumnsChange(value)}
+                      onChange={(value: CheckboxValueType[]) =>
+                        handleCheckedColumnsChange(value)
+                      }
                     >
                       <el-space
                         direction="vertical"
@@ -382,7 +387,7 @@ export default defineComponent({
                                 key={index}
                                 label={item}
                                 value={item}
-                                onChange={value =>
+                                onChange={(value: CheckboxValueType) =>
                                   handleCheckColumnListChange(value, item)
                                 }
                               >
@@ -458,7 +463,7 @@ export default defineComponent({
               />
             </div>
           </div>
-          {slots.default({
+          {slots.default?.({
             size: size.value,
             dynamicColumns: dynamicColumns.value
           })}

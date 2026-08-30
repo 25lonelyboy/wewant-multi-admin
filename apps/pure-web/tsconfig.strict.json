@@ -135,6 +135,9 @@
     "src/components/ReDrawer/index.ts",
     "src/components/ReDrawer/index.vue",
     "src/components/ReDrawer/type.ts",
-    "src/components/ReDrawer/index.spec.ts"
+    "src/components/ReDrawer/index.spec.ts",
+    "src/components/RePureTableBar/index.ts",
+    "src/components/RePureTableBar/src/bar.tsx",
+    "src/components/RePureTableBar/src/bar.spec.tsx"
   ]
 }
