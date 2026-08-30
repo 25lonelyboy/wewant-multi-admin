@@ -51,6 +51,9 @@
     "src/utils/chinaArea.spec.ts",
     "src/utils/print.spec.ts",
     "src/utils/http/index.ts",
-    "src/utils/http/index.spec.ts"
+    "src/utils/http/index.spec.ts",
+    "src/store/modules/user.ts",
+    "src/store/modules/user.spec.ts",
+    "src/store/modules/user.integration.spec.ts"
   ]
 }

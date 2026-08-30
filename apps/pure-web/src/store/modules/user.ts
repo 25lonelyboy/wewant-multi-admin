@@ -15,6 +15,7 @@ import type {
 import { getLogin, refreshTokenApi, logoutApi } from '@/api/user';
 import { useMultiTagsStoreHook } from './multiTags';
 import { type DataInfo, setToken, removeToken, userKey } from '@/utils/auth';
+import type { LoginRequest } from '@multi-admin/contracts';
 
 export const useUserStore = defineStore('pure-user', {
   state: (): userType => ({
@@ -76,7 +77,7 @@ export const useUserStore = defineStore('pure-user', {
       this.loginDay = Number(value);
     },
     /** 登入 */
-    async loginByUsername(data) {
+    async loginByUsername(data: LoginRequest) {
       return new Promise<ApiResponse<LoginResponse>>((resolve, reject) => {
         getLogin(data)
           .then(data => {
@@ -106,7 +107,7 @@ export const useUserStore = defineStore('pure-user', {
       router.push('/login');
     },
     /** 刷新`token` */
-    async handRefreshToken(data) {
+    async handRefreshToken(data: { refreshToken: string }) {
       return new Promise<ApiResponse<RefreshResponse>>((resolve, reject) => {
         refreshTokenApi(data)
           .then(data => {
