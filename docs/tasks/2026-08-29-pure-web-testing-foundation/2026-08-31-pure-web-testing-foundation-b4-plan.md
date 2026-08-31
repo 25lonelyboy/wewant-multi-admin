@@ -144,6 +144,11 @@
   （`router/utils.ts` 已在清单，避免重复）
 - `src/plugins/*`（9 错误）：仅 strict 修复 + 迁入；不给覆盖键（§3）
 - `src/config/index.ts`（3）、`src/main.ts`（1）、`src/App.vue`（2）：strict 修复 + 迁入；不给键（§3）
+- 附带修复「vitest 配置未来兼容」backlog 条目（本任务已触 build 域，顺手消项）：
+  `vitest.config.ts` 的 `import './build/utils'` 补扩展名 + `build/utils.ts` 的 JSON import 补
+  `with { type: 'json' }`（Node 24 / Vite 8 均支持）；DEP0190 告警维持现状（纯提示性）；
+  验收：`pnpm build:web` + `vitest run` 双绿 + 告警消失；同提交关闭该 backlog 条目；
+  若 attributes 致构建链异常则回退该项、条目维持 backlog（不阻塞主线）
 - **验收**：全部迁入清单；可测键达标；`pnpm check` 全绿
 - **提交**：`test(web): 接线配置组迁移——build/mock/api/router/plugins strict 清零与契约测试`
 
@@ -207,6 +212,8 @@
   1. `auth.spec.ts`：表单空校验 → admin + 任填 4 位验证码（§1.4 事实）→ 登录成功 → 首页/菜单渲染 → 登出回登录页
   2. `routing.spec.ts`：动态路由冒烟（一级菜单逐项导航 + 403/404 守卫直达）
   3. `verify.spec.ts`：验证码 canvas 渲染 + 点击刷新 + 打印入口触发（print.ts 行为级回补）
+  4. `components.spec.ts`：ReQrcode 二维码 canvas 非空断言 + ReCropperPreview 挂载冒烟（Canvas 豁免回补：
+     登录/工作台页面可达渲染；cropperjs 深度裁剪交互仍不测，豁免口径维持）
 - 脚本：`"test:e2e": "playwright test"`；turbo.json 的 `test:e2e` 任务**已预置**（`cache: false`），无需新增；
   不并入 `pnpm check`（本地门禁保持快速）
 - 仓库根 `.gitignore` 追加：`test-results/`、`playwright-report/`、`blob-report/`、`playwright/.cache/`、
@@ -230,7 +237,7 @@
 4. `scripts/check.mjs` 移除「strict manifest 断言」阶段；`.husky/pre-commit` 移除断言行
 5. 文档收口：
    - `docs/engineering/build-and-verify.md` 增补「pure-web 测试基建」节（vitest + Playwright + 单一 strict config 事实）
-   - `docs/governance/backlog.md`：关闭「测试基建与 strict 迁移」「E2E」「上游同步评估机制保留但标注已具备脚本」「最终态收口」「print/Canvas 回补（注明覆盖口径终态）」
+   - `docs/governance/backlog.md`：关闭「测试基建与 strict 迁移」「E2E」「上游同步评估机制保留但标注已具备脚本」「最终态收口」「print/Canvas 回补（验证码/二维码/打印已经 E2E 回补；cropper 深度交互与覆盖口径终态注明）」「vitest 配置未来兼容（T4 已提前修复）」
    - 任务目录移入 `docs/tasks/archive/2026-08-29-pure-web-testing-foundation/`（建冷索引），
      `docs/tasks/README.md` 行移入「最近已完成」，`docs/README.md` 索引同步
 6. 覆盖率阈值键整理：收口后逐键核验无死键（删除文件对应的既有键同步清理）
@@ -257,6 +264,6 @@
 | 单一 strict config 覆盖 | 125/280（45%） | 全量（删除 7 组件 15 文件后 265 文件）100% |
 | 豁免清单 | 10 条模式 / 展开 26 项 | **0（文件删除）** |
 | 断言/迁移期脚本 | 2 个 | 0 |
-| 测试层 | 单测 48 套件 | 单测全量 + E2E 3 套件 |
+| 测试层 | 单测 48 套件 | 单测全量 + E2E 4 套件 |
 | CI job | 5 | 6（+e2e-web） |
 | strict 错误 | 404（待迁移域） | 0 |
