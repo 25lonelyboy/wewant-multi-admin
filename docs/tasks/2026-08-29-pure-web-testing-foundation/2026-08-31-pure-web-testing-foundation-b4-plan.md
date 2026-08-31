@@ -34,8 +34,8 @@
 
 | 处置 | 文件数 | 错误数 | 说明 |
 | --- | ---: | ---: | --- |
-| 随遗留组件删除消失 | 4 | 97 | ReSelector 46 + ReSeamlessScroll 30 + ReVxeTableBar 11 + ReFlop 10（其余 3 个零错误） |
-| 待迁移（本计划） | 55 | 413 | 见 §4 各任务分摊 |
+| 随遗留组件删除消失 | 5 | 106 | ReSelector 46 + ReSeamlessScroll 30 + ReVxeTableBar 11 + ReFlop 10 + ReSplitPane 5 + ReTreeLine 4（仅 ReBarcode 零错误） |
+| 待迁移（本计划） | 56 | 404 | 见 §4 各任务分摊 |
 | 其中 ReCropper | 1 | 6 | T2 |
 | 其中 print.ts | 1 | 13 | T3 |
 | 其中 monitor/logs | 3 | 21 | T11 |
@@ -59,13 +59,13 @@
   6 src/views/system/dept/utils/hook.tsx              4 src/layout/components/lay-search/…/SearchResult.vue
   4 src/layout/hooks/useMultiFrame.ts                 4 src/layout/components/lay-sidebar/NavMix.vue
   4 src/views/login/utils/verifyCode.ts               4 src/views/account-settings/components/SecurityLog.vue
-  ≤3 其余（App.vue 2 / config 3 / longpress 见上 / LoginRegist 3 / LoginUpdate 3 / login/index 3 /
-     motion 1 / elementPlus 1 / compress 1 / api/mock 1 / main 1 / 等）
+  ≤3 其余（App.vue 2 / config 3 / SearchHistoryItem 2 / lay-content 2 / Preferences 2 / account/index 2 /
+     LoginRegist 3 / LoginUpdate 3 / login/index 3 / motion 1 / elementPlus 1 / compress 1 /
+     api/mock 1 / main 1 / 等）
 ```
 
-> 口径说明：逐文件计数由正则解析诊断行得出，多行诊断归属存在少量串扰；§4 各任务错误数为规划量级，
-> 执行时以实际修复为准。另：域总量中约 15 个为清单内既有模块诊断串的测量噪声（清单域已实测零错误，
-> 由 `check-strict-web.mjs` 门禁保证），不影响任务划分。
+> 口径说明：逐文件计数经二次实测交叉核验（逐文件求和 = 510，无串扰）；删除候选目录实测含 15 个源文件，
+> 删除后枚举面 280 → 265。§4 各任务错误数为实测值，执行时以实际修复为准。
 
 ### 1.4 环境事实（免重复验证）
 
@@ -97,11 +97,12 @@
 - **可测域**（域级 glob 键，减少键爆炸）：
   `src/layout/**`、`src/views/system/**`、`src/views/login/**`、`src/views/welcome/**`、
   `src/views/account-settings/**`、`src/views/monitor/**`、`src/directives/**`、`src/api/**`、
-  `src/router/**`、`mock/**`、`build/**`、`src/components/ReCropper/**`（Canvas 绘制行按先例不入键）
+  `src/router/**`、`mock/**`、`build/**`
 - **不给键 + 双向登记**（测试金字塔分工，由 E2E 兜底，非技术债）：
   `src/main.ts`、`src/App.vue`、`src/plugins/*`（echarts/elementPlus/i18n/vxeTable 初始化装配）、
   `src/config/index.ts`——登记位置：任务提交内联注释 + 收口文档归档表
-- Canvas 三件（ReImageVerify/ReCropperPreview/ReQrcode）与 ReCropper：绘制行为不入覆盖键（先例已立）
+- Canvas 四件（ReImageVerify/ReCropperPreview/ReQrcode/ReCropper）：绘制/裁剪行为不入覆盖键，
+  不给 thresholds 键（B1.7/B3 先例：薄测试逻辑分支 + 双向登记；thresholds 无法排除单行，绘行必拖破 80%）
 
 ## 4. 任务分解（13 任务）
 
@@ -122,8 +123,9 @@
 
 - 修复 6 个 strict 错误（`src/index.tsx`）；`src/svg/index.ts` 已零错误
 - 薄测试（Canvas 先例）：实例创建/图片设置/裁剪事件接线的逻辑分支；cropperjs 渲染行为不测
-- 迁入清单 + 移除豁免条目同提交；登记覆盖键（绘制行除外）
-- **验收**：spec 通过 + 覆盖达标（除豁免行）+ `ReCropperPreview` 既有 spec 仍绿
+- 迁入清单 + 移除豁免条目同提交；**不给覆盖键**（Canvas 先例，双向登记）
+- 同步修正 `ReCropperPreview/src/index.spec.ts` 第 9 行注释「遗留豁免组件」过时措辞（mock 保留：cropperjs 内部仍不测）
+- **验收**：spec 通过 + `ReCropperPreview` 既有 spec 仍绿
 - **提交**：`test(web): ReCropper 转在用迁入——strict 清零与裁剪逻辑薄测试`
 
 ### T3 print.ts strict 清零迁入
@@ -135,7 +137,8 @@
 ### T4 接线配置组迁移（25 文件，约 25 错误）
 
 - `build/{cdn,compress,info,optimize,plugins}.ts`（1 错误）：配置工厂纯函数，断言返回结构 ≥80%
-- `mock/*.ts`（5）：fake 路由契约断言（信封同形、字段齐全）
+- `mock/*.ts`（5）：fake 路由契约断言（信封同形、字段齐全）；首个用例先验证 `vite-plugin-fake-server/client`
+  的 `defineFakeRoute` 在 vitest node 环境可导入，不可导入则退化为对路由配置对象的直接断言
 - `src/api/*.ts`（4，1 错误）：请求函数与路径断言（axios 实例真实、adapter 级或 baseURL 断言）
 - `src/router/{index.ts,enums,modules/*}`（8 错误）：路由表结构 + getHistoryMode 接线断言
   （`router/utils.ts` 已在清单，避免重复）
@@ -172,11 +175,12 @@
 - 搜索交互：输入过滤/键盘导航/历史持久化（storageLocal mock 边界）
 - **提交**：`test(web): layout 搜索组迁移——模态搜索与历史记录测试`
 
-### T9 layout 设置+标签组迁移（13 文件，约 59 错误）
+### T9 layout 设置+标签组迁移（16 文件，约 59 错误）
 
 - `lay-setting/index.vue`（21，主题面板）、`lay-tag/index.vue`（18）、`TagChrome.vue`、
-  `lay-content`（2）、`lay-frame`（1）、`lay-panel`（1）、`lay-notice/*`（NoticeItem 6 + index 1 + data）、
-  `layout/index.vue`（8）、`frame.vue`（1）、`redirect.vue`、`types.ts`（均零错误项纯迁入）
+  `lay-content`（2）、`lay-frame`（1）、`lay-panel`（1）、`lay-notice/*`（NoticeItem 6 + index 1 + NoticeList + data）、
+  `lay-footer/index.vue`、`lay-navbar/index.vue`、`layout/index.vue`（8）、`frame.vue`（1）、
+  `redirect.vue`、`types.ts`（均零错误项纯迁入）
 - **提交**：`test(web): layout 设置与标签组迁移——主题面板/标签栏/通知测试`
 
 ### T10 views/system 组迁移（24 文件，约 76 错误）
@@ -203,7 +207,10 @@
   1. `auth.spec.ts`：表单空校验 → admin + 任填 4 位验证码（§1.4 事实）→ 登录成功 → 首页/菜单渲染 → 登出回登录页
   2. `routing.spec.ts`：动态路由冒烟（一级菜单逐项导航 + 403/404 守卫直达）
   3. `verify.spec.ts`：验证码 canvas 渲染 + 点击刷新 + 打印入口触发（print.ts 行为级回补）
-- 脚本：`"test:e2e": "playwright test"`；`turbo.json` 增加 `test:e2e` 任务（`cache: false`，不并入 `pnpm check`——本地门禁保持快速）
+- 脚本：`"test:e2e": "playwright test"`；turbo.json 的 `test:e2e` 任务**已预置**（`cache: false`），无需新增；
+  不并入 `pnpm check`（本地门禁保持快速）
+- 仓库根 `.gitignore` 追加：`test-results/`、`playwright-report/`、`blob-report/`、`playwright/.cache/`、
+  `.strict-log*.txt`（现均未忽略，实测缺失）
 - CI：`ci.yml` 追加 `e2e-web` job（报警式，对齐 ADR-006）：ubuntu + frozen-lockfile 安装 +
   `pnpm exec playwright install chromium --with-deps` + `turbo run test:e2e --filter=pure-web`
 - **验收**：本地 `pnpm --filter @multi-admin/pure-web run test:e2e` 全绿；`pnpm check` 不受影响
@@ -211,8 +218,12 @@
 
 ### T13 最终态收口（迁移期机制拆除）
 
-1. `tsconfig.json`：`"strict": true`、删除 `"strictFunctionTypes": false`（对齐 internal/tsconfig/web.json 口径）；
-   include 无需变更（迁移期即全量覆盖，语义由宽松转严格）
+1. `tsconfig.json` 口径对齐 internal/tsconfig/web.json：`"strict": true`、删除 `"strictFunctionTypes": false`，
+   并补齐 base.json 已启用开关——`noImplicitReturns` / `noImplicitOverride` / `noUnusedLocals` /
+   `noUnusedParameters` / `noFallthroughCasesInSwitch` / `moduleDetection: "force"`（保留本地特有项：
+   `paths` / `types` / `jsxImportSource` / `sourceMap` / `noImplicitThis` / `allowJs`）；
+   include 无需变更（迁移期即全量覆盖）。零新增错误依据：迁移期 `tsconfig.strict.json` 即 extends web.json，
+   全部迁入文件已在同等开关下实测零错误（`check-strict-web.mjs` 门禁）
 2. 删除 `tsconfig.strict.json` / `tsconfig.strict.exemptions.json` /
    `scripts/assert-strict-manifest.mjs` / `scripts/check-strict-web.mjs`
 3. `apps/pure-web/package.json` typecheck 改 `tsc --noEmit --skipLibCheck && vue-tsc --noEmit --skipLibCheck`
@@ -236,15 +247,16 @@
 | 删组件误伤隐藏引用 | T1 前重跑全仓引用 grep + `pnpm build:web` 双证 |
 | E2E webServer 启动慢/端口冲突 | `--strictPort` + CI 独立 runner；`timeout` 120s |
 | 收口步骤顺序错致断言误报 | T13 严格按 1→4 顺序（先并 config 后删断言脚本），每步 `pnpm check` 验证 |
+| T13 基线开关全量化暴露新错误（`noUnusedLocals` 等） | 迁移期清单域已在同等开关下零错误（见 T13 步 1 依据）；若收口时意外暴露，逐文件修复而非回退开关 |
 | 清单变更冲突（若有并行诉求） | 本计划任务串行，无并行；合并前 rebase master |
 
 ## 6. 终态数字（预期）
 
 | 指标 | 现状 | 终态 |
 | --- | --- | --- |
-| 单一 strict config 覆盖 | 125/280（45%） | 全量（删除 7 组件后约 255 文件）100% |
+| 单一 strict config 覆盖 | 125/280（45%） | 全量（删除 7 组件 15 文件后 265 文件）100% |
 | 豁免清单 | 10 条模式 / 展开 26 项 | **0（文件删除）** |
 | 断言/迁移期脚本 | 2 个 | 0 |
 | 测试层 | 单测 48 套件 | 单测全量 + E2E 3 套件 |
 | CI job | 5 | 6（+e2e-web） |
-| strict 错误 | 413（待迁移域） | 0 |
+| strict 错误 | 404（待迁移域） | 0 |
