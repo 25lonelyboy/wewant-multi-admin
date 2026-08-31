@@ -6,7 +6,7 @@
 
 | 任务 | 收口说明 |
 |---|---|
-| pure-web 测试基建与 strict 类型安全 | 总体设计已定稿（批次 A0 上游基线 → A strict 迁移 → B vitest 基建与模块测试）；批次 A0/A+B0/B1/B2/B3 已合并 master 验收通过；B1（纯函数组）7 提交、B2（状态机/store 组）11 spec、B3（在用组件组）23 spec 新增、双 stub 图标 alias + mountWithEP helper、strict 清单 53→125 项、豁免 29→26 项（ReDrawer 移出）、覆盖率键 23→48；Canvas 三件按豁免口径薄测试；剩余：存量待迁移 129 项（页面/视图域，待 B4+）；见 [2026-08-29-pure-web-testing-foundation/](2026-08-29-pure-web-testing-foundation/) |
+| pure-web 测试基建与 strict 类型安全 | 总体设计已定稿（批次 A0 上游基线 → A strict 迁移 → B vitest 基建与模块测试）；批次 A0/A+B0/B1/B2/B3 已合并 master 验收通过；B4 收口批次计划已定稿（存量 129 项迁移 + 7 遗留组件删除 + ReCropper 转在用 + Playwright E2E 基建 + 最终态双 config 拆除，13 任务）；见 [2026-08-29-pure-web-testing-foundation/](2026-08-29-pure-web-testing-foundation/) |
 
 ## 最近已完成
 
