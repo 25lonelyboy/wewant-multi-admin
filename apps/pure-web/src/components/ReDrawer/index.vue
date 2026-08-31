@@ -13,22 +13,21 @@ defineOptions({
   name: 'ReDrawer'
 });
 
-const sureBtnMap = ref({});
+const sureBtnMap = ref<Record<number, { loading: boolean }>>({});
 
 const footerButtons = computed(() => {
   return (options: DrawerOptions) => {
-    return options?.footerButtons?.length > 0
+    return (options?.footerButtons?.length ?? 0) > 0
       ? options.footerButtons
       : ([
           {
             label: '取消',
             text: true,
             bg: true,
-            btnClick: ({ drawer: { options, index } }) => {
-              const done = () =>
-                closeDrawer(options, index, { command: 'cancel' });
-              if (options?.beforeCancel && isFunction(options?.beforeCancel)) {
-                options.beforeCancel(done, { options, index });
+            btnClick: ({ drawer: { options: o, index: i } }) => {
+              const done = () => closeDrawer(o!, i!, { command: 'cancel' });
+              if (o?.beforeCancel && isFunction(o?.beforeCancel)) {
+                o.beforeCancel(done, { options: o!, index: i! });
               } else {
                 done();
               }
@@ -40,27 +39,23 @@ const footerButtons = computed(() => {
             text: true,
             bg: true,
             popConfirm: options?.popConfirm,
-            btnClick: ({ drawer: { options, index } }) => {
-              if (options?.sureBtnLoading) {
-                sureBtnMap.value[index] = Object.assign(
-                  {},
-                  sureBtnMap.value[index],
-                  {
-                    loading: true
-                  }
-                );
+            btnClick: ({ drawer: { options: o, index: i } }) => {
+              if (o?.sureBtnLoading) {
+                sureBtnMap.value[i!] = Object.assign({}, sureBtnMap.value[i!], {
+                  loading: true
+                });
               }
               const closeLoading = () => {
-                if (options?.sureBtnLoading) {
-                  sureBtnMap.value[index].loading = false;
+                if (o?.sureBtnLoading) {
+                  sureBtnMap.value[i!].loading = false;
                 }
               };
               const done = () => {
                 closeLoading();
-                closeDrawer(options, index, { command: 'sure' });
+                closeDrawer(o!, i!, { command: 'sure' });
               };
-              if (options?.beforeSure && isFunction(options?.beforeSure)) {
-                options.beforeSure(done, { options, index, closeLoading });
+              if (o?.beforeSure && isFunction(o?.beforeSure)) {
+                o.beforeSure(done, { options: o!, index: i!, closeLoading });
               } else {
                 done();
               }
@@ -75,8 +70,9 @@ function eventsCallBack(
   options: DrawerOptions,
   index: number
 ) {
-  if (options?.[event] && isFunction(options?.[event])) {
-    return options?.[event]({ options, index });
+  const handler = options?.[event];
+  if (handler && isFunction(handler)) {
+    return (handler as Function)({ options, index });
   }
 }
 
@@ -125,8 +121,8 @@ function handleClose(
     <!--  body  -->
     <component
       v-bind="options?.props"
-      :is="options.contentRenderer({ options, index })"
-      @close="args => handleClose(options, index, args)"
+      :is="options.contentRenderer!({ options, index })"
+      @close="(args: any) => handleClose(options, index, args)"
     />
     <!-- footer  -->
     <template v-if="!options?.hideFooter" #footer>
@@ -139,7 +135,7 @@ function handleClose(
             v-if="btn.popConfirm"
             v-bind="btn.popConfirm"
             @confirm="
-              btn.btnClick({
+              btn.btnClick?.({
                 drawer: { options, index },
                 button: { btn, index: key }
               })
@@ -154,7 +150,7 @@ function handleClose(
             v-bind="btn"
             :loading="key === 1 && sureBtnMap[index]?.loading"
             @click="
-              btn.btnClick({
+              btn.btnClick?.({
                 drawer: { options, index },
                 button: { btn, index: key }
               })

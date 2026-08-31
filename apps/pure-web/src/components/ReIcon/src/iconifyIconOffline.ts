@@ -11,7 +11,8 @@ export default defineComponent({
     }
   },
   render() {
-    if (typeof this.icon === 'object') addIcon(this.icon, this.icon);
+    if (typeof this.icon === 'object')
+      addIcon(this.icon as any, this.icon as any);
     const attrs = this.$attrs;
     if (typeof this.icon === 'string') {
       return h(
@@ -30,7 +31,7 @@ export default defineComponent({
       );
     } else {
       return h(
-        this.icon,
+        this.icon as any,
         {
           'aria-hidden': false,
           style: attrs?.style

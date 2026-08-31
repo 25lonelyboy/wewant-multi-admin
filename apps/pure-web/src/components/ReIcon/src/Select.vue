@@ -42,7 +42,7 @@ const tabsList = [
 
 const pageList = computed(() =>
   copyIconList[currentActiveType.value]
-    .filter(i => i.includes(filterValue.value))
+    .filter((i: string) => i.includes(filterValue.value))
     .slice(
       (currentPage.value - 1) * pageSize.value,
       currentPage.value * pageSize.value
@@ -50,22 +50,21 @@ const pageList = computed(() =>
 );
 
 const iconItemStyle = computed((): ParameterCSSProperties => {
-  return item => {
+  return (item?: string) => {
     if (inputValue.value === currentActiveType.value + item) {
       return {
         borderColor: 'var(--el-color-primary)',
         color: 'var(--el-color-primary)'
       };
     }
+    return undefined;
   };
 });
 
 function setVal() {
-  currentActiveType.value = inputValue.value.substring(
-    0,
-    inputValue.value.indexOf(':') + 1
-  );
-  icon.value = inputValue.value.substring(inputValue.value.indexOf(':') + 1);
+  const val = inputValue.value ?? '';
+  currentActiveType.value = val.substring(0, val.indexOf(':') + 1);
+  icon.value = val.substring(val.indexOf(':') + 1);
 }
 
 function onBeforeEnter() {
@@ -73,7 +72,7 @@ function onBeforeEnter() {
   setVal();
   // 寻找当前图标在第几页
   const curIconIndex = copyIconList[currentActiveType.value].findIndex(
-    i => i === icon.value
+    (i: string) => i === icon.value
   );
   currentPage.value = Math.ceil((curIconIndex + 1) / pageSize.value);
 }
@@ -82,17 +81,17 @@ function onAfterLeave() {
   filterValue.value = '';
 }
 
-function handleClick({ props }) {
+function handleClick({ props }: any) {
   currentPage.value = 1;
   currentActiveType.value = props.name;
 }
 
-function onChangeIcon(item) {
+function onChangeIcon(item: string) {
   icon.value = item;
   inputValue.value = currentActiveType.value + item;
 }
 
-function onCurrentChange(page) {
+function onCurrentChange(page: number) {
   currentPage.value = page;
 }
 
@@ -104,8 +103,8 @@ function onClear() {
 watch(
   () => pageList.value,
   () =>
-    (totalPage.value = copyIconList[currentActiveType.value].filter(i =>
-      i.includes(filterValue.value)
+    (totalPage.value = copyIconList[currentActiveType.value].filter(
+      (i: string) => i.includes(filterValue.value)
     ).length),
   { immediate: true }
 );

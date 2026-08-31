@@ -66,7 +66,10 @@ export default defineComponent({
       ? toRef(props, 'modelValue')
       : ref(0);
 
-    function handleChange({ option, index }, event: Event) {
+    function handleChange(
+      { option, index }: { option: OptionsType; index: number },
+      event: Event
+    ) {
       if (props.disabled || option.disabled) return;
       event.preventDefault();
       isNumber(props.modelValue)
@@ -76,7 +79,10 @@ export default defineComponent({
       emit('change', { index, option });
     }
 
-    function handleMouseenter({ option, index }, event: Event) {
+    function handleMouseenter(
+      { option, index }: { option: OptionsType; index: number },
+      event: Event
+    ) {
       if (props.disabled) return;
       event.preventDefault();
       curMouseActive.value = index;
@@ -89,7 +95,7 @@ export default defineComponent({
       }
     }
 
-    function handleMouseleave(_, event: Event) {
+    function handleMouseleave(_: unknown, event: Event) {
       if (props.disabled) return;
       event.preventDefault();
       curMouseActive.value = -1;
@@ -145,7 +151,7 @@ export default defineComponent({
               background:
                 curMouseActive.value === index ? segmentedItembg.value : '',
               color: props.disabled
-                ? null
+                ? undefined
                 : !option.disabled &&
                     (curIndex.value === index || curMouseActive.value === index)
                   ? isDark.value

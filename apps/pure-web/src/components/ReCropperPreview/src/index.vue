@@ -15,18 +15,31 @@ const emit = defineEmits(['cropper']);
 
 const infos = ref();
 const popoverRef = ref();
-const refCropper = ref();
 const showPopover = ref(false);
 const cropperImg = ref<string>('');
 
-function onCropper({ base64, blob, info }) {
+interface CropperInfo {
+  width: string | number;
+  height: string | number;
+  size: number;
+}
+
+function onCropper({
+  base64,
+  blob,
+  info
+}: {
+  base64: string;
+  blob: Blob;
+  info: CropperInfo;
+}) {
   infos.value = info;
   cropperImg.value = base64;
   emit('cropper', { base64, blob, info });
 }
 
 function hidePopover() {
-  popoverRef.value.hide();
+  (popoverRef.value as any)?.hide();
 }
 
 defineExpose({ hidePopover });
@@ -43,7 +56,6 @@ defineExpose({ hidePopover });
       <template #reference>
         <div class="w-[18vw]">
           <ReCropper
-            ref="refCropper"
             :src="imgSrc"
             circled
             @cropper="onCropper"
