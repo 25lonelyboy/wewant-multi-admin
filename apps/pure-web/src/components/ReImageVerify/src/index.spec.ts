@@ -1,11 +1,36 @@
 // @vitest-environment jsdom
-// Canvas 豁免：jsdom 无 2d context，draw 主体不可达（`if (!ctx)` 早退）；
-// 本 spec 只测验证码状态流（set/get/watch/expose），不登记覆盖率键。
-import { describe, it, expect } from 'vitest';
+// Canvas 豁免：jsdom 无 2d context，draw 绘制主体不可测；本 spec 以 getContext 桩
+// 测验证码接线（模板 ref 绑定 → 绘制 → watch → expose），不登记覆盖率键。
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { mount } from '@vue/test-utils';
-import { defineComponent, h } from 'vue';
+import { defineComponent, h, nextTick } from 'vue';
 import { useImageVerify } from './hooks';
 import ReImageVerify from './index.vue';
+
+// 最小 2d context 桩：draw 仅消费下列成员（属性赋值 + 路径/文本方法）
+const ctx2dStub = {
+  fillStyle: '',
+  font: '',
+  textBaseline: '',
+  strokeStyle: '',
+  fillRect: vi.fn(),
+  save: vi.fn(),
+  translate: vi.fn(),
+  rotate: vi.fn(),
+  fillText: vi.fn(),
+  restore: vi.fn(),
+  beginPath: vi.fn(),
+  moveTo: vi.fn(),
+  lineTo: vi.fn(),
+  closePath: vi.fn(),
+  stroke: vi.fn(),
+  arc: vi.fn(),
+  fill: vi.fn()
+};
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('useImageVerify', () => {
   it('domRef 未绑定：getImgCode 早退，setImgCode 可写', () => {
@@ -32,14 +57,22 @@ describe('useImageVerify', () => {
 });
 
 describe('ReImageVerify', () => {
-  it('渲染 120x40 canvas；点击触发 getImgCode（jsdom 下 domRef 未绑定→早退，无 emit）', async () => {
+  it('挂载即绘制并发射 4 位码；点击刷新再发射（2d context 桩）', async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+      ctx2dStub as unknown as CanvasRenderingContext2D
+    );
     const wrapper = mount(ReImageVerify);
     const canvas = wrapper.find('canvas');
     expect(canvas.attributes('width')).toBe('120');
     expect(canvas.attributes('height')).toBe('40');
+    // onMounted → getImgCode → draw → watch(imgCode) → update:code
+    await nextTick();
+    expect(wrapper.emitted('update:code')?.at(-1)?.[0]).toMatch(/^\d{4}$/);
+    // 点击刷新：重新绘制并再发射一次新码
     await canvas.trigger('click');
-    // domRef 未绑定 → draw 早退 → imgCode 不变 → 无 update:code
-    expect(wrapper.emitted('update:code')).toBeFalsy();
+    const codes = wrapper.emitted('update:code') ?? [];
+    expect(codes.length).toBe(2);
+    expect(codes.at(-1)?.[0]).toMatch(/^\d{4}$/);
   });
 
   it('props.code 写入：watch → setImgCode → 回吐 update:code', async () => {

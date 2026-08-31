@@ -68,8 +68,9 @@ export function useRenderIcon(icon: any, attrs?: iconType): Component {
       }
     });
   } else if (typeof icon === 'function' || typeof icon?.render === 'function') {
-    // SVG 函数组件
-    return icon;
+    // SVG 组件：有 attrs 时返回 vnode（消费方 h(vnode) 经 cloneVNode 合并属性，
+    // fallthrough 至 svg 根）；类型断言因 VNode 不在 Component 声明联合中。
+    return attrs ? (h(icon, { ...attrs }) as unknown as Component) : icon;
   } else if (typeof icon === 'object') {
     return defineComponent({
       name: 'OfflineIcon',

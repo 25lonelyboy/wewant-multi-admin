@@ -300,12 +300,12 @@ describe('PureTableBar', () => {
   });
 
   it('rowDrop：mouseenter 建 Sortable；onEnd 无 fixed 重排、有 fixed 回滚双分支', async () => {
-    // $refs[`GroupRef0`].$el.firstElementChild 即为 Sortable 的容器
+    // sortablejs 已在边界 mock：手工构造容器元素驱动 onEnd 回调，覆盖双分支。
+    // （源码中容器取自 $refs[`GroupRef0`].$el.firstElementChild，由渲染层真实提供）
     const groupEl = document.createElement('div');
     const rowWrap = document.createElement('div');
     groupEl.appendChild(rowWrap);
     const wrapper = mountBar();
-    (wrapper.vm.$refs as Recordable)['GroupRef0'] = { $el: groupEl };
     const dragBtns = wrapper.findAll('.drag-btn');
     expect(dragBtns.length).toBeGreaterThanOrEqual(1);
     await dragBtns[0].trigger('mouseenter');

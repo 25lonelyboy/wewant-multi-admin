@@ -244,7 +244,9 @@ describe('ReDialog 渲染与页脚交互（index.vue）', () => {
   it('fullscreenIcon：标题栏含切换钮，点击翻转 fullscreen 并回调', async () => {
     const fullscreenCallBack = vi.fn();
     const wrapper = mountDialog({ fullscreenIcon: true, fullscreenCallBack });
-    expect(wrapper.text()).toContain(wrapper.find('.flex-bc').text());
+    // 标题栏存在且内含全屏切换钮（.pure-dialog-svg 为图标本体）
+    expect(wrapper.find('.flex-bc').exists()).toBe(true);
+    expect(wrapper.find('.flex-bc .pure-dialog-svg').exists()).toBe(true);
     wrapper.find('.pure-dialog-svg').element.parentElement?.click();
     await nextTick();
     expect(fullscreenCallBack).toHaveBeenCalledWith(

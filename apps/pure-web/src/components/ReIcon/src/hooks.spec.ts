@@ -59,15 +59,18 @@ describe('useRenderIcon', () => {
     expect(i.classes()).toEqual(expect.arrayContaining(['iconfont', 'team']));
   });
 
-  it('函数组件 / 含 render 对象：有 attrs 返回 vnode、无 attrs 返回原组件', () => {
+  it('函数组件 / 含 render 对象：无 attrs 返回原组件；有 attrs 返回带属性 vnode，fallthrough 至根', () => {
     const Fn = () => h('em', { class: 'fn-icon' });
     expect(useRenderIcon(Fn)).toBe(Fn);
-    const withAttrs = useRenderIcon(Fn, { color: 'red' });
-    expect(
-      mount(withAttrs as never)
-        .find('.fn-icon')
-        .exists()
-    ).toBe(true);
+    // 含 render 对象（与 vite-svg-loader `day.svg?component` 产物同形态）：
+    // 有 attrs 时返回携带属性的 vnode，渲染时属性 fallthrough 至根元素，
+    // 主题面板图标靠该链路动态填色（如 fill）
+    const SvgLike = { render: () => h('em', { class: 'fn-icon' }) };
+    const withAttrsWrapper = mount(
+      useRenderIcon(SvgLike, { color: 'red' }) as never
+    );
+    expect(withAttrsWrapper.find('.fn-icon').exists()).toBe(true);
+    expect(withAttrsWrapper.attributes('color')).toBe('red');
     const renderObj = { render: () => h('u', { class: 'render-obj' }) };
     expect(
       mount(useRenderIcon(renderObj) as never)
