@@ -191,6 +191,15 @@
     "src/directives/ripple/index.spec.ts",
     "src/directives/index.ts",
     "src/directives/index.spec.ts",
+    "src/layout/types.ts",
+    "src/layout/hooks/useMultiFrame.ts",
+    "src/layout/hooks/useMultiFrame.spec.ts",
+    "src/layout/hooks/useNav.ts",
+    "src/layout/hooks/useNav.spec.ts",
+    "src/layout/hooks/useDataThemeChange.ts",
+    "src/layout/hooks/useDataThemeChange.spec.ts",
+    "src/layout/hooks/useTag.ts",
+    "src/layout/hooks/useTag.spec.ts",
     "src/main.ts",
     "src/App.vue"
   ]

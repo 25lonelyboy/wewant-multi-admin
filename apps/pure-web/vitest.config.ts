@@ -164,7 +164,11 @@ export default defineConfig({
         'src/directives/copy/index.ts': { lines: 80, branches: 80 },
         'src/directives/longpress/index.ts': { lines: 80, branches: 80 },
         'src/directives/optimize/index.ts': { lines: 80, branches: 80 },
-        'src/directives/ripple/index.ts': { lines: 80, branches: 80 }
+        'src/directives/ripple/index.ts': { lines: 80, branches: 80 },
+        'src/layout/hooks/useTag.ts': { lines: 80, branches: 80 },
+        'src/layout/hooks/useNav.ts': { lines: 80, branches: 80 },
+        'src/layout/hooks/useDataThemeChange.ts': { lines: 80, branches: 80 },
+        'src/layout/hooks/useMultiFrame.ts': { lines: 80, branches: 80 }
       }
     }
   }
