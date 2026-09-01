@@ -20,7 +20,6 @@ const include = [
   'js-cookie',
   'vue-tippy',
   'cropperjs',
-  'jsbarcode',
   'pinyin-pro',
   'sortablejs',
   'swiper/vue',

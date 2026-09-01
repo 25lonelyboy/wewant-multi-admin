@@ -48,7 +48,6 @@
     "el-table-infinite-scroll": "^3.0.8",
     "element-plus": "^2.14.3",
     "js-cookie": "^3.0.8",
-    "jsbarcode": "^3.12.3",
     "localforage": "^1.10.0",
     "mitt": "^3.0.1",
     "mqtt": "4.3.7",

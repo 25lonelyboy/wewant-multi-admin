@@ -630,9 +630,6 @@ importers:
       js-cookie:
         specifier: ^3.0.8
         version: 3.0.8
-      jsbarcode:
-        specifier: ^3.12.3
-        version: 3.12.3
       localforage:
         specifier: ^1.10.0
         version: 1.10.0
@@ -8160,9 +8157,6 @@ packages:
   js-yaml@5.3.0:
     resolution: {integrity: sha512-muutsYr+e2+d3rTgUGslq5rxbBlUy3cJ61IsHag2QNDQV+7zXWjkUpmALIajhrlLlrgRUiymj6U3zUr/TMK84Q==}
     hasBin: true
-
-  jsbarcode@3.12.3:
-    resolution: {integrity: sha512-CuHU9hC6dPsHF5oVFMo8NW76uQVjH4L22CsP4hW+dNnGywJHC/B0ThA1CTDVLnxKLrrpYdicBLnd2xsgTfRnvg==}
 
   jsdom@30.0.1:
     resolution: {integrity: sha512-52v7mUVUfNQVYYqE1lcdaymWL0njO7lTLUog6ZvW2U5KsbiLk/GnZlVJ+qx0xfNJZ6Gn+KSpPNE52vurbxZwrA==}
@@ -19957,8 +19951,6 @@ snapshots:
   js-yaml@5.3.0:
     dependencies:
       argparse: 2.0.1
-
-  jsbarcode@3.12.3: {}
 
   jsdom@30.0.1(@noble/hashes@2.3.0):
     dependencies:
