@@ -6,13 +6,13 @@
 
 | 任务 | 收口说明 |
 |---|---|
-| pure-web 测试基建与 strict 类型安全 | 总体设计已定稿（批次 A0 上游基线 → A strict 迁移 → B vitest 基建与模块测试）；批次 A0/A+B0/B1/B2/B3 已合并 master 验收通过；B4 收口批次计划已定稿（存量 129 项迁移 + 7 遗留组件删除 + ReCropper 转在用 + Playwright E2E 基建 + 最终态双 config 拆除，13 任务）；见 [2026-08-29-pure-web-testing-foundation/](2026-08-29-pure-web-testing-foundation/) |
 
 ## 最近已完成
 
 | 任务 | 收口说明 |
 |---|---|
-| server 镜像启动冒烟（Tier 2） | 合并 master、CI 首跑四 job 全绿（CI 构建即测：/health 探针 + entrypoint 三段断言 + job services 双依赖，server-smoke.sh 本地/CI 同源）；backlog 已关闭并登记演进行；结论 → [build-and-verify.md](../engineering/build-and-verify.md)；已归档 [archive/2026-08-28-server-image-smoke/](archive/2026-08-28-server-image-smoke/) |
+| pure-web 测试基建与 strict 类型安全 | B4 收口批次 13 任务全部完成（963 单测 / 122 文件 / 9 E2E / strict 单一 tsconfig）；结论 → [build-and-verify.md](../engineering/build-and-verify.md)；已归档 [archive/2026-08-29-pure-web-testing-foundation/](archive/2026-08-29-pure-web-testing-foundation/) |
+| server 镜像启动冒烟（Tier 2） | 合并 master、CI 首跑四 job 全绿；backlog 已关闭并登记演进行；结论 → [build-and-verify.md](../engineering/build-and-verify.md)；已归档 [archive/2026-08-28-server-image-smoke/](archive/2026-08-28-server-image-smoke/) |
 | 生产安全基线（Tier 2 #6） | 7 提交已合并 master（非 root + digest pin 8 处 + check-digests 巡检 + 运行链 3 项修复）；backlog ①② 已关闭；结论 → [build-and-verify.md](../engineering/build-and-verify.md)；已归档 [archive/2026-08-27-server-security-baseline/](archive/2026-08-27-server-security-baseline/) |
 | 登录限流账号维度与失败锁定（Tier 2） | 6 提交已合并 master（42301 契约 + LoginLockService/Guard + validateUser 插桩 + e2e 三用例）；backlog 条目已关闭并登记管理员解锁端点；错误码 42301 → [contracts.md](../architecture/contracts.md)，限流行为 → [backend.md](../architecture/backend.md)；已归档 [archive/2026-08-27-login-account-lockout/](archive/2026-08-27-login-account-lockout/) |
 | Server 基建速赢（Tier 1） | 4 项改动 + 2 fix 已合并 master；backlog 相关条目已关闭；信封/请求链/数据库新行为同步 → [backend.md](../architecture/backend.md)、[contracts.md](../architecture/contracts.md)；已归档 [archive/2026-08-26-server-infra-quickwins/](archive/2026-08-26-server-infra-quickwins/) |

@@ -10,7 +10,7 @@ covers:
   - docker-compose.yml
   - packages/contracts/
   - turbo.json
-last_verified: 2026-08-29
+last_verified: 2026-09-02
 ---
 
 # 构建与验证
@@ -22,8 +22,8 @@ last_verified: 2026-08-29
 提交质量由两层机制保证，职责分离：
 
 1. **实时拦截（本地，每次 commit）**：
-   - **`pnpm check`**（`scripts/check.mjs`）：按序执行 Prettier 全量检查 → `turbo run typecheck / lint / stylelint` → strict 清单断言（防新文件漏加 + 防清单倒退）→ `turbo run test` → test 覆盖显式枚举，任一失败立即非零退出。纯校验不改文件。提交前必跑。
-   - **husky 钩子**：`pre-commit` 跑 lint-staged（配置在 `.lintstagedrc.json`，只处理暂存文件）+ strict 清单断言；`commit-msg` 跑 commitlint（scope 强制 + 白名单，见 `commitlint.config.mjs`）。
+   - **`pnpm check`**（`scripts/check.mjs`）：按序执行 Prettier 全量检查 → `turbo run typecheck / lint / stylelint` → `turbo run test` → test 覆盖显式枚举，任一失败立即非零退出。纯校验不改文件。提交前必跑。
+   - **husky 钩子**：`pre-commit` 跑 lint-staged（配置在 `.lintstagedrc.json`，只处理暂存文件）；`commit-msg` 跑 commitlint（scope 强制 + 白名单，见 `commitlint.config.mjs`）。
 2. **异步兜底（入库后，每次 push master）**：`.github/workflows/ci.yml` 五 job 并行——`gate`（frozen-lockfile 安装 + `pnpm check` 服务端重验）、`docker-build`（双镜像构建验证 + web/server 双启动冒烟：web curl 200、server /health+entrypoint 三段断言，server 冒烟依赖 job services postgres/redis；不 push）、`coverage`（services 上 `test:coverage` ≥80% 报警式硬门槛）、`coverage-web`（pure-web vitest 覆盖率报警式，`build/utils.ts` 与 `src/utils/tree.ts` glob 键 ≥80%）、`audit`（`pnpm audit --audit-level=high` 报警式）。定位与取舍见 `docs/decisions/ADR-006-github-ci.md`。
 3. **纪律条款**：报警式不拦截的代价是红了必须有人看——**CI 红 → 下一项工作先修 CI**；感知窗口为根 README badge 与 GitHub watch 通知。
 
@@ -90,6 +90,12 @@ check-digests 远端比对依赖可联网环境：本机无 Registry 直连时�
 
 - Windows 下 Electron 打包期可能出现 `dist-electron/` EPERM 文件锁：确保无残留 electron 进程后重跑。
 - pnpm 安装含构建脚本的依赖受 `pnpm-workspace.yaml` 的 `allowBuilds` 白名单控制，新增需构建的原生依赖时要登记。
+
+## pure-web 测试基建
+
+- **单元测试**：vitest + @vue/test-utils + jsdom；配置 `apps/pure-web/vitest.config.ts`（独立于 `vite.config.ts`，不加载构建期插件）；覆盖范围 `src/**/*.{ts,tsx,vue}` + `build/*.ts` + `mock/*.ts`；v8 provider glob 键门槛 ≥80% 行+分支（`vitest.config.ts` thresholds）。
+- **E2E 测试**：Playwright（`apps/pure-web/e2e/`）；登录全链路 + 关键页面冒烟（验证码 / 二维码 / 打印行为级由 E2E 覆盖；cropper 深度交互为永久豁免）。
+- **TypeScript strict 单一配置**：`apps/pure-web/tsconfig.json` extends `@multi-admin/tsconfig/web.json`（继承 `strict: true` + `noUnusedLocals` / `noUnusedParameters` / `noImplicitOverride` / `noFallthroughCasesInSwitch` / `moduleDetection: "force"` 等开关）；无双 config、无清单断言、无豁免文件。typecheck 脚本：`tsc --noEmit --skipLibCheck && vue-tsc --noEmit --skipLibCheck`。
 
 ## nestjs-server e2e 测试
 

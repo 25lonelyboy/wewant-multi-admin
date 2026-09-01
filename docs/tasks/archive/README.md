@@ -113,3 +113,24 @@
 结论去向：冒烟机制与 `ops:server-smoke` 速查、pipefail 教训 → [build-and-verify.md](../../engineering/build-and-verify.md)；已关闭条目与演进信号登记 → [backlog.md](../../governance/backlog.md)；探针脚本 → [scripts/ops/server-smoke.sh](../../../scripts/ops/server-smoke.sh)；CI 集成 → [.github/workflows/ci.yml](../../../.github/workflows/ci.yml)。
 
 归档日期：2026-08-29（worktree + Subagent-Driven 实施，3 提交合并 master，本地端到端 + CI 首跑双验证通过、最终审查 Ready to merge、结论提升完毕）。
+
+## 2026-08-29-pure-web-testing-foundation —— pure-web 测试基建与 strict 类型安全
+
+| 文件 | 说明 |
+|---|---|
+| `2026-08-29-pure-web-testing-foundation-design.md` | 总体设计（双 tsconfig 分层 + vitest 基建 + 模块级覆盖 + 上游基线前置） |
+| `2026-08-29-pure-web-testing-foundation-b1-design.md` | B1 设计（vitest 基建 + 路由 / 工具模块测试） |
+| `2026-08-29-pure-web-testing-foundation-b2-design.md` | B2 设计（store / API / 工具模块测试） |
+| `2026-08-29-pure-web-testing-foundation-b3-design.md` | B3 设计（组件 / 布局 / 视图测试） |
+| `2026-08-29-a1-vue-strict-measurement.md` | A1 上游 strict 测量报告 |
+| `2026-08-30-pure-web-testing-foundation-b1-plan.md` | B1 实施计划 |
+| `2026-08-30-pure-web-testing-foundation-b2-plan.md` | B2 实施计划 |
+| `2026-08-30-pure-web-testing-foundation-b3-plan.md` | B3 实施计划 |
+| `2026-08-31-pure-web-testing-foundation-b4-plan.md` | B4 收口批次计划（13 任务） |
+| `2026-08-29-pure-web-testing-foundation-plan.md` | 总体实施计划 |
+| `component-inventory.md` | 遗留组件盘点 |
+| `upstream-baseline.md` | 上游基线 SHA 记录 |
+
+结论去向：测试基建与 strict 单一配置 → [build-and-verify.md](../../engineering/build-and-verify.md)；已关闭 backlog 条目（测试基建 / E2E / 最终态收口 / print.ts / Canvas 豁免 / vitest 兼容）→ [backlog.md](../../governance/backlog.md)。
+
+归档日期：2026-09-02（B4 收口批次 13 任务全部完成，963 单测 / 122 文件 / 9 E2E / strict 全量迁入单一 tsconfig，结论提升完毕）。
