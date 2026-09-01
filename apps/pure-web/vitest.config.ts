@@ -155,7 +155,16 @@ export default defineConfig({
         'src/components/ReDrawer/index.ts': { lines: 80, branches: 80 },
         'src/components/ReDrawer/index.vue': { lines: 80, branches: 80 },
         'src/components/ReTypeit/src/index.tsx': { lines: 80, branches: 80 },
-        'src/components/RePureTableBar/src/bar.tsx': { lines: 80, branches: 80 }
+        'src/components/RePureTableBar/src/bar.tsx': {
+          lines: 80,
+          branches: 80
+        },
+        'src/directives/auth/index.ts': { lines: 80, branches: 80 },
+        'src/directives/perms/index.ts': { lines: 80, branches: 80 },
+        'src/directives/copy/index.ts': { lines: 80, branches: 80 },
+        'src/directives/longpress/index.ts': { lines: 80, branches: 80 },
+        'src/directives/optimize/index.ts': { lines: 80, branches: 80 },
+        'src/directives/ripple/index.ts': { lines: 80, branches: 80 }
       }
     }
   }
