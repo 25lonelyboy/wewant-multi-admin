@@ -1,29 +1,29 @@
 <script setup lang="ts">
 import { isEqual } from '@pureadmin/utils';
 import { transformI18n } from '@/plugins/i18n';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute, useRouter, type RouteRecordRaw } from 'vue-router';
 import { ref, watch, onMounted, toRaw } from 'vue';
 import { getParentPaths, findRouteByPath } from '@/router/utils';
 import { useMultiTagsStoreHook } from '@/store/modules/multiTags';
 
 const route = useRoute();
-const levelList = ref([]);
+const levelList = ref<RouteRecordRaw[]>([]);
 const router = useRouter();
 const routes: any = router.options.routes;
 const multiTags: any = useMultiTagsStoreHook().multiTags;
 
 const getBreadcrumb = (): void => {
   // 当前路由信息
-  let currentRoute;
+  let currentRoute: any;
 
   if (Object.keys(route.query).length > 0) {
-    multiTags.forEach(item => {
+    multiTags.forEach((item: any) => {
       if (isEqual(route.query, item?.query)) {
         currentRoute = toRaw(item);
       }
     });
   } else if (Object.keys(route.params).length > 0) {
-    multiTags.forEach(item => {
+    multiTags.forEach((item: any) => {
       if (isEqual(route.params, item?.params)) {
         currentRoute = toRaw(item);
       }
@@ -39,11 +39,14 @@ const getBreadcrumb = (): void => {
     'name'
   );
   // 存放组成面包屑的数组
-  const matched = [];
+  const matched: RouteRecordRaw[] = [];
 
   // 获取每个父级路径对应的路由信息
   parentRoutes.forEach(path => {
-    if (path !== '/') matched.push(findRouteByPath(path, routes));
+    if (path !== '/') {
+      const route = findRouteByPath(path, routes);
+      if (route) matched.push(route);
+    }
   });
 
   matched.push(currentRoute);
@@ -60,11 +63,11 @@ const getBreadcrumb = (): void => {
   });
 
   levelList.value = matched.filter(
-    item => item?.meta && item?.meta.title !== false
+    item => item?.meta && (item?.meta?.title as any) !== false
   );
 };
 
-const handleLink = item => {
+const handleLink = (item: any) => {
   const { redirect, name, path } = item;
   if (redirect) {
     router.push(redirect as any);
@@ -113,7 +116,7 @@ watch(
         class="inline! items-stretch!"
       >
         <a @click.prevent="handleLink(item)">
-          {{ transformI18n(item.meta.title) }}
+          {{ transformI18n(item.meta?.title) }}
         </a>
       </el-breadcrumb-item>
     </transition-group>
