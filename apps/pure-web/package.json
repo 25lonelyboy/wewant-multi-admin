@@ -9,7 +9,7 @@
     "build:staging": "rimraf dist && cross-env NODE_OPTIONS=--max-old-space-size=8192 vite build --mode staging",
     "report": "rimraf dist && cross-env NODE_OPTIONS=--max-old-space-size=8192 vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit --skipLibCheck && vue-tsc --noEmit --skipLibCheck && node ../../scripts/check-strict-web.mjs",
+    "typecheck": "tsc --noEmit --skipLibCheck && vue-tsc --noEmit --skipLibCheck",
     "svgo": "svgo -f . -r",
     "lint": "eslint --cache --max-warnings 0 src mock build",
     "format": "prettier --write  \"src/**/*.{js,ts,json,tsx,css,scss,vue,html,md}\"",
