@@ -6,7 +6,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { h } from 'vue';
 
-/* ── mock: @/components/ReCropper（遗留豁免组件，必须隔离） ── */
+/* ── mock: @/components/ReCropper（裁剪组件，必须隔离） ── */
 const ReCropperStub = vi.hoisted(() => ({
   name: 'ReCropperStub',
   props: ['src', 'circled'],

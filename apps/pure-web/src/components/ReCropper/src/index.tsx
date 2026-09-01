@@ -2,6 +2,7 @@ import './circled.css';
 import Cropper from 'cropperjs';
 import { ElUpload } from 'element-plus';
 import type { CSSProperties } from 'vue';
+import type { UploadFile } from 'element-plus';
 import { useEventListener } from '@vueuse/core';
 import { longpress } from '@/directives/longpress';
 import { useTippy, directive as tippy } from 'vue-tippy';
@@ -83,7 +84,7 @@ export default defineComponent({
   name: 'ReCropper',
   props,
   setup(props, { attrs, emit }) {
-    const tippyElRef = ref<ElRef<HTMLImageElement>>();
+    const tippyElRef = ref<HTMLDivElement>();
     const imgElRef = ref<ElRef<HTMLImageElement>>();
     const cropper = ref<Nullable<Cropper>>();
     const inCircled = ref(props.circled);
@@ -140,7 +141,7 @@ export default defineComponent({
       scaleY = 1;
     });
 
-    useResizeObserver(tippyElRef, () => handCropper('reset'));
+    useResizeObserver(tippyElRef as any, () => handCropper('reset'));
 
     async function init() {
       const imgEl = unref(imgElRef);
@@ -175,6 +176,8 @@ export default defineComponent({
         ? getRoundedCanvas()
         : cropper.value.getCroppedCanvas();
       // https://developer.mozilla.org/zh-CN/docs/Web/API/HTMLCanvasElement/toBlob
+      const inst = cropper.value;
+      if (!inst) return;
       canvas.toBlob(blob => {
         if (!blob) return;
         const fileReader: FileReader = new FileReader();
@@ -185,7 +188,7 @@ export default defineComponent({
           emit('cropper', {
             base64: e.target.result,
             blob,
-            info: { size: blob.size, ...cropper.value.getData() }
+            info: { size: blob.size, ...inst.getData() }
           });
         };
         fileReader.onerror = () => {
@@ -226,14 +229,13 @@ export default defineComponent({
       if (event === 'scaleY') {
         scaleY = arg = scaleY === -1 ? 1 : -1;
       }
-      arg && isArray(arg)
-        ? cropper.value?.[event]?.(...arg)
-        : cropper.value?.[event]?.(arg);
+      const inst = cropper.value as Record<string, any> | undefined;
+      arg && isArray(arg) ? inst?.[event]?.(...arg) : inst?.[event]?.(arg);
     }
 
-    function beforeUpload(file) {
+    function beforeUpload(file: UploadFile) {
       const reader = new FileReader();
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(file as unknown as Blob);
       inSrc.value = '';
       reader.onload = e => {
         inSrc.value = e.target?.result as string;
@@ -377,7 +379,7 @@ export default defineComponent({
       }
     });
 
-    function onContextmenu(event) {
+    function onContextmenu(event: MouseEvent) {
       event.preventDefault();
 
       const { show, setProps, destroy, state } = useTippy(tippyElRef, {
