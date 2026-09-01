@@ -1,4 +1,4 @@
 {
-  "reason": "①监控域页面 src/views/monitor/logs/**：2026-08-30 修正 .gitignore 的 **/logs 误伤后与断言豁免同行入库；属存量待迁移页面，随 B 批次对其迁移测试+strict 的同提交移除条目。②src/utils/print.ts：窗口打印依赖 iframe onload、document.execCommand 等 jsdom 不可达 API，为架构性豁免（B1.7 薄测试覆盖纯函数部分），待 jsdom 能力或 E2E 基建成熟后回补 strict+覆盖（关联 backlog）。",
-  "files": ["src/views/monitor/logs/**", "src/utils/print.ts"]
+  "reason": "①监控域页面 src/views/monitor/logs/**：2026-08-30 修正 .gitignore 的 **/logs 误伤后与断言豁免同行入库；属存量待迁移页面，随 B 批次对其迁移测试+strict 的同提交移除条目。",
+  "files": ["src/views/monitor/logs/**"]
 }
