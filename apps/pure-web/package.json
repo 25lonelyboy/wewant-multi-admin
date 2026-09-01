@@ -17,7 +17,8 @@
     "stylelint:fix": "stylelint --fix \"**/*.{html,vue,css,scss}\" --cache-location node_modules/.cache/stylelint/",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "cross-env NODE_OPTIONS=--max-old-space-size=8192 vitest run --coverage"
+    "test:coverage": "cross-env NODE_OPTIONS=--max-old-space-size=8192 vitest run --coverage",
+    "test:e2e": "playwright test"
   },
   "keywords": [
     "vue-pure-admin",
@@ -87,6 +88,7 @@
     "@multi-admin/eslint-config": "workspace:*",
     "@multi-admin/stylelint-config": "workspace:*",
     "@multi-admin/tsconfig": "workspace:*",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/vite": "catalog:",
     "@types/dagre": "^0.7.54",
     "@types/js-cookie": "^3.0.6",
