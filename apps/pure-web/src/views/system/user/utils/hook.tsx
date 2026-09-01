@@ -106,7 +106,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
       cellRenderer: ({ row, props }) => (
         <el-tag
           size={props.size}
-          type={row.sex === 1 ? 'danger' : null}
+          type={row.sex === 1 ? 'danger' : undefined}
           effect="plain"
         >
           {row.sex === 1 ? '女' : '男'}
@@ -399,7 +399,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
         h(ReCropperPreview, {
           ref: cropRef,
           imgSrc: row.avatar || userAvatar,
-          onCropper: info => (avatarInfo.value = info)
+          onCropper: (info: any) => (avatarInfo.value = info)
         }),
       beforeSure: done => {
         console.log('裁剪后的图片信息：', avatarInfo.value);
