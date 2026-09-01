@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Props } from '../types';
+import type { optionsItem, Props } from '../types';
 import { transformI18n } from '@/plugins/i18n';
 import { useResizeObserver } from '@pureadmin/utils';
 import { useEpThemeStoreHook } from '@/store/modules/epTheme';
@@ -12,14 +12,14 @@ interface Emits {
   (e: 'enter'): void;
 }
 
-const resultRef = ref();
+const resultRef = ref<HTMLElement | null>(null);
 const innerHeight = ref();
 const emit = defineEmits<Emits>();
 const instance = getCurrentInstance()!;
 const props = withDefaults(defineProps<Props>(), {});
 
 const itemStyle = computed(() => {
-  return item => {
+  return (item: optionsItem) => {
     return {
       background:
         item?.path === active.value ? useEpThemeStoreHook().epThemeColor : '',
@@ -39,7 +39,7 @@ const active = computed({
 });
 
 /** 鼠标移入 */
-async function handleMouse(item) {
+async function handleMouse(item: optionsItem) {
   active.value = item.path;
 }
 
@@ -52,12 +52,13 @@ function resizeResult() {
   innerHeight.value = window.innerHeight - window.innerHeight / 10 - 140;
 }
 
-useResizeObserver(resultRef, resizeResult);
+useResizeObserver(resultRef as any, resizeResult);
 
 function handleScroll(index: number) {
   const curInstance = instance?.proxy?.$refs[`resultItemRef${index}`];
   if (!curInstance) return 0;
-  const curRef = curInstance[0] as ElRef;
+  const curRef = (curInstance as any[])[0] as HTMLElement | null;
+  if (!curRef) return 0;
   const scrollTop = curRef.offsetTop + 128; // 128 两个result-item（56px+56px=112px）高度加上下margin（8px+8px=16px）
   return scrollTop > innerHeight.value ? scrollTop - innerHeight.value : 0;
 }

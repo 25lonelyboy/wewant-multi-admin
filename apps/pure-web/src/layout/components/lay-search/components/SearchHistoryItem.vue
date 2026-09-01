@@ -17,11 +17,11 @@ interface Emits {
 const emit = defineEmits<Emits>();
 withDefaults(defineProps<Props>(), {});
 
-function handleCollect(item) {
+function handleCollect(item: optionsItem) {
   emit('collectItem', item);
 }
 
-function handleDelete(item) {
+function handleDelete(item: optionsItem) {
   emit('deleteItem', item);
 }
 </script>

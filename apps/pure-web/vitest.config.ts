@@ -168,7 +168,35 @@ export default defineConfig({
         'src/layout/hooks/useTag.ts': { lines: 80, branches: 80 },
         'src/layout/hooks/useNav.ts': { lines: 80, branches: 80 },
         'src/layout/hooks/useDataThemeChange.ts': { lines: 80, branches: 80 },
-        'src/layout/hooks/useMultiFrame.ts': { lines: 80, branches: 80 }
+        'src/layout/hooks/useMultiFrame.ts': { lines: 80, branches: 80 },
+        'src/layout/components/lay-search/components/SearchModal.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-search/components/SearchHistory.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-search/components/SearchHistoryItem.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-search/components/SearchResult.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-search/components/SearchFooter.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-search/types.ts': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-search/index.vue': {
+          lines: 80,
+          branches: 80
+        }
       }
     }
   }
