@@ -62,8 +62,8 @@ const set: setType = reactive({
     };
   }),
 
-  hideTabs: computed(() => {
-    return $storage?.configure.hideTabs;
+  hideTabs: computed((): boolean => {
+    return $storage?.configure.hideTabs ?? false;
   })
 });
 
@@ -134,7 +134,7 @@ const LayHeader = defineComponent({
       {
         class: { 'fixed-header': set.fixedHeader },
         style: [
-          set.hideTabs && layout.value.includes('horizontal')
+          set.hideTabs && layout.value?.includes('horizontal')
             ? isDark.value
               ? 'box-shadow: 0 1px 4px #0d0d0d'
               : 'box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08)'
@@ -144,10 +144,10 @@ const LayHeader = defineComponent({
       {
         default: () => [
           !pureSetting.hiddenSideBar &&
-          (layout.value.includes('vertical') || layout.value.includes('mix'))
+          (layout.value?.includes('vertical') || layout.value?.includes('mix'))
             ? h(LayNavbar)
             : null,
-          !pureSetting.hiddenSideBar && layout.value.includes('horizontal')
+          !pureSetting.hiddenSideBar && layout.value?.includes('horizontal')
             ? h(NavHorizontal)
             : null,
           h(LayTag)
@@ -164,7 +164,7 @@ const LayHeader = defineComponent({
       v-show="
         set.device === 'mobile' &&
         set.sidebar.opened &&
-        layout.includes('vertical')
+        layout?.includes('vertical')
       "
       class="app-mask"
       @click="useAppStoreHook().toggleSideBar()"
@@ -172,7 +172,7 @@ const LayHeader = defineComponent({
     <NavVertical
       v-show="
         !pureSetting.hiddenSideBar &&
-        (layout.includes('vertical') || layout.includes('mix'))
+        (layout?.includes('vertical') || layout?.includes('mix'))
       "
     />
     <div

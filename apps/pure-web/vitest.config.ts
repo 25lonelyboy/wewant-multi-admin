@@ -196,6 +196,66 @@ export default defineConfig({
         'src/layout/components/lay-search/index.vue': {
           lines: 80,
           branches: 80
+        },
+        'src/layout/components/lay-content/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-footer/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-frame/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-navbar/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-notice/data.ts': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-notice/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-notice/components/NoticeItem.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-notice/components/NoticeList.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-panel/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-setting/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-tag/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-tag/components/TagChrome.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/frame.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/redirect.vue': {
+          lines: 80,
+          branches: 80
         }
       }
     }

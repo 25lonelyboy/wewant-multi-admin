@@ -70,7 +70,7 @@ const fixedTags = [
 
 const dynamicTagView = async () => {
   await nextTick();
-  const index = multiTags.value.findIndex(item => {
+  const index = multiTags.value.findIndex((item: RouteConfigs) => {
     if (!isAllEmpty(route.query)) {
       return isEqual(route.query, item.query);
     } else if (!isAllEmpty(route.params)) {
@@ -85,8 +85,8 @@ const dynamicTagView = async () => {
 const moveToView = async (index: number): Promise<void> => {
   await nextTick();
   const tabNavPadding = 10;
-  if (!instance.refs['dynamic' + index]) return;
-  const tabItemEl = instance.refs['dynamic' + index][0];
+  if (!instance || !instance.refs['dynamic' + index]) return;
+  const tabItemEl = (instance.refs['dynamic' + index] as any)[0];
   const tabItemElOffsetLeft = (tabItemEl as HTMLElement)?.offsetLeft;
   const tabItemOffsetWidth = (tabItemEl as HTMLElement)?.offsetWidth;
   // 标签页导航栏可视长度（不包含溢出部分）
@@ -183,7 +183,7 @@ const smoothScroll = (offset: number): void => {
 };
 
 function dynamicRouteTag(value: string): void {
-  const hasValue = multiTags.value.some(item => {
+  const hasValue = multiTags.value.some((item: RouteConfigs) => {
     return item.path === value;
   });
 
@@ -220,7 +220,7 @@ function onFresh() {
 }
 
 function deleteDynamicTag(obj: any, current: any, tag?: string) {
-  const valueIndex: number = multiTags.value.findIndex((item: any) => {
+  const valueIndex: number = multiTags.value.findIndex((item: any): boolean => {
     if (item.query) {
       if (item.path === obj.path) {
         return item.query === obj.query;
@@ -232,6 +232,7 @@ function deleteDynamicTag(obj: any, current: any, tag?: string) {
     } else {
       return item.path === obj.path;
     }
+    return false;
   });
 
   const spliceRoute = (
@@ -281,9 +282,11 @@ function deleteDynamicTag(obj: any, current: any, tag?: string) {
     } else {
       router.push({ path: newRoute[0].path });
     }
+    return;
   } else {
     if (!multiTags.value.length) return;
-    if (multiTags.value.some(item => item.path === route.path)) return;
+    if (multiTags.value.some((item: RouteConfigs) => item.path === route.path))
+      return;
     if (!newRoute || !newRoute[0]) return;
     if (newRoute[0].query) {
       router.push({ name: newRoute[0].name, query: newRoute[0].query as any });
@@ -298,12 +301,12 @@ function deleteDynamicTag(obj: any, current: any, tag?: string) {
   }
 }
 
-function deleteMenu(item, tag?: string) {
+function deleteMenu(item: any, tag?: string) {
   deleteDynamicTag(item, item.path, tag);
   handleAliveRoute(route as ToRouteType);
 }
 
-function onClickDrop(key, item, selectRoute?: RouteConfigs) {
+function onClickDrop(key: number, item: any, selectRoute?: RouteConfigs) {
   if (item && item.disabled) return;
 
   let selectTagRoute;
@@ -347,7 +350,7 @@ function onClickDrop(key, item, selectRoute?: RouteConfigs) {
         startIndex: fixedTags.length,
         length: multiTags.value.length
       });
-      router.push(topPath);
+      router.push(topPath || '/');
       // router.push(fixedTags[fixedTags.length - 1]?.path);
       handleAliveRoute(route as ToRouteType);
       break;
@@ -376,7 +379,7 @@ function handleCommand(command: any) {
 }
 
 /** 触发右键中菜单的点击事件 */
-function selectTag(key, item) {
+function selectTag(key: number, item: any) {
   closeMenu();
   onClickDrop(key, item, currentSelect.value);
 }
@@ -408,11 +411,11 @@ function showMenuModel(
   const routeLength = multiTags.value.length;
   let currentIndex = -1;
   if (!isAllEmpty(params)) {
-    currentIndex = allRoute.findIndex(v => isEqual(v.params, params));
+    currentIndex = allRoute.findIndex((v: any) => isEqual(v.params, params));
   } else if (!isAllEmpty(query)) {
-    currentIndex = allRoute.findIndex(v => isEqual(v.query, query));
+    currentIndex = allRoute.findIndex((v: any) => isEqual(v.query, query));
   } else {
-    currentIndex = allRoute.findIndex(v => v.path === currentPath);
+    currentIndex = allRoute.findIndex((v: any) => v.path === currentPath);
   }
   function fixedTagDisabled() {
     if (allRoute[currentIndex]?.meta?.fixedTag) {
@@ -469,7 +472,7 @@ function showMenuModel(
   }
 }
 
-function openMenu(tag, e) {
+function openMenu(tag: any, e: MouseEvent) {
   closeMenu();
   if (tag.path === topPath || tag?.meta?.fixedTag) {
     // 右键菜单为顶级菜单或拥有 fixedTag 属性，只显示刷新
@@ -508,7 +511,7 @@ function openMenu(tag, e) {
 }
 
 /** 触发tags标签切换 */
-function tagOnClick(item) {
+function tagOnClick(item: any) {
   const { name, path } = item;
   if (name) {
     if (item.query) {
