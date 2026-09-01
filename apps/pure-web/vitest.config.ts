@@ -2,7 +2,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { defineConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
 import vueJsx from '@vitejs/plugin-vue-jsx';
-import { alias, __APP_INFO__ } from './build/utils';
+import { alias, __APP_INFO__ } from './build/utils.js';
 
 const svgRawStub = fileURLToPath(
   new URL('./src/test-utils/svg-raw-stub.ts', import.meta.url)
@@ -59,14 +59,29 @@ export default defineConfig({
   test: {
     env: { VITE_ROUTER_HISTORY: 'hash' },
     environment: 'jsdom',
-    include: ['src/**/*.spec.{ts,tsx}', 'build/*.spec.ts'],
+    include: ['src/**/*.spec.{ts,tsx}', 'build/*.spec.ts', 'mock/*.spec.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
-      include: ['src/**/*.{ts,tsx,vue}', 'build/*.ts'],
+      include: ['src/**/*.{ts,tsx,vue}', 'build/*.ts', 'mock/*.ts'],
       exclude: ['**/*.d.ts', '**/*.spec.ts'],
       thresholds: {
         'build/utils.ts': { lines: 80, branches: 80 },
+        'build/cdn.ts': { lines: 80, branches: 80 },
+        'build/compress.ts': { lines: 80, branches: 80 },
+        'build/info.ts': { lines: 80, branches: 80 },
+        'build/optimize.ts': { lines: 80, branches: 80 },
+        'build/plugins.ts': { lines: 80, branches: 80 },
+        'mock/asyncRoutes.ts': { lines: 80, branches: 80 },
+        'mock/login.ts': { lines: 80, branches: 80 },
+        'mock/mine.ts': { lines: 80, branches: 80 },
+        'mock/refreshToken.ts': { lines: 80, branches: 80 },
+        'mock/system.ts': { lines: 80, branches: 80 },
+        'src/api/mock.ts': { lines: 80, branches: 80 },
+        'src/api/routes.ts': { lines: 80, branches: 80 },
+        'src/api/system.ts': { lines: 80, branches: 80 },
+        'src/api/user.ts': { lines: 80, branches: 80 },
+        'src/router/enums.ts': { lines: 80, branches: 80 },
         'src/utils/tree.ts': { lines: 80, branches: 80 },
         'src/router/utils.ts': { lines: 80, branches: 80 },
         'src/utils/auth.ts': { lines: 80, branches: 80 },

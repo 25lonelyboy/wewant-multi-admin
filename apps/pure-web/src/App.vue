@@ -22,7 +22,7 @@ import plusZhCn from 'plus-pro-components/es/locale/lang/zh-cn';
 export default defineComponent({
   name: 'app',
   components: {
-    [ElConfigProvider.name]: ElConfigProvider,
+    [ElConfigProvider.name ?? 'ElConfigProvider']: ElConfigProvider,
     ReDialog,
     ReDrawer
   },
@@ -49,7 +49,7 @@ export default defineComponent({
       async ([enable, text, name]) => {
         await nextTick();
         if (enable && name !== 'Login') {
-          setWatermark(text, { verticalOffset: 170 });
+          setWatermark(text ?? '', { verticalOffset: 170 });
         } else {
           clear();
         }

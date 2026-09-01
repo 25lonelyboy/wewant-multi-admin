@@ -54,7 +54,8 @@ import 'tippy.js/themes/light.css';
 import VueTippy from 'vue-tippy';
 app.use(VueTippy);
 
-getPlatformConfig(app).then(async config => {
+getPlatformConfig(app).then(async () => {
+  const config = app.config.globalProperties.$config as PlatformConfigs;
   setupStore(app);
   app.use(router);
   await router.isReady();

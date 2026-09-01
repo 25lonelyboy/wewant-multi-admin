@@ -35,22 +35,22 @@ export const localesConfigs = {
 };
 
 /** 获取对象中所有嵌套对象的key键，并将它们用点号分割组成字符串 */
-function getObjectKeys(obj) {
-  const stack = [];
+function getObjectKeys(obj: Record<string, any>) {
+  const stack: Array<{ obj: Record<string, any>; key: string }> = [];
   const keys: Set<string> = new Set();
 
   stack.push({ obj, key: '' });
 
   while (stack.length > 0) {
-    const { obj, key } = stack.pop();
+    const entry = stack.pop()!;
 
-    for (const k in obj) {
-      const newKey = key ? `${key}.${k}` : k;
+    for (const k in entry.obj) {
+      const newKey: string = entry.key ? `${entry.key}.${k}` : k;
 
-      if (obj[k] && isObject(obj[k])) {
-        stack.push({ obj: obj[k], key: newKey });
+      if (entry.obj[k] && isObject(entry.obj[k])) {
+        stack.push({ obj: entry.obj[k], key: newKey });
       } else {
-        keys.add(key);
+        keys.add(entry.key);
       }
     }
   }
@@ -89,10 +89,10 @@ export function transformI18n(message: any = '') {
   const key = message.match(/(\S*)\./)?.input;
 
   if (key && flatI18n('zh-CN').has(key)) {
-    return i18n.global.t.call(i18n.global.locale, message);
+    return (i18n.global.t as (msg: string) => string)(message);
   } else if (!key && Object.hasOwn(siphonI18n('zh-CN'), message)) {
     // 兼容非嵌套形式的国际化写法
-    return i18n.global.t.call(i18n.global.locale, message);
+    return (i18n.global.t as (msg: string) => string)(message);
   } else {
     return message;
   }

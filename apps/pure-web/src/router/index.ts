@@ -51,7 +51,7 @@ const modules: Record<string, any> = import.meta.glob(
 );
 
 /** 原始静态路由（未做任何处理） */
-const routes = [];
+const routes: Array<RouteRecordRaw | RouteRecordRaw[]> = [];
 
 Object.keys(modules).forEach(key => {
   routes.push(modules[key].default);
@@ -71,25 +71,25 @@ export const constantMenus: Array<RouteComponent> = ascending(
 ).concat(...remainingRouter);
 
 /** 不参与菜单的路由 */
-export const remainingPaths = Object.keys(remainingRouter).map(v => {
-  return remainingRouter[v].path;
-});
+export const remainingPaths: string[] = Object.keys(remainingRouter)
+  .map(k => (remainingRouter as any)[k]?.path)
+  .filter((p): p is string => typeof p === 'string');
 
 /** 创建路由实例 */
 export const router: Router = createRouter({
   history: getHistoryMode(import.meta.env.VITE_ROUTER_HISTORY),
   routes: constantRoutes.concat(...(remainingRouter as any)),
   strict: true,
-  scrollBehavior(to, from, savedPosition) {
+  scrollBehavior(_to, from, savedPosition) {
     return new Promise(resolve => {
       if (savedPosition) {
-        return savedPosition;
+        resolve(savedPosition);
+      } else if (from.meta.saveSrollTop) {
+        const top: number =
+          document.documentElement.scrollTop || document.body.scrollTop;
+        resolve({ left: 0, top });
       } else {
-        if (from.meta.saveSrollTop) {
-          const top: number =
-            document.documentElement.scrollTop || document.body.scrollTop;
-          resolve({ left: 0, top });
-        }
+        resolve(undefined);
       }
     });
   }
@@ -138,8 +138,8 @@ router.beforeEach((to: ToRouteType, _from) => {
   const userInfo = storageLocal().getItem<DataInfo<number>>(userKey);
   const externalLink = isUrl(to?.name as string);
   if (!externalLink) {
-    to.matched.some(item => {
-      if (!item.meta.title) return '';
+    to.matched.forEach(item => {
+      if (!item.meta.title) return;
       const Title = getConfig().Title;
       if (Title)
         document.title = `${transformI18n(item.meta.title)} | ${Title}`;
@@ -152,7 +152,10 @@ router.beforeEach((to: ToRouteType, _from) => {
   }
   if (Cookies.get(multipleTabsKey) && userInfo) {
     // 无权限跳转403页面
-    if (to.meta?.roles && !isOneOfArray(to.meta?.roles, userInfo?.roles)) {
+    if (
+      to.meta?.roles &&
+      !isOneOfArray(to.meta?.roles, userInfo?.roles ?? [])
+    ) {
       return { path: '/error/403' };
     }
     // 开启隐藏首页后在浏览器地址栏手动输入首页welcome路由则跳转到404页面
@@ -174,12 +177,12 @@ router.beforeEach((to: ToRouteType, _from) => {
         usePermissionStoreHook().wholeMenus.length === 0 &&
         to.path !== '/login'
       ) {
-        initRouter().then((router: Router) => {
+        initRouter().then((router: any) => {
           if (!useMultiTagsStoreHook().getMultiTagsCache) {
             const { path } = to;
             const route = findRouteByPath(
               path,
-              router.options.routes[0].children
+              router.options.routes[0].children ?? []
             );
             getTopMenu(true);
             // query、params模式路由传参数的标签页不在此处处理
@@ -187,7 +190,7 @@ router.beforeEach((to: ToRouteType, _from) => {
               // buildHierarchyTree 运行时赋值 parentId，类型侧由 types/router.d.ts 模块增强覆盖
               if (isAllEmpty(route.parentId) && route.meta?.backstage) {
                 // 此处为动态顶级路由（目录）
-                const { path, name, meta } = route.children[0];
+                const { path, name, meta } = route.children![0];
                 useMultiTagsStoreHook().handleTags('push', {
                   path,
                   name,

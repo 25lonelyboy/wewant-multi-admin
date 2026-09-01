@@ -7,7 +7,7 @@ type Result = {
 };
 
 /** 文件上传 */
-export const formUpload = data => {
+export const formUpload = (data: FormData) => {
   return http.request<Result>(
     'post',
     'https://pureadmin.free.beeceptor.com/images',

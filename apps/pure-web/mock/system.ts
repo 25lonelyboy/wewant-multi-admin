@@ -1104,6 +1104,7 @@ export default defineFakeRoute([
           requestTime: new Date()
         };
       }
+      return { code: BizCode.NOT_FOUND, message: '日志不存在', data: null };
     }
   }
 ]);
