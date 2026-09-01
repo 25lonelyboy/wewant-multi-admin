@@ -16,7 +16,7 @@ export function useDept() {
   });
 
   const formRef = ref();
-  const dataList = ref([]);
+  const dataList = ref<any[]>([]);
   const loading = ref(true);
   const { tagStyle } = usePublicHooks();
 
@@ -62,11 +62,11 @@ export function useDept() {
     }
   ];
 
-  function handleSelectionChange(val) {
-    console.log('handleSelectionChange', val);
+  function handleSelectionChange(_val: unknown) {
+    console.log('handleSelectionChange', _val);
   }
 
-  function resetForm(formEl) {
+  function resetForm(formEl: any) {
     if (!formEl) return;
     formEl.resetFields();
     onSearch();
@@ -93,7 +93,7 @@ export function useDept() {
     }, 500);
   }
 
-  function formatHigherDeptOptions(treeList) {
+  function formatHigherDeptOptions(treeList: any[]) {
     // 根据返回数据的status字段值判断追加是否禁用disabled字段，返回处理后的树结构，用于上级部门级联选择器的展示（实际开发中也是如此，不可能前端需要的每个字段后端都会返回，这时需要前端自行根据后端返回的某些字段做逻辑处理）
     if (!treeList || !treeList.length) return;
     const newTreeList = [];
@@ -126,7 +126,8 @@ export function useDept() {
       fullscreen: deviceDetection(),
       fullscreenIcon: true,
       closeOnClickModal: false,
-      contentRenderer: () => h(editForm, { ref: formRef, formInline: null }),
+      contentRenderer: () =>
+        h(editForm, { ref: formRef, formInline: null as any }),
       beforeSure: (done, { options }) => {
         const FormRef = formRef.value.getRef();
         const curData = options.props.formInline as FormItemProps;
@@ -137,7 +138,7 @@ export function useDept() {
           done(); // 关闭弹框
           onSearch(); // 刷新表格数据
         }
-        FormRef.validate(valid => {
+        FormRef.validate((valid: boolean) => {
           if (valid) {
             console.log('curData', curData);
             // 表单规则校验通过
@@ -154,7 +155,7 @@ export function useDept() {
     });
   }
 
-  function handleDelete(row) {
+  function handleDelete(row: any) {
     message(`您删除了部门名称为${row.name}的这条数据`, { type: 'success' });
     onSearch();
   }

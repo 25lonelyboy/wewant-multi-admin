@@ -7,7 +7,7 @@ export const formRules = reactive(<FormRules>{
   name: [{ required: true, message: '部门名称为必填项', trigger: 'blur' }],
   phone: [
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule, value, callback) => {
         if (value === '') {
           callback();
         } else if (!isPhone(value)) {
@@ -22,7 +22,7 @@ export const formRules = reactive(<FormRules>{
   ],
   email: [
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule, value, callback) => {
         if (value === '') {
           callback();
         } else if (!isEmail(value)) {

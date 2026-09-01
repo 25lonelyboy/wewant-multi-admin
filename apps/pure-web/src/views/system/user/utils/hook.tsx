@@ -47,14 +47,14 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
   });
   const formRef = ref();
   const ruleFormRef = ref();
-  const dataList = ref([]);
+  const dataList = ref<any[]>([]);
   const loading = ref(true);
   // 上传头像信息
   const avatarInfo = ref();
-  const switchLoadMap = ref({});
+  const switchLoadMap = ref<Record<number, { loading?: boolean }>>({});
   const { switchStyle } = usePublicHooks();
   const higherDeptOptions = ref();
-  const treeData = ref([]);
+  const treeData = ref<any[]>([]);
   const treeLoading = ref(true);
   const selectedNum = ref(0);
   const pagination = reactive<PaginationProps>({
@@ -179,10 +179,10 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
   ];
   // 当前密码强度（0-4）
   const curScore = ref();
-  const roleOptions = ref([]);
+  const roleOptions = ref<any[]>([]);
   const zxcvbnFactory = new ZxcvbnFactory();
 
-  function onChange({ row, index }) {
+  function onChange({ row, index }: { row: any; index: number }) {
     ElMessageBox.confirm(
       `确认要<strong>${
         row.status === 'DISABLED' ? '停用' : '启用'
@@ -228,11 +228,11 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
       });
   }
 
-  function handleUpdate(row) {
+  function handleUpdate(row: any) {
     console.log(row);
   }
 
-  async function handleDelete(row) {
+  async function handleDelete(row: any) {
     try {
       await deleteUser(row.id);
       message(`已删除用户编号为${row.id}的数据`, { type: 'success' });
@@ -253,7 +253,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
   }
 
   /** 当CheckBox选择项发生变化时会触发该事件 */
-  function handleSelectionChange(val) {
+  function handleSelectionChange(val: any[]) {
     selectedNum.value = val.length;
     // 重置表格高度
     tableRef.value.setAdaptive();
@@ -296,7 +296,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
     loading.value = false;
   }
 
-  const resetForm = formEl => {
+  const resetForm = (formEl: any) => {
     if (!formEl) return;
     formEl.resetFields();
     form.deptId = '';
@@ -304,12 +304,12 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
     onSearch();
   };
 
-  function onTreeSelect({ id, selected }) {
+  function onTreeSelect({ id, selected }: { id: any; selected: boolean }) {
     form.deptId = selected ? id : '';
     onSearch();
   }
 
-  function formatHigherDeptOptions(treeList) {
+  function formatHigherDeptOptions(treeList: any[]) {
     // 根据返回数据的status字段值判断追加是否禁用disabled字段，返回处理后的树结构，用于上级部门级联选择器的展示（实际开发中也是如此，不可能前端需要的每个字段后端都会返回，这时需要前端自行根据后端返回的某些字段做逻辑处理）
     if (!treeList || !treeList.length) return;
     const newTreeList = [];
@@ -345,7 +345,8 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
       fullscreen: deviceDetection(),
       fullscreenIcon: true,
       closeOnClickModal: false,
-      contentRenderer: () => h(editForm, { ref: formRef, formInline: null }),
+      contentRenderer: () =>
+        h(editForm, { ref: formRef, formInline: null as any }),
       beforeSure: (done, { options }) => {
         const FormRef = formRef.value.getRef();
         const curData = options.props.formInline as FormItemProps;
@@ -356,7 +357,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
           done();
           onSearch();
         }
-        FormRef.validate(async valid => {
+        FormRef.validate(async (valid: boolean) => {
           if (valid) {
             const payload = {
               nickname: curData.nickname,
@@ -374,7 +375,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
                 await createUser(payload);
               } else {
                 const { username: _u, password: _p, ...rest } = payload;
-                await updateUser(curData.id, rest);
+                await updateUser(curData.id!, rest);
               }
               chores();
             } catch {
@@ -388,7 +389,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
 
   const cropRef = ref();
   /** 上传头像 */
-  function handleUpload(row) {
+  function handleUpload(row: any) {
     addDialog({
       title: '裁剪、上传头像',
       width: '40%',
@@ -419,7 +420,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
   );
 
   /** 重置密码 */
-  function handleReset(row) {
+  function handleReset(row: any) {
     addDialog({
       title: `重置 ${row.username} 用户的密码`,
       width: '30%',
@@ -476,7 +477,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
       ),
       closeCallBack: () => (pwdForm.newPwd = ''),
       beforeSure: done => {
-        ruleFormRef.value.validate(async valid => {
+        ruleFormRef.value.validate(async (valid: boolean) => {
           if (valid) {
             try {
               await updateUser(row.id, { password: pwdForm.newPwd });
@@ -495,7 +496,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
   }
 
   /** 分配角色 */
-  async function handleRole(row) {
+  async function handleRole(row: any) {
     const ids = (await getUserRoleIds(row.id)).data ?? [];
     addDialog({
       title: `分配 ${row.username} 用户的角色`,

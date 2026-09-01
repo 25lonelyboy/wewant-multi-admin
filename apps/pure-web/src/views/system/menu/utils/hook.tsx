@@ -43,18 +43,18 @@ function toDisplayRows(nodes: MenuVO[]): any[] {
     component: node.component ?? '',
     auths: node.permission ?? '',
     sort: node.sort,
-    showLink: node.visible,
+    showLink: node.visible ? 1 : 0,
     redirect: node.meta?.redirect ?? '',
     extraIcon: node.meta?.extraIcon ?? '',
     enterTransition: node.meta?.enterTransition ?? '',
     leaveTransition: node.meta?.leaveTransition ?? '',
     activePath: node.meta?.activePath ?? '',
     frameSrc: node.meta?.frameSrc ?? '',
-    frameLoading: node.meta?.frameLoading ?? true,
-    keepAlive: node.meta?.keepAlive ?? false,
-    hiddenTag: node.meta?.hiddenTag ?? false,
-    fixedTag: node.meta?.fixedTag ?? false,
-    showParent: node.meta?.showParent ?? false,
+    frameLoading: (node.meta?.frameLoading ?? true) ? 1 : 0,
+    keepAlive: (node.meta?.keepAlive ?? false) ? 1 : 0,
+    hiddenTag: (node.meta?.hiddenTag ?? false) ? 1 : 0,
+    fixedTag: (node.meta?.fixedTag ?? false) ? 1 : 0,
+    showParent: (node.meta?.showParent ?? false) ? 1 : 0,
     children: toDisplayRows(node.children)
   }));
 }
@@ -76,10 +76,10 @@ export function useMenu() {
   });
 
   const formRef = ref();
-  const dataList = ref([]);
+  const dataList = ref<any[]>([]);
   const loading = ref(true);
 
-  const getMenuType = (type, text = false) => {
+  const getMenuType = (type: number, text = false) => {
     switch (type) {
       case 0:
         return text ? '菜单' : 'primary';
@@ -89,6 +89,8 @@ export function useMenu() {
         return text ? '外链' : 'danger';
       case 3:
         return text ? '按钮' : 'info';
+      default:
+        return text ? '' : '';
     }
   };
 
@@ -155,11 +157,11 @@ export function useMenu() {
     }
   ];
 
-  function handleSelectionChange(val) {
-    console.log('handleSelectionChange', val);
+  function handleSelectionChange(_val: unknown) {
+    console.log('handleSelectionChange', _val);
   }
 
-  function resetForm(formEl) {
+  function resetForm(formEl: any) {
     if (!formEl) return;
     formEl.resetFields();
     onSearch();
@@ -177,7 +179,7 @@ export function useMenu() {
     loading.value = false;
   }
 
-  function formatHigherMenuOptions(treeList) {
+  function formatHigherMenuOptions(treeList: any[]) {
     if (!treeList || !treeList.length) return;
     const newTreeList = [];
     for (let i = 0; i < treeList.length; i++) {
@@ -210,12 +212,12 @@ export function useMenu() {
           activePath: row?.activePath ?? '',
           auths: row?.auths ?? '',
           frameSrc: row?.frameSrc ?? '',
-          frameLoading: row?.frameLoading ?? true,
-          keepAlive: row?.keepAlive ?? false,
-          hiddenTag: row?.hiddenTag ?? false,
-          fixedTag: row?.fixedTag ?? false,
-          showLink: row?.showLink ?? true,
-          showParent: row?.showParent ?? false
+          frameLoading: row?.frameLoading ?? 1,
+          keepAlive: row?.keepAlive ?? 0,
+          hiddenTag: row?.hiddenTag ?? 0,
+          fixedTag: row?.fixedTag ?? 0,
+          showLink: row?.showLink ?? 1,
+          showParent: row?.showParent ?? 0
         }
       },
       width: '45%',
@@ -223,7 +225,8 @@ export function useMenu() {
       fullscreen: deviceDetection(),
       fullscreenIcon: true,
       closeOnClickModal: false,
-      contentRenderer: () => h(editForm, { ref: formRef, formInline: null }),
+      contentRenderer: () =>
+        h(editForm, { ref: formRef, formInline: null as any }),
       beforeSure: (done, { options }) => {
         const FormRef = formRef.value.getRef();
         const curData = options.props.formInline as FormItemProps;
@@ -237,7 +240,7 @@ export function useMenu() {
           done(); // 关闭弹框
           onSearch(); // 刷新表格数据
         }
-        FormRef.validate(async valid => {
+        FormRef.validate(async (valid: boolean) => {
           if (valid) {
             const meta: MenuMeta = {
               redirect: curData.redirect || undefined,
@@ -246,11 +249,11 @@ export function useMenu() {
               leaveTransition: curData.leaveTransition || undefined,
               activePath: curData.activePath || undefined,
               frameSrc: curData.frameSrc || undefined,
-              frameLoading: curData.frameLoading,
-              keepAlive: curData.keepAlive,
-              hiddenTag: curData.hiddenTag,
-              fixedTag: curData.fixedTag,
-              showParent: curData.showParent
+              frameLoading: Boolean(curData.frameLoading),
+              keepAlive: Boolean(curData.keepAlive),
+              hiddenTag: Boolean(curData.hiddenTag),
+              fixedTag: Boolean(curData.fixedTag),
+              showParent: Boolean(curData.showParent)
             };
             const payload = {
               type: NUM_TO_MENU_TYPE[curData.menuType],
@@ -262,14 +265,14 @@ export function useMenu() {
               component: curData.component || undefined,
               permission: curData.auths || undefined,
               sort: curData.sort,
-              visible: curData.showLink,
+              visible: Boolean(curData.showLink),
               meta
             };
             try {
               if (title === '新增') {
                 await createMenu(payload as CreateMenuRequest);
               } else {
-                await updateMenu(curData.id, payload as UpdateMenuRequest);
+                await updateMenu(curData.id!, payload as UpdateMenuRequest);
               }
               chores();
             } catch {
@@ -281,7 +284,7 @@ export function useMenu() {
     });
   }
 
-  async function handleDelete(row) {
+  async function handleDelete(row: any) {
     try {
       await deleteMenu(row.id);
       message(`已删除菜单名称为${transformI18n(row.title)}的数据`, {

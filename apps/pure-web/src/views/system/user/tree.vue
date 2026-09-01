@@ -19,7 +19,7 @@ interface Tree {
 
 defineProps({
   treeLoading: Boolean,
-  treeData: Array
+  treeData: Array as () => Tree[]
 });
 
 const emit = defineEmits(['tree-select']);
@@ -27,8 +27,8 @@ const emit = defineEmits(['tree-select']);
 const treeRef = ref();
 const isExpand = ref(true);
 const searchValue = ref('');
-const highlightMap = ref({});
-const { proxy } = getCurrentInstance();
+const highlightMap = ref<Record<number, any>>({});
+const { proxy } = getCurrentInstance()!;
 const defaultProps = {
   children: 'children',
   label: 'name'
@@ -44,12 +44,12 @@ const buttonClass = computed(() => {
   ];
 });
 
-const filterNode = (value: string, data: Tree) => {
+const filterNode = (value: string, data: any) => {
   if (!value) return true;
   return data.name.includes(value);
 };
 
-function nodeClick(value) {
+function nodeClick(value: any) {
   const nodeId = value.$treeNodeId;
   highlightMap.value[nodeId] = highlightMap.value[nodeId]?.highlight
     ? Object.assign({ id: nodeId }, highlightMap.value[nodeId], {
@@ -58,7 +58,7 @@ function nodeClick(value) {
     : Object.assign({ id: nodeId }, highlightMap.value[nodeId], {
         highlight: true
       });
-  Object.values(highlightMap.value).forEach((v: Tree) => {
+  Object.values(highlightMap.value).forEach((v: any) => {
     if (v.id !== nodeId) {
       v.highlight = false;
     }
@@ -71,9 +71,9 @@ function nodeClick(value) {
   );
 }
 
-function toggleRowExpansionAll(status) {
+function toggleRowExpansionAll(status: boolean) {
   isExpand.value = status;
-  const nodes = (proxy.$refs['treeRef'] as any).store._getAllNodes();
+  const nodes = (proxy!.$refs['treeRef'] as any).store._getAllNodes();
   for (let i = 0; i < nodes.length; i++) {
     nodes[i].expanded = status;
   }
