@@ -4,7 +4,7 @@ covers:
   - apps/nestjs-server/
   - docker-compose.yml
   - .github/workflows/
-last_verified: 2026-08-30
+last_verified: 2026-09-01
 ---
 
 # 全局 backlog
@@ -52,7 +52,6 @@ last_verified: 2026-08-30
 | Prisma 迁移回滚预案 | Prisma 不支持 down 迁移，`migrate deploy` 单向，生产迁移中途失败无回退剧本；方案：破坏性迁移（删列/改类型）提交时附带手写回滚 SQL（migration 注释或独立文件） | 第一次破坏性 schema 变更前 | 2026-08-26 |
 | pure-web 测试基建与 strict 类型安全 | pure-web 零测试（0 spec 文件、无 vitest 依赖）且为全仓唯一 `strict: false` 端（纯 TS 384 个 strict 错误实测），token 刷新状态机 / 动态路由重建 / 按钮级鉴权均无回归保护；总体设计已定稿（双 tsconfig 分层 + vitest 基建 + 模块级 ≥80% 覆盖 + 上游基线前置） | 本任务立项执行中（见 docs/tasks/2026-08-29-pure-web-testing-foundation/） | 2026-08-29 |
 | pure-web E2E 测试基建 | 组件级测试完成后仍缺登录 → 动态路由全链路浏览器级回归；方案：Playwright，登录全链路 + 关键页面冒烟 | 已决策纳入：随 B4 收口批次 T12 落地（见 2026-08-31-b4-plan.md） | 2026-08-29 |
-| pure-web 遗留组件处置 | 24 个组件目录中 8 个零引用（ReBarcode/ReFlop/ReSeamlessScroll/ReSelector/ReSplitPane/ReTreeLine/ReCropper/ReVxeTableBar），pure-admin 遗留资产；ReDrawer 经 A3 盘点实测有 1 处 App.vue 引用，已转在用归 B3.2 测试（豁免清单条目随 B3.2 移出）；本任务只盘点豁免不删除——删除决策已做（勘误：ReCropper 转在用，其余 7 个确认删除），随 B4 收口批次 T1 执行 | 随 B4 收口批次 T1 执行 | 2026-08-29 |
 | pure-web 上游同步周期评估 | vue-pure-admin template 衍生（接入 2026-08-10），无 fork 跟踪机制；方案：基线 SHA 记录 + ops/upstream-diff.sh 差异报告 + 选择性吸收（吸收项走 strict 迁入 + 测试验收） | 上游大版本发布或季度触发 | 2026-08-29 |
 | pure-web strict 迁移最终态收口 | 双 tsconfig + 清单断言 + pre-commit 拦截均为迁移期机制；存量全部迁入后须一次性收口：`tsconfig.strict.json` 清单并回 `tsconfig.json`（strict 直承）、删除 strict config / exemptions / `assert-strict-manifest.mjs`、`check.mjs` 与 `.husky/pre-commit` 移除断言阶段 | 随 B4 收口批次 T13 执行（见 2026-08-31-b4-plan.md） | 2026-08-29 |
 | print.ts strict+覆盖补全 | `utils/print.ts`（223 行 DOM 打印模块，pure-admin 移植）B1.7 采用薄测试 + 豁免清单口径：jsdom 不实现 iframe 打印行为（onload/execCommand/setDomHeight），80% 行+分支不可达；strict 修复本身便宜（实测 13 errors + 9 处注解）但覆盖率是真实门槛 | strict 部分已决策：随 B4 收口批次 T3 清零迁入；覆盖口径维持（见 2026-08-31-b4-plan.md §3） | 2026-08-29 |
@@ -73,3 +72,4 @@ last_verified: 2026-08-30
 | contracts 包缺 lint / format 脚本 | `packages/contracts` 仅有 build / typecheck / test，无独立 lint 与 format 校验 | contracts 消费者增至 2 个以上时补齐 | 补齐 lint / format 脚本与 eslint 薄壳，turbo 迁移任务 | 2026-08-23 | 2026-08-21 |
 | server 镜像启动冒烟 | docker-build job 仅 web 镜像有启动冒烟（curl 200 重试），server 镜像只构建不运行，entrypoint 链（migrate → seed → node）问题构建期不可见；可复用 coverage job 的 postgres/redis service 模式加 compose 式 `/health` 探测 | server 镜像首次进入真实部署链路前 | docker-build job 加 postgres/redis services（digest pin 沿用安全基线）+ /health 探针冒烟，server-smoke.sh 本地/CI 同源；check-digests 计数边界 8 → 10 | 2026-08-29 | 2026-08-26 |
 | BODY_LIMIT / UPLOAD_BODY_LIMIT 格式正则校验 | 曾考虑在 env.schema 对 body limit 字符串加格式正则拦截无效配置；结论：express 启动时对非法 limit 已 fail-fast 抛错（`option limit "x" is invalid`），正则收益仅报错文案且有误拒合法格式（如 1.5mb）风险 | 配置错误导致启动报错信息确实引起运维困扰时再评估 | 不实施 | 2026-08-27 | 2026-08-27 |
+| pure-web 遗留组件处置 | 24 个组件目录中 8 个零引用（ReBarcode/ReFlop/ReSeamlessScroll/ReSelector/ReSplitPane/ReTreeLine/ReCropper/ReVxeTableBar），pure-admin 遗留资产；ReDrawer 经 A3 盘点实测有 1 处 App.vue 引用，已转在用归 B3.2 测试（豁免清单条目随 B3.2 移出）；本任务只盘点豁免不删除——删除决策已做（勘误：ReCropper 转在用，其余 7 个确认删除），随 B4 收口批次 T1 执行 | 随 B4 收口批次 T1 执行 | B4 T1 删除七个零引用组件，ReCropper 转在用随 T2 迁入 | 2026-09-01 | 2026-08-29 |

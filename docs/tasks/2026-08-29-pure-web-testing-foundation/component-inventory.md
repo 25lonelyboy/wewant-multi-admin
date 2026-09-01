@@ -3,7 +3,8 @@
 > 盘点日期：2026-08-29
 > 目标应用：`apps/pure-web`
 > 组件目录总数：24
-> 在用组件：16 ｜ 遗留组件：8
+> 在用组件：17 ｜ 遗留组件：8（7 已删除，1 转在用）
+> B4 T1 处置（2026-09-01）：删除 ReBarcode / ReFlop / ReSeamlessScroll / ReSelector / ReSplitPane / ReTreeLine / ReVxeTableBar 七个零引用组件，ReCropper 转在用（T2 处理 strict 迁入）
 > 上游差异交叉验证：组件层无上游变更
 
 ---
@@ -44,6 +45,9 @@
 | 14 | RePerms | 1 | 2 | 轻 | 0 | — |
 | 15 | ReQrcode | 1 | 3 | 轻 | 0 | — |
 | 16 | ReTypeit | 1 | 2 | 轻 | 0 | — |
+| 17 | ReCropper 🔄 | 18 | 0 | 重 | 0 | — |
+
+> 🔄 ReCropper：原遗留组件，B4 T1 转在用（T2 将处理其 strict 迁入与测试覆盖）。
 
 > ⚠️ ReDrawer：实测有 1 处外部引用（`App.vue` 中 `<ReDrawer />`），但同时被列入
 > `tsconfig.strict.exemptions.json` 遗留豁免清单。§5 交叉验证结论已被 B3 批次设计采纳：
@@ -60,19 +64,23 @@
 ## 3. 遗留组件表
 
 > 遗留组件定义：外部引用数 = 0，已列入 `tsconfig.strict.exemptions.json`。
+>
+> **B4 T1 处置记录（2026-09-01）**：以下 7 个零引用组件已删除：
+> ReBarcode、ReFlop、ReSeamlessScroll、ReSelector、ReSplitPane、ReTreeLine、ReVxeTableBar。
+> ReCropper 转在用（见 §2 第 17 行），T2 处理 strict 迁入。
 
-| # | 组件名 | 目录文件数 | strict 错误数 | 豁免状态 |
-| --- | --- | ---: | ---: | :---: |
-| 1 | ReBarcode | 2 | 0 | ✅ 已豁免 |
-| 2 | ReCropper | 18 | 0 | ✅ 已豁免 |
-| 3 | ReFlop | 4 | 0 | ✅ 已豁免 |
-| 4 | ReSeamlessScroll | 3 | 30 | ✅ 已豁免 |
-| 5 | ReSelector | 3 | 46 | ✅ 已豁免 |
-| 6 | ReSplitPane | 10 | 0 | ✅ 已豁免 |
-| 7 | ReTreeLine | 2 | 0 | ✅ 已豁免 |
-| 8 | ReVxeTableBar | 2 | 11 | ✅ 已豁免 |
+| # | 组件名 | 目录文件数 | strict 错误数 | 豁免状态 | 处置 |
+| --- | --- | ---: | ---: | :---: | --- |
+| ~~1~~ | ~~ReBarcode~~ | ~~2~~ | ~~0~~ | ~~✅ 已豁免~~ | 🗑️ B4 T1 删除 |
+| ~~2~~ | ~~ReFlop~~ | ~~4~~ | ~~0~~ | ~~✅ 已豁免~~ | 🗑️ B4 T1 删除 |
+| ~~3~~ | ~~ReSeamlessScroll~~ | ~~3~~ | ~~30~~ | ~~✅ 已豁免~~ | 🗑️ B4 T1 删除 |
+| ~~4~~ | ~~ReSelector~~ | ~~3~~ | ~~46~~ | ~~✅ 已豁免~~ | 🗑️ B4 T1 删除 |
+| ~~5~~ | ~~ReSplitPane~~ | ~~10~~ | ~~0~~ | ~~✅ 已豁免~~ | 🗑️ B4 T1 删除 |
+| ~~6~~ | ~~ReTreeLine~~ | ~~2~~ | ~~0~~ | ~~✅ 已豁免~~ | 🗑️ B4 T1 删除 |
+| ~~7~~ | ~~ReVxeTableBar~~ | ~~2~~ | ~~11~~ | ~~✅ 已豁免~~ | 🗑️ B4 T1 删除 |
+| 8 | ReCropper | 18 | 0 | ✅ 已豁免 | 🔄 转在用（T2 strict 迁入） |
 
-**遗留组件文件合计**：44 个文件
+**遗留组件文件合计**：44 → 0（7 个组件 26 文件已删除，ReCropper 18 文件转在用）
 
 ### 遗留组件说明
 
