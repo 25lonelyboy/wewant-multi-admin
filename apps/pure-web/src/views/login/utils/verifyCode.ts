@@ -3,7 +3,7 @@ import { clone } from '@pureadmin/utils';
 import { ref } from 'vue';
 
 const isDisabled = ref(false);
-const timer = ref(null);
+const timer = ref<ReturnType<typeof setInterval> | undefined>(undefined);
 const text = ref('');
 
 export const useVerifyCode = () => {

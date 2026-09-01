@@ -33,7 +33,13 @@ const userInfo = ref({
   username: '',
   nickname: ''
 });
-const panes = [
+type PaneItem = {
+  key: string;
+  label: string;
+  icon: any;
+  component: any;
+};
+const panes: PaneItem[] = [
   {
     key: 'profile',
     label: '个人信息',
@@ -64,7 +70,11 @@ const witchPane = ref('profile');
 onMounted(async () => {
   const { code, data } = await getMine();
   if (code === 0) {
-    userInfo.value = data;
+    userInfo.value = {
+      avatar: data.avatar ?? '',
+      username: data.username ?? '',
+      nickname: data.nickname ?? ''
+    };
   }
 });
 </script>
@@ -127,7 +137,7 @@ onMounted(async () => {
         @toggleClick="isOpen = !isOpen"
       />
       <component
-        :is="panes.find(item => item.key === witchPane).component"
+        :is="(panes.find(item => item.key === witchPane) as PaneItem).component"
         :class="[!deviceDetection() && 'ml-30']"
       />
     </el-main>

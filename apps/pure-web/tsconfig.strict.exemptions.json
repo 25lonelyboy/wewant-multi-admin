@@ -1,4 +1,4 @@
 {
-  "reason": "①监控域页面 src/views/monitor/logs/**：2026-08-30 修正 .gitignore 的 **/logs 误伤后与断言豁免同行入库；属存量待迁移页面，随 B 批次对其迁移测试+strict 的同提交移除条目。",
-  "files": ["src/views/monitor/logs/**"]
+  "reason": "所有豁免条目已完成迁移，当前无待豁免文件。",
+  "files": []
 }

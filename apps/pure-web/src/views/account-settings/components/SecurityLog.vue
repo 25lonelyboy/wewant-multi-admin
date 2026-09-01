@@ -10,7 +10,7 @@ defineOptions({
 });
 
 const loading = ref(true);
-const dataList = ref([]);
+const dataList = ref<Record<string, any>[]>([]);
 const pagination = reactive<PaginationProps>({
   total: 0,
   pageSize: 10,
@@ -59,9 +59,9 @@ async function onSearch() {
     const { code, data } = await getMineLogs();
     if (code === 0) {
       dataList.value = data.list;
-      pagination.total = data.total;
-      pagination.pageSize = data.pageSize;
-      pagination.currentPage = data.currentPage;
+      pagination.total = data.total ?? 0;
+      pagination.pageSize = data.pageSize ?? 10;
+      pagination.currentPage = data.currentPage ?? 1;
     }
   } catch {
     // 直连态 404（mine-logs 为 mock-only 端点，后端未实现）：保持空态

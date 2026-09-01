@@ -4,7 +4,7 @@ import { message } from '@/utils/message';
 import { onMounted, reactive, ref } from 'vue';
 import { getMine } from '@/api/user';
 import type { UserProfile } from '@multi-admin/contracts';
-import type { FormInstance, FormRules } from 'element-plus';
+import type { FormInstance, FormRules, UploadFile } from 'element-plus';
 import ReCropperPreview from '@/components/ReCropperPreview';
 import { createFormData, deviceDetection } from '@pureadmin/utils';
 import uploadLine from '~icons/ri/upload-line';
@@ -32,13 +32,16 @@ const rules = reactive<FormRules<UserProfile>>({
   nickname: [{ required: true, message: '昵称必填', trigger: 'blur' }]
 });
 
-function queryEmail(queryString, callback) {
+function queryEmail(
+  queryString: string,
+  callback: (results: Array<{ value: string }>) => void
+) {
   const emailList = [
     { value: '@qq.com' },
     { value: '@126.com' },
     { value: '@163.com' }
   ];
-  let queryList = [];
+  let queryList: Array<{ value: string }> = [];
   emailList.map(item =>
     queryList.push({ value: queryString.split('@')[0] + item.value })
   );
@@ -51,13 +54,13 @@ function queryEmail(queryString, callback) {
   callback(results);
 }
 
-const onChange = uploadFile => {
+const onChange = (uploadFile: UploadFile) => {
   const reader = new FileReader();
-  reader.onload = e => {
-    imgSrc.value = e.target.result as string;
+  reader.onload = (e: ProgressEvent<FileReader>) => {
+    imgSrc.value = (e.target?.result as string) ?? '';
     isShow.value = true;
   };
-  reader.readAsDataURL(uploadFile.raw);
+  reader.readAsDataURL(uploadFile.raw!);
 };
 
 const handleClose = () => {
@@ -66,7 +69,7 @@ const handleClose = () => {
   isShow.value = false;
 };
 
-const onCropper = ({ blob }) => (cropperBlob.value = blob);
+const onCropper = ({ blob }: { blob: Blob }) => (cropperBlob.value = blob);
 
 const handleSubmitImage = () => {
   const formData = createFormData({
@@ -87,7 +90,8 @@ const handleSubmitImage = () => {
 };
 
 // 更新信息
-const onSubmit = async (formEl: FormInstance) => {
+const onSubmit = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return;
   await formEl.validate((valid, fields) => {
     if (valid) {
       console.log(userInfos);

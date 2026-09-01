@@ -7,7 +7,7 @@ import Hearts from '~icons/ri/hearts-line';
 import Empty from './empty.svg?component';
 
 export function useColumns() {
-  const dataList = ref([]);
+  const dataList = ref<typeof tableData>([]);
   const loading = ref(true);
   const columns: TableColumnList = [
     {
