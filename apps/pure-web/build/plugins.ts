@@ -50,6 +50,8 @@ export async function getPluginsList(
       ? vitePluginFakeServer({
           logger: false,
           include: 'mock',
+          // mock 目录内的单测文件不是 fake 路由模块，排除以免加载报错（glob ignore 语义）
+          exclude: ['mock/*.spec.ts'],
           infixName: false,
           enableProd: true
         })
