@@ -11,7 +11,7 @@
 
 | 任务 | 收口说明 |
 |---|---|
-| pure-web 测试基建与 strict 类型安全 | B4 收口批次 13 任务全部完成（963 单测 / 122 文件 / 9 E2E / strict 单一 tsconfig）；结论 → [build-and-verify.md](../engineering/build-and-verify.md)；已归档 [archive/2026-08-29-pure-web-testing-foundation/](archive/2026-08-29-pure-web-testing-foundation/) |
+| pure-web 测试基建与 strict 类型安全 | B4 收口批次 13 任务全部完成（单测 / E2E 全绿，strict 全量迁入单一 tsconfig）；结论 → [build-and-verify.md](../engineering/build-and-verify.md)；已归档 [archive/2026-08-29-pure-web-testing-foundation/](archive/2026-08-29-pure-web-testing-foundation/) |
 | server 镜像启动冒烟（Tier 2） | 合并 master、CI 首跑四 job 全绿；backlog 已关闭并登记演进行；结论 → [build-and-verify.md](../engineering/build-and-verify.md)；已归档 [archive/2026-08-28-server-image-smoke/](archive/2026-08-28-server-image-smoke/) |
 | 生产安全基线（Tier 2 #6） | 7 提交已合并 master（非 root + digest pin 8 处 + check-digests 巡检 + 运行链 3 项修复）；backlog ①② 已关闭；结论 → [build-and-verify.md](../engineering/build-and-verify.md)；已归档 [archive/2026-08-27-server-security-baseline/](archive/2026-08-27-server-security-baseline/) |
 | 登录限流账号维度与失败锁定（Tier 2） | 6 提交已合并 master（42301 契约 + LoginLockService/Guard + validateUser 插桩 + e2e 三用例）；backlog 条目已关闭并登记管理员解锁端点；错误码 42301 → [contracts.md](../architecture/contracts.md)，限流行为 → [backend.md](../architecture/backend.md)；已归档 [archive/2026-08-27-login-account-lockout/](archive/2026-08-27-login-account-lockout/) |

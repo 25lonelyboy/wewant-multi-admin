@@ -9,7 +9,7 @@ last_verified: 2026-08-29
 
 # NestJS 后端演进路线图
 
-以企业级最佳实践为长期目标的宏观演进规划：目标图景、当前定位、阶段路线与触发条件。方向性决策见 [ADR-007](../decisions/ADR-007-backend-evolution.md)，待处置项细节见 [backlog](../../governance/backlog.md)。
+以企业级最佳实践为长期目标的宏观演进规划：目标图景、当前定位、阶段路线与触发条件。方向性决策见 [ADR-007](../decisions/ADR-007-backend-evolution.md)，待处置项细节见 [backlog](../governance/backlog.md)。
 
 ## 目标图景
 
@@ -68,4 +68,4 @@ last_verified: 2026-08-29
 
 ## 与 backlog 的关系
 
-本路线图是 backlog 条目的**分组与排序视图**：每阶段包含哪些条目、何时触发处置。条目自身的方案与触发条件仍以 [backlog](../../governance/backlog.md) 为准，两者冲突时以本路线图引用的 ADR 决策为准。
+本路线图是 backlog 条目的**分组与排序视图**：每阶段包含哪些条目、何时触发处置。条目自身的方案与触发条件仍以 [backlog](../governance/backlog.md) 为准，两者冲突时以本路线图引用的 ADR 决策为准。

@@ -8,7 +8,7 @@ This file provides guidance to AI Agents when working with code in this reposito
 
 | Workspace               | 说明                                                                                                                                                           |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/pure-web`         | Vue3 管理后台（vue-pure-admin 基底），缺省直连真实后端（代理 `/api/v1`），`VITE_MOCK=true` 切离线 mock（契约同形）                                             |
+| `apps/pure-web`         | Vue3 管理后台（vue-pure-admin 基底），缺省直连真实后端（代理 `/api/v1`），`VITE_MOCK=true` 切离线 mock（契约同形）；vitest 单测 + Playwright E2E               |
 | `apps/nestjs-server`    | NestJS 后端：Prisma + Redis、JWT 双令牌轮换 + RBAC、system 三域 CRUD（软删除）、单测/e2e 合并覆盖率门禁；架构细节见 [backend.md](docs/architecture/backend.md) |
 | `apps/uni-mobile`       | uni-app 多端应用（H5 + 各家小程序），基于 Vue3                                                                                                                 |
 | `apps/electron-desktop` | Electron 桌面端，托管 pure-web 构建产物作为渲染层                                                                                                              |
@@ -33,10 +33,13 @@ pnpm format / format:check        # Prettier 写入 / 纯校验（CI 用 format:
 pnpm --filter @multi-admin/nestjs-server run prisma:migrate   # prisma migrate dev
 pnpm --filter @multi-admin/nestjs-server run prisma:seed      # 显式 seed（Prisma 7 起 migrate dev 不再自动 seed）
 
-# 运行单个测试文件（目前仅 nestjs-server 有 jest 基建）
+# 运行单个测试文件（nestjs-server 为 jest，pure-web 为 vitest；分层口径见 docs/engineering/build-and-verify.md）
 pnpm --filter @multi-admin/nestjs-server run test -- src/config/env.schema.spec.ts
+pnpm --filter @multi-admin/pure-web run test -- src/utils/auth.spec.ts
 pnpm --filter @multi-admin/nestjs-server run test:e2e         # 需 compose postgres/redis
 pnpm --filter @multi-admin/nestjs-server run test:coverage    # 单测+e2e 合并覆盖率（≥80% 门禁）
+pnpm --filter @multi-admin/pure-web run test:coverage         # vitest v8 覆盖率（glob 阈值 ≥80%）
+pnpm --filter @multi-admin/pure-web run test:e2e              # Playwright E2E（自启 mock 模式 dev server）
 
 # 运维辅助脚本（完整表见 docs/engineering/build-and-verify.md）
 pnpm ops:env-up / ops:env-down    # 开发环境启停（postgres + redis + migrate + seed）
