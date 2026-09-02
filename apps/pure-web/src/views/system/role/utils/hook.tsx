@@ -41,14 +41,14 @@ export function useRole(treeRef: Ref) {
   });
   const curRow = ref();
   const formRef = ref();
-  const dataList = ref([]);
-  const treeIds = ref([]);
-  const treeData = ref([]);
+  const dataList = ref<any[]>([]);
+  const treeIds = ref<EntityId[]>([]);
+  const treeData = ref<MenuVO[]>([]);
   const isShow = ref(false);
   const loading = ref(true);
   const isLinkage = ref(false);
   const treeSearchValue = ref();
-  const switchLoadMap = ref({});
+  const switchLoadMap = ref<Record<number, { loading?: boolean }>>({});
   const isExpandAll = ref(false);
   const isSelectAll = ref(false);
   const { switchStyle } = usePublicHooks();
@@ -123,7 +123,7 @@ export function useRole(treeRef: Ref) {
   //   ];
   // });
 
-  function onChange({ row, index }) {
+  function onChange({ row, index }: { row: any; index: number }) {
     ElMessageBox.confirm(
       `确认要<strong>${
         row.status === 'DISABLED' ? '停用' : '启用'
@@ -172,7 +172,7 @@ export function useRole(treeRef: Ref) {
       });
   }
 
-  async function handleDelete(row) {
+  async function handleDelete(row: any) {
     try {
       await deleteRole(row.id);
       message(`已删除角色名称为${row.name}的数据`, { type: 'success' });
@@ -192,8 +192,8 @@ export function useRole(treeRef: Ref) {
     onSearch();
   }
 
-  function handleSelectionChange(val) {
-    console.log('handleSelectionChange', val);
+  function handleSelectionChange(_val: unknown) {
+    console.log('handleSelectionChange', _val);
   }
 
   async function onSearch() {
@@ -215,7 +215,7 @@ export function useRole(treeRef: Ref) {
     loading.value = false;
   }
 
-  const resetForm = formEl => {
+  const resetForm = (formEl: any) => {
     if (!formEl) return;
     formEl.resetFields();
     onSearch();
@@ -238,7 +238,8 @@ export function useRole(treeRef: Ref) {
       fullscreen: deviceDetection(),
       fullscreenIcon: true,
       closeOnClickModal: false,
-      contentRenderer: () => h(editForm, { ref: formRef, formInline: null }),
+      contentRenderer: () =>
+        h(editForm, { ref: formRef, formInline: null as any }),
       beforeSure: (done, { options }) => {
         const FormRef = formRef.value.getRef();
         const curData = options.props.formInline as FormItemProps;
@@ -249,7 +250,7 @@ export function useRole(treeRef: Ref) {
           done(); // 关闭弹框
           onSearch(); // 刷新表格数据
         }
-        FormRef.validate(async valid => {
+        FormRef.validate(async (valid: boolean) => {
           if (valid) {
             try {
               if (title === '新增') {
@@ -259,7 +260,7 @@ export function useRole(treeRef: Ref) {
                   remark: curData.remark || undefined
                 });
               } else {
-                await updateRole(curData.id, {
+                await updateRole(curData.id!, {
                   name: curData.name,
                   remark: curData.remark || undefined
                 });
@@ -276,7 +277,7 @@ export function useRole(treeRef: Ref) {
 
   /** 菜单权限 */
   async function handleMenu(row?: any) {
-    const { id } = row;
+    const id = row?.id;
     if (id) {
       curRow.value = row;
       isShow.value = true;
@@ -291,7 +292,7 @@ export function useRole(treeRef: Ref) {
   }
 
   /** 高亮当前权限选中行 */
-  function rowStyle({ row: { id } }) {
+  function rowStyle({ row: { id } }: { row: { id: string } }) {
     return {
       cursor: 'pointer',
       background: id === curRow.value?.id ? 'var(--el-fill-color-light)' : ''
@@ -319,7 +320,7 @@ export function useRole(treeRef: Ref) {
     treeRef.value!.filter(query);
   };
 
-  const filterMethod = (query: string, node) => {
+  const filterMethod = (query: string, node: any) => {
     return transformI18n(node.title)!.includes(query);
   };
 

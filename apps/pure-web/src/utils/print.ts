@@ -1,11 +1,7 @@
-interface PrintFunction {
-  extendOptions: Function;
-  getStyle: Function;
-  setDomHeight: Function;
-  toPrint: Function;
-}
-
-const Print = function (dom, options?: object): PrintFunction {
+const Print = function (
+  dom: string | Element | { $el: Element },
+  options?: object
+) {
   options = options || {};
   // @ts-expect-error
   if (!(this instanceof Print)) return new Print(dom, options);
@@ -55,11 +51,11 @@ Print.prototype = {
    * @param {Object} obj
    * @param {Object} obj2
    */
-  extendOptions: function <T>(obj, obj2: T): T {
+  extendOptions: function <T>(obj: Record<string, unknown>, obj2: T): T {
     for (const k in obj2) {
       obj[k] = obj2[k];
     }
-    return obj;
+    return obj as T;
   },
   /**
     Copy all styles of the original page
@@ -121,7 +117,7 @@ Print.prototype = {
       img.src = imageURL;
       img.setAttribute('style', 'max-width: 100%;');
       img.className = 'isNeedRemove';
-      canvass[k4].parentNode.insertBefore(img, canvass[k4].nextElementSibling);
+      canvass[k4].parentNode!.insertBefore(img, canvass[k4].nextElementSibling);
     }
 
     return this.dom.outerHTML;
@@ -129,7 +125,7 @@ Print.prototype = {
   /**
     create iframe
   */
-  writeIframe: function (content) {
+  writeIframe: function (content: string) {
     let w: Document | Window;
     let doc: Document;
     const iframe: HTMLIFrameElement = document.createElement('iframe');
@@ -141,17 +137,17 @@ Print.prototype = {
     );
 
     // eslint-disable-next-line prefer-const
-    w = f.contentWindow || f.contentDocument;
+    w = f.contentWindow || f.contentDocument!;
 
     // eslint-disable-next-line prefer-const
-    doc = f.contentDocument || f.contentWindow.document;
+    doc = f.contentDocument || f.contentWindow!.document;
     doc.open();
     doc.write(content);
     doc.close();
 
     const removes = document.querySelectorAll('.isNeedRemove');
     for (let k = 0; k < removes.length; k++) {
-      removes[k].parentNode.removeChild(removes[k]);
+      removes[k].parentNode!.removeChild(removes[k]);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
@@ -174,12 +170,12 @@ Print.prototype = {
   /**
     Print
   */
-  toPrint: function (frameWindow): void {
+  toPrint: function (frameWindow: Window): void {
     try {
       setTimeout(function () {
         frameWindow.focus();
         try {
-          if (!frameWindow.document.execCommand('print', false, null)) {
+          if (!frameWindow.document.execCommand('print', false, undefined)) {
             frameWindow.print();
           }
         } catch {
@@ -193,27 +189,28 @@ Print.prototype = {
   },
   isDOM:
     typeof HTMLElement === 'object'
-      ? function (obj) {
+      ? function (obj: unknown) {
           return obj instanceof HTMLElement;
         }
-      : function (obj) {
+      : function (obj: unknown) {
           return (
             obj &&
             typeof obj === 'object' &&
-            obj.nodeType === 1 &&
-            typeof obj.nodeName === 'string'
+            (obj as { nodeType: number }).nodeType === 1 &&
+            typeof (obj as { nodeName: string }).nodeName === 'string'
           );
         },
   /**
    * Set the height of the specified dom element by getting the existing height of the dom element and setting
    * @param {Array} arr
    */
-  setDomHeight(arr) {
+  setDomHeight(arr: string[]) {
     if (arr && arr.length) {
       arr.forEach(name => {
         const domArr = document.querySelectorAll(name);
-        domArr.forEach(dom => {
-          dom.style.height = dom.offsetHeight + 'px';
+        domArr.forEach(el => {
+          const htmlEl = el as HTMLElement;
+          htmlEl.style.height = htmlEl.offsetHeight + 'px';
         });
       });
     }

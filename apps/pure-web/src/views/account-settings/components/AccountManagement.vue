@@ -30,7 +30,7 @@ const list = ref([
   }
 ]);
 
-function onClick(item) {
+function onClick(item: { title: string; illustrate: string; button: string }) {
   console.log('onClick', item.title);
   message('请根据具体业务自行实现', { type: 'success' });
 }

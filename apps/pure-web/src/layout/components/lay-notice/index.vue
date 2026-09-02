@@ -2,6 +2,7 @@
 import { useI18n } from 'vue-i18n';
 import { ref, computed } from 'vue';
 import { noticesData } from './data';
+import type { TabItem } from './data';
 import NoticeList from './components/NoticeList.vue';
 
 import BellIcon from '~icons/lucide/bell';
@@ -13,7 +14,7 @@ const notices = ref(noticesData);
 const activeKey = ref(noticesData[0]?.key);
 
 const getLabel = computed(
-  () => item =>
+  () => (item: TabItem) =>
     t(item.name) + (item.list.length > 0 ? `(${item.list.length})` : '')
 );
 

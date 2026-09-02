@@ -54,7 +54,7 @@ export function useNav() {
 
   /** 设置国际化选中后的样式 */
   const getDropdownItemStyle = computed(() => {
-    return (locale, t) => {
+    return (locale: string, t: string) => {
       return {
         background: locale === t ? useEpThemeStoreHook().epThemeColor : '',
         color: locale === t ? '#f4f4f5' : '#000'
@@ -63,7 +63,7 @@ export function useNav() {
   });
 
   const getDropdownItemClass = computed(() => {
-    return (locale, t) => {
+    return (locale: string, t: string) => {
       return locale === t ? '' : 'dark:hover:text-primary!';
     };
   });
@@ -102,11 +102,11 @@ export function useNav() {
   }
 
   function backTopMenu() {
-    router.push(getTopMenu()?.path);
+    router.push(getTopMenu()?.path ?? '/');
   }
 
   function onPanel() {
-    emitter.emit('openPanel');
+    emitter.emit('openPanel', '');
   }
 
   function toAccountSettings() {
@@ -117,11 +117,11 @@ export function useNav() {
     pureApp.toggleSideBar();
   }
 
-  function handleResize(menuRef) {
+  function handleResize(menuRef?: { handleResize: () => void }) {
     menuRef?.handleResize();
   }
 
-  function resolvePath(route) {
+  function resolvePath(route: { children?: any[]; path: string }) {
     if (!route.children) return console.error(errorInfo);
     const httpReg = /^http(s?):\/\//;
     const routeChildPath = route.children[0]?.path;

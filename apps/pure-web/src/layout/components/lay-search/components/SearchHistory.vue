@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Sortable from 'sortablejs';
+import Sortable, { type SortableEvent } from 'sortablejs';
 import { useI18n } from 'vue-i18n';
 import SearchHistoryItem from './SearchHistoryItem.vue';
 import type { optionsItem, dragItem, Props } from '../types';
@@ -15,7 +15,7 @@ interface Emits {
   (e: 'drag', val: dragItem): void;
 }
 
-const historyRef = ref();
+const historyRef = ref<HTMLElement | null>(null);
 const innerHeight = ref();
 /** 判断是否停止鼠标移入事件处理 */
 const stopMouseEvent = ref(false);
@@ -26,7 +26,7 @@ const instance = getCurrentInstance()!;
 const props = withDefaults(defineProps<Props>(), {});
 
 const itemStyle = computed(() => {
-  return item => {
+  return (item: optionsItem) => {
     return {
       background:
         item?.path === active.value ? useEpThemeStoreHook().epThemeColor : '',
@@ -71,17 +71,17 @@ const collectList = computed(() => {
   return props.options.filter(item => item.type === 'collect');
 });
 
-function handleCollect(item) {
+function handleCollect(item: optionsItem) {
   emit('collect', item);
 }
 
-function handleDelete(item) {
+function handleDelete(item: optionsItem) {
   stopMouseEvent.value = true;
   emit('delete', item);
 }
 
 /** 鼠标移入 */
-async function handleMouse(item) {
+async function handleMouse(item: optionsItem) {
   if (!stopMouseEvent.value) active.value = item.path;
 }
 
@@ -94,30 +94,34 @@ function resizeResult() {
   innerHeight.value = window.innerHeight - window.innerHeight / 10 - 140;
 }
 
-useResizeObserver(historyRef, resizeResult);
+useResizeObserver(historyRef as any, resizeResult);
 
 function handleScroll(index: number) {
   const curInstance = instance?.proxy?.$refs[`historyItemRef${index}`];
   if (!curInstance) return 0;
   const curRef = isArray(curInstance)
-    ? (curInstance[0] as ElRef)
-    : (curInstance as ElRef);
+    ? (curInstance[0] as HTMLElement | null)
+    : (curInstance as HTMLElement | null);
+  if (!curRef) return 0;
   const scrollTop = curRef.offsetTop + 128; // 128 两个history-item（56px+56px=112px）高度加上下margin（8px+8px=16px）
   return scrollTop > innerHeight.value ? scrollTop - innerHeight.value : 0;
 }
 
-const handleChangeIndex = (evt): void => {
-  emit('drag', { oldIndex: evt.oldIndex, newIndex: evt.newIndex });
+const handleChangeIndex = (evt: SortableEvent): void => {
+  emit('drag', {
+    oldIndex: evt.oldIndex ?? 0,
+    newIndex: evt.newIndex ?? 0
+  });
 };
 
-let sortableInstance = null;
+let sortableInstance: Sortable | null = null;
 
 watch(
   collectList,
   val => {
     if (val.length > 1) {
       nextTick(() => {
-        const wrapper: HTMLElement =
+        const wrapper: HTMLElement | null =
           document.querySelector('.collect-container');
         if (!wrapper || sortableInstance) return;
         sortableInstance = Sortable.create(wrapper, {
@@ -128,7 +132,7 @@ watch(
           onEnd: event => {
             event.item.style.cursor = 'pointer';
           },
-          onUpdate: handleChangeIndex
+          onUpdate: (event: SortableEvent) => handleChangeIndex(event)
         });
         resizeResult();
       });

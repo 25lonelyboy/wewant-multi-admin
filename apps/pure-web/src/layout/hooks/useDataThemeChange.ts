@@ -32,8 +32,8 @@ export function useDataThemeChange() {
   ]);
 
   const { $storage } = useGlobal<GlobalPropertiesApi>();
-  const dataTheme = ref<boolean>($storage?.layout?.darkMode);
-  const themeMode = ref<string>($storage?.layout?.themeMode);
+  const dataTheme = ref<boolean>($storage?.layout?.darkMode ?? false);
+  const themeMode = ref<string>($storage?.layout?.themeMode ?? 'light');
   const body = document.documentElement as HTMLElement;
 
   function toggleClass(flag: boolean, clsName: string, target?: HTMLElement) {
@@ -63,10 +63,10 @@ export function useDataThemeChange() {
     };
 
     if (theme === 'default' || theme === 'light') {
-      setEpThemeColor(getConfig().EpThemeColor);
+      setEpThemeColor(getConfig().EpThemeColor ?? '#409EFF');
     } else {
       const colors = themeColors.value.find(v => v.themeColor === theme);
-      setEpThemeColor(colors.color);
+      setEpThemeColor(colors?.color ?? '#409EFF');
     }
   }
 
@@ -91,7 +91,7 @@ export function useDataThemeChange() {
 
   /** 浅色、深色主题模式切换 */
   function dataThemeChange(mode?: string) {
-    themeMode.value = mode;
+    themeMode.value = mode ?? 'light';
     if (useEpThemeStoreHook().epTheme === 'light' && dataTheme.value) {
       setLayoutThemeColor('default', false);
     } else {
@@ -113,11 +113,19 @@ export function useDataThemeChange() {
     removeToken();
     storageLocal().clear();
     const { Grey, Weak, MultiTagsCache, EpThemeColor, Layout } = getConfig();
-    useAppStoreHook().setLayout(Layout);
-    setEpThemeColor(EpThemeColor);
-    useMultiTagsStoreHook().multiTagsCacheChange(MultiTagsCache);
-    toggleClass(Grey, 'html-grey', document.querySelector('html'));
-    toggleClass(Weak, 'html-weakness', document.querySelector('html'));
+    useAppStoreHook().setLayout(Layout ?? 'vertical');
+    setEpThemeColor(EpThemeColor ?? '#409EFF');
+    useMultiTagsStoreHook().multiTagsCacheChange(MultiTagsCache ?? false);
+    toggleClass(
+      Grey ?? false,
+      'html-grey',
+      document.querySelector('html') as HTMLElement | undefined
+    );
+    toggleClass(
+      Weak ?? false,
+      'html-weakness',
+      document.querySelector('html') as HTMLElement | undefined
+    );
     router.push('/login');
     useMultiTagsStoreHook().handleTags('equal', [...routerArrays]);
     resetRouter();

@@ -18,12 +18,12 @@ interface FormItemProps {
   activePath: string;
   auths: string;
   frameSrc: string;
-  frameLoading: boolean;
-  keepAlive: boolean;
-  hiddenTag: boolean;
-  fixedTag: boolean;
-  showLink: boolean;
-  showParent: boolean;
+  frameLoading: number;
+  keepAlive: number;
+  hiddenTag: number;
+  fixedTag: number;
+  showLink: number;
+  showParent: number;
 }
 interface FormProps {
   formInline: FormItemProps;

@@ -5,6 +5,7 @@ import LayFooter from '../lay-footer/index.vue';
 import { useTags } from '@/layout/hooks/useTag';
 import { useGlobal, isNumber } from '@pureadmin/utils';
 import BackTopIcon from '@/assets/svg/back_top.svg?component';
+import type { RouteLocationNormalizedLoaded } from 'vue-router';
 import { h, computed, Transition, defineComponent } from 'vue';
 import { usePermissionStoreHook } from '@/store/modules/permission';
 
@@ -21,7 +22,7 @@ const isKeepAlive = computed(() => {
 });
 
 const transitions = computed(() => {
-  return route => {
+  return (route: RouteLocationNormalizedLoaded) => {
     return route.meta.transition;
   };
 });
@@ -82,10 +83,10 @@ const transitionMain = defineComponent({
     }
   },
   render() {
-    const transitionName =
-      transitions.value(this.route)?.name || 'fade-transform';
-    const enterTransition = transitions.value(this.route)?.enterTransition;
-    const leaveTransition = transitions.value(this.route)?.leaveTransition;
+    const r = this.route as RouteLocationNormalizedLoaded;
+    const transitionName = transitions.value(r)?.name || 'fade-transform';
+    const enterTransition = transitions.value(r)?.enterTransition;
+    const leaveTransition = transitions.value(r)?.leaveTransition;
     return h(
       Transition,
       {
@@ -100,7 +101,7 @@ const transitionMain = defineComponent({
         appear: true
       },
       {
-        default: () => [this.$slots.default()]
+        default: () => [this.$slots.default?.()]
       }
     );
   }

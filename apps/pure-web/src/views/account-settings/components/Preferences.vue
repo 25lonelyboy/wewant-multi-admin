@@ -25,7 +25,10 @@ const list = ref([
   }
 ]);
 
-function onChange(val, item) {
+function onChange(
+  val: string | number | boolean,
+  item: { title: string; illustrate: string; checked: boolean }
+) {
   console.log('onChange', val);
   message(`${item.title}设置成功`, { type: 'success' });
 }

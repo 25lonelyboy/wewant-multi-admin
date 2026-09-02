@@ -77,7 +77,7 @@ const onLogin = async (formEl: FormInstance | undefined) => {
           // 获取后端路由
           await initRouter();
           disabled.value = true;
-          router.push(getTopMenu(true).path).then(() => {
+          router.push(getTopMenu(true).path ?? '/').then(() => {
             message(t('login.pureLoginSuccess'), { type: 'success' });
           });
         })
@@ -128,7 +128,7 @@ watch(loginDay, value => {
         inline-prompt
         :active-icon="dayIcon"
         :inactive-icon="darkIcon"
-        @change="dataThemeChange"
+        @change="(v: string | number | boolean) => dataThemeChange(String(v))"
       />
       <!-- 国际化 -->
       <el-dropdown trigger="click">
@@ -173,7 +173,7 @@ watch(loginDay, value => {
           <Motion>
             <h2 class="outline-hidden">
               <TypeIt
-                :options="{ strings: [title], cursor: false, speed: 100 }"
+                :options="{ strings: [title ?? ''], cursor: false, speed: 100 }"
               />
             </h2>
           </Motion>

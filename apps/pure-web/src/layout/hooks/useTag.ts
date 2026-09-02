@@ -7,7 +7,7 @@ import {
   type CSSProperties,
   getCurrentInstance
 } from 'vue';
-import type { tagsViewsType } from '../types';
+import type { tagsViewsType, RouteConfigs } from '../types';
 import { useRoute, useRouter } from 'vue-router';
 import { transformI18n, $t } from '@/plugins/i18n';
 import { responsiveStorageNameSpace } from '@/config';
@@ -39,7 +39,7 @@ export function useTags() {
   const buttonLeft = ref(0);
   const translateX = ref(0);
   const visible = ref(false);
-  const activeIndex = ref(-1);
+  const activeIndex = ref<number | string>(-1);
   // 当前右键选中的路由信息
   const currentSelect = ref({});
   const isScrolling = ref(false);
@@ -113,7 +113,11 @@ export function useTags() {
     }
   ]);
 
-  function conditionHandle(item, previous, next) {
+  function conditionHandle(
+    item: RouteConfigs,
+    previous: boolean | string,
+    next: boolean | string
+  ): boolean | string {
     const currentName = route.name || '';
     const itemName = item.name || '';
 
@@ -133,26 +137,26 @@ export function useTags() {
   }
 
   const isFixedTag = computed(() => {
-    return item => {
+    return (item: RouteConfigs) => {
       return isBoolean(item?.meta?.fixedTag) && item?.meta?.fixedTag === true;
     };
   });
 
   const iconIsActive = computed(() => {
-    return (item, index) => {
+    return (item: RouteConfigs, index: string | number) => {
       if (index === 0) return;
       return conditionHandle(item, true, false);
     };
   });
 
   const linkIsActive = computed(() => {
-    return item => {
+    return (item: RouteConfigs) => {
       return conditionHandle(item, 'is-active', '');
     };
   });
 
   const scheduleIsActive = computed(() => {
-    return item => {
+    return (item: RouteConfigs) => {
       return conditionHandle(item, 'schedule-active', '');
     };
   });
@@ -173,32 +177,32 @@ export function useTags() {
   };
 
   /** 鼠标移入添加激活样式 */
-  function onMouseenter(index) {
-    if (index) activeIndex.value = index;
+  function onMouseenter(index: string | number) {
+    if (index) activeIndex.value = Number(index);
+    const refs = instance?.refs as Record<string, any> | undefined;
     if (unref(tagsStyle) === 'smart') {
-      if (hasClass(instance.refs['schedule' + index][0], 'schedule-active'))
-        return;
-      toggleClass(true, 'schedule-in', instance.refs['schedule' + index][0]);
-      toggleClass(false, 'schedule-out', instance.refs['schedule' + index][0]);
+      if (hasClass(refs?.['schedule' + index]?.[0], 'schedule-active')) return;
+      toggleClass(true, 'schedule-in', refs?.['schedule' + index]?.[0]);
+      toggleClass(false, 'schedule-out', refs?.['schedule' + index]?.[0]);
     } else {
-      if (hasClass(instance.refs['dynamic' + index][0], 'is-active')) return;
-      toggleClass(true, 'card-in', instance.refs['dynamic' + index][0]);
-      toggleClass(false, 'card-out', instance.refs['dynamic' + index][0]);
+      if (hasClass(refs?.['dynamic' + index]?.[0], 'is-active')) return;
+      toggleClass(true, 'card-in', refs?.['dynamic' + index]?.[0]);
+      toggleClass(false, 'card-out', refs?.['dynamic' + index]?.[0]);
     }
   }
 
   /** 鼠标移出恢复默认样式 */
-  function onMouseleave(index) {
+  function onMouseleave(index: string | number) {
     activeIndex.value = -1;
+    const refs = instance?.refs as Record<string, any> | undefined;
     if (unref(tagsStyle) === 'smart') {
-      if (hasClass(instance.refs['schedule' + index][0], 'schedule-active'))
-        return;
-      toggleClass(false, 'schedule-in', instance.refs['schedule' + index][0]);
-      toggleClass(true, 'schedule-out', instance.refs['schedule' + index][0]);
+      if (hasClass(refs?.['schedule' + index]?.[0], 'schedule-active')) return;
+      toggleClass(false, 'schedule-in', refs?.['schedule' + index]?.[0]);
+      toggleClass(true, 'schedule-out', refs?.['schedule' + index]?.[0]);
     } else {
-      if (hasClass(instance.refs['dynamic' + index][0], 'is-active')) return;
-      toggleClass(false, 'card-in', instance.refs['dynamic' + index][0]);
-      toggleClass(true, 'card-out', instance.refs['dynamic' + index][0]);
+      if (hasClass(refs?.['dynamic' + index]?.[0], 'is-active')) return;
+      toggleClass(false, 'card-in', refs?.['dynamic' + index]?.[0]);
+      toggleClass(true, 'card-out', refs?.['dynamic' + index]?.[0]);
     }
   }
 

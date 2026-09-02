@@ -2,7 +2,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { defineConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
 import vueJsx from '@vitejs/plugin-vue-jsx';
-import { alias, __APP_INFO__ } from './build/utils';
+import { alias, __APP_INFO__ } from './build/utils.js';
 
 const svgRawStub = fileURLToPath(
   new URL('./src/test-utils/svg-raw-stub.ts', import.meta.url)
@@ -59,14 +59,29 @@ export default defineConfig({
   test: {
     env: { VITE_ROUTER_HISTORY: 'hash' },
     environment: 'jsdom',
-    include: ['src/**/*.spec.{ts,tsx}', 'build/*.spec.ts'],
+    include: ['src/**/*.spec.{ts,tsx}', 'build/*.spec.ts', 'mock/*.spec.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
-      include: ['src/**/*.{ts,tsx,vue}', 'build/*.ts'],
+      include: ['src/**/*.{ts,tsx,vue}', 'build/*.ts', 'mock/*.ts'],
       exclude: ['**/*.d.ts', '**/*.spec.ts'],
       thresholds: {
         'build/utils.ts': { lines: 80, branches: 80 },
+        'build/cdn.ts': { lines: 80, branches: 80 },
+        'build/compress.ts': { lines: 80, branches: 80 },
+        'build/info.ts': { lines: 80, branches: 80 },
+        'build/optimize.ts': { lines: 80, branches: 80 },
+        'build/plugins.ts': { lines: 80, branches: 80 },
+        'mock/asyncRoutes.ts': { lines: 80, branches: 80 },
+        'mock/login.ts': { lines: 80, branches: 80 },
+        'mock/mine.ts': { lines: 80, branches: 80 },
+        'mock/refreshToken.ts': { lines: 80, branches: 80 },
+        'mock/system.ts': { lines: 80, branches: 80 },
+        'src/api/mock.ts': { lines: 80, branches: 80 },
+        'src/api/routes.ts': { lines: 80, branches: 80 },
+        'src/api/system.ts': { lines: 80, branches: 80 },
+        'src/api/user.ts': { lines: 80, branches: 80 },
+        'src/router/enums.ts': { lines: 80, branches: 80 },
         'src/utils/tree.ts': { lines: 80, branches: 80 },
         'src/router/utils.ts': { lines: 80, branches: 80 },
         'src/utils/auth.ts': { lines: 80, branches: 80 },
@@ -140,7 +155,126 @@ export default defineConfig({
         'src/components/ReDrawer/index.ts': { lines: 80, branches: 80 },
         'src/components/ReDrawer/index.vue': { lines: 80, branches: 80 },
         'src/components/ReTypeit/src/index.tsx': { lines: 80, branches: 80 },
-        'src/components/RePureTableBar/src/bar.tsx': { lines: 80, branches: 80 }
+        'src/components/RePureTableBar/src/bar.tsx': {
+          lines: 80,
+          branches: 80
+        },
+        'src/directives/auth/index.ts': { lines: 80, branches: 80 },
+        'src/directives/perms/index.ts': { lines: 80, branches: 80 },
+        'src/directives/copy/index.ts': { lines: 80, branches: 80 },
+        'src/directives/longpress/index.ts': { lines: 80, branches: 80 },
+        'src/directives/optimize/index.ts': { lines: 80, branches: 80 },
+        'src/directives/ripple/index.ts': { lines: 80, branches: 80 },
+        'src/layout/hooks/useTag.ts': { lines: 80, branches: 80 },
+        'src/layout/hooks/useNav.ts': { lines: 80, branches: 80 },
+        'src/layout/hooks/useDataThemeChange.ts': { lines: 80, branches: 80 },
+        'src/layout/hooks/useMultiFrame.ts': { lines: 80, branches: 80 },
+        'src/layout/components/lay-search/components/SearchModal.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-search/components/SearchHistory.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-search/components/SearchHistoryItem.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-search/components/SearchResult.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-search/components/SearchFooter.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-search/types.ts': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-search/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-content/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-footer/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-frame/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-navbar/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-notice/data.ts': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-notice/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-notice/components/NoticeItem.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-notice/components/NoticeList.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-panel/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-setting/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-tag/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-tag/components/TagChrome.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/frame.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/redirect.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/views/login/utils/rule.ts': { lines: 80, branches: 80 },
+        'src/views/login/utils/verifyCode.ts': { lines: 80, branches: 80 },
+        'src/views/login/utils/enums.ts': { lines: 80, branches: 80 },
+        'src/views/login/utils/motion.ts': { lines: 80, branches: 80 },
+        'src/views/welcome/utils.ts': { lines: 80, branches: 80 },
+        'src/views/welcome/data.ts': { lines: 80, branches: 80 },
+        'src/views/welcome/components/table/columns.tsx': {
+          lines: 80,
+          branches: 80
+        },
+        'src/views/monitor/utils.ts': { lines: 80, branches: 80 },
+        'src/views/monitor/online/hook.tsx': { lines: 80, branches: 60 },
+        'src/views/monitor/logs/system/hook.tsx': { lines: 80, branches: 60 },
+        'src/views/monitor/logs/login/hook.tsx': { lines: 80, branches: 60 },
+        'src/views/monitor/logs/operation/hook.tsx': {
+          lines: 80,
+          branches: 60
+        }
       }
     }
   }

@@ -2,3 +2,8 @@
 /public/*
 public/*
 src/style/reset.scss
+coverage/
+playwright-report/
+test-results/
+blob-report/
+node_modules/

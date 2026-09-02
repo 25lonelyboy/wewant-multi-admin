@@ -13,7 +13,7 @@ export function useRole(tableRef: Ref) {
     module: '',
     requestTime: ''
   });
-  const dataList = ref([]);
+  const dataList = ref<Record<string, any>[]>([]);
   const loading = ref(true);
   const selectedNum = ref(0);
   const { copied, update } = useCopyToClipboard();
@@ -145,7 +145,7 @@ export function useRole(tableRef: Ref) {
   }
 
   /** 当CheckBox选择项发生变化时会触发该事件 */
-  function handleSelectionChange(val) {
+  function handleSelectionChange(val: any[]) {
     selectedNum.value = val.length;
     // 重置表格高度
     tableRef.value.setAdaptive();
@@ -159,7 +159,10 @@ export function useRole(tableRef: Ref) {
   }
 
   /** 拷贝请求接口，表格单元格被双击时触发 */
-  function handleCellDblclick({ url }, { property }) {
+  function handleCellDblclick(
+    { url }: { url: string },
+    { property }: { property: string }
+  ) {
     if (property !== 'url') return;
     update(url);
     copied.value
@@ -188,7 +191,7 @@ export function useRole(tableRef: Ref) {
     onSearch();
   }
 
-  function onDetail(row) {
+  function onDetail(row: any) {
     getSystemLogsDetail({ id: row.id }).then(res => {
       addDialog({
         title: '系统日志详情',
@@ -207,9 +210,9 @@ export function useRole(tableRef: Ref) {
     const { code, data } = await getSystemLogsList(toRaw(form));
     if (code === 0) {
       dataList.value = data.list;
-      pagination.total = data.total;
-      pagination.pageSize = data.pageSize;
-      pagination.currentPage = data.currentPage;
+      pagination.total = data.total ?? 0;
+      pagination.pageSize = data.pageSize ?? 10;
+      pagination.currentPage = data.currentPage ?? 1;
     }
 
     setTimeout(() => {
@@ -217,7 +220,7 @@ export function useRole(tableRef: Ref) {
     }, 500);
   }
 
-  const resetForm = formEl => {
+  const resetForm = (formEl: any) => {
     if (!formEl) return;
     formEl.resetFields();
     onSearch();

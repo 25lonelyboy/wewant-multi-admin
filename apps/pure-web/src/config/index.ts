@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { App } from 'vue';
 
-let config: object = {};
+let config: Record<string, any> = {};
 const { VITE_PUBLIC_PATH } = import.meta.env;
 
 const setConfig = (cfg?: unknown) => {
@@ -12,7 +12,7 @@ const getConfig = (key?: string): PlatformConfigs => {
   if (typeof key === 'string') {
     const arr = key.split('.');
     if (arr && arr.length) {
-      let data = config;
+      let data: Record<string, any> | null = config;
       arr.forEach(v => {
         if (data && typeof data[v] !== 'undefined') {
           data = data[v];
@@ -20,10 +20,10 @@ const getConfig = (key?: string): PlatformConfigs => {
           data = null;
         }
       });
-      return data;
+      return data as PlatformConfigs;
     }
   }
-  return config;
+  return config as PlatformConfigs;
 };
 
 /** 获取项目动态全局配置 */

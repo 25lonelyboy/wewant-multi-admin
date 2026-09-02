@@ -49,8 +49,8 @@ const {
 if (unref(layoutTheme)) {
   const layout = unref(layoutTheme).layout;
   const theme = unref(layoutTheme).theme;
-  document.documentElement.setAttribute('data-theme', theme);
-  setMenuLayout(layout);
+  document.documentElement.setAttribute('data-theme', theme || '');
+  setMenuLayout(layout || '');
 }
 
 /** 页签风格默认为谷歌风格 */
@@ -75,35 +75,38 @@ const settings = reactive({
 });
 
 const getThemeColorStyle = computed(() => {
-  return color => {
+  return (color: string) => {
     return { background: color };
   };
 });
 
 /** 当网页整体为暗色风格时不显示亮白色主题配色切换选项 */
 const showThemeColors = computed(() => {
-  return themeColor => {
+  return (themeColor: string) => {
     return themeColor === 'light' && isDark.value ? false : true;
   };
 });
 
-function storageConfigureChange<T>(key: string, val: T): void {
+function storageConfigureChange(
+  key: keyof typeof $storage.configure,
+  val: unknown
+): void {
   const storageConfigure = $storage.configure;
-  storageConfigure[key] = val;
+  (storageConfigure as Record<string, unknown>)[key] = val;
   $storage.configure = storageConfigure;
 }
 
 /** 灰色模式设置 */
-const greyChange = (value): void => {
-  const htmlEl = document.querySelector('html');
-  toggleClass(settings.greyVal, 'html-grey', htmlEl);
+const greyChange = (value: boolean | undefined): void => {
+  const htmlEl = document.querySelector('html') ?? undefined;
+  toggleClass(!!settings.greyVal, 'html-grey', htmlEl);
   storageConfigureChange('grey', value);
 };
 
 /** 色弱模式设置 */
-const weekChange = (value): void => {
-  const htmlEl = document.querySelector('html');
-  toggleClass(settings.weakVal, 'html-weakness', htmlEl);
+const weekChange = (value: boolean | undefined): void => {
+  const htmlEl = document.querySelector('html') ?? undefined;
+  toggleClass(!!settings.weakVal, 'html-weakness', htmlEl);
   storageConfigureChange('weak', value);
 };
 
@@ -124,21 +127,21 @@ const hideFooterChange = () => {
 const multiTagsCacheChange = () => {
   const multiTagsCache = settings.multiTagsCache;
   storageConfigureChange('multiTagsCache', multiTagsCache);
-  useMultiTagsStoreHook().multiTagsCacheChange(multiTagsCache);
+  useMultiTagsStoreHook().multiTagsCacheChange(!!multiTagsCache);
 };
 
-function onChange({ option }) {
+function onChange({ option }: { option: OptionsType }) {
   const { value } = option;
   tagsStyleValue.value = value;
   storageConfigureChange('tagsStyle', value);
   emitter.emit('tagViewsTagsStyle', value);
 }
 
-function onWatermarkSwitchChange(value) {
+function onWatermarkSwitchChange(value: boolean) {
   storageConfigureChange('watermark', value);
 }
 
-function onWatermarkInputChange(text) {
+function onWatermarkInputChange(text: string) {
   storageConfigureChange('watermarkText', text);
 }
 
@@ -150,8 +153,8 @@ function logoChange() {
   emitter.emit('logoChange', unref(logoVal));
 }
 
-function setFalse(Doms): any {
-  Doms.forEach(v => {
+function setFalse(Doms: any[]): any {
+  Doms.forEach((v: any) => {
     toggleClass(false, 'is-select', unref(v));
   });
 }
@@ -172,19 +175,19 @@ const stretchTypeOptions = computed<Array<OptionsType>>(() => {
   ];
 });
 
-const setStretch = value => {
+const setStretch = (value: number | false) => {
   settings.stretch = value;
   storageConfigureChange('stretch', value);
 };
 
-const stretchTypeChange = ({ option }) => {
+const stretchTypeChange = ({ option }: { option: OptionsType }) => {
   const { value } = option;
   value === 'custom' ? setStretch(1440) : setStretch(false);
 };
 
 /** 主题色 激活选择项 */
 const getThemeColor = computed(() => {
-  return current => {
+  return (current: string) => {
     if (
       current === layoutTheme.value.theme &&
       layoutTheme.value.theme !== 'light'
@@ -334,7 +337,7 @@ onUnmounted(() => removeMatchMedia);
       <Segmented
         resize
         class="select-none"
-        :modelValue="themeMode === 'system' ? 2 : dataTheme ? 1 : 0"
+        :modelValue="(themeMode === 'system' ? 2 : dataTheme ? 1 : 0) as any"
         :options="themeOptions"
         @change="
           theme => {
@@ -414,7 +417,7 @@ onUnmounted(() => removeMatchMedia);
         <Segmented
           resize
           class="mb-2 select-none"
-          :modelValue="isNumber(settings.stretch) ? 1 : 0"
+          :modelValue="(isNumber(settings.stretch) ? 1 : 0) as any"
           :options="stretchTypeOptions"
           @change="stretchTypeChange"
         />
@@ -424,13 +427,13 @@ onUnmounted(() => removeMatchMedia);
           :min="1280"
           :max="1600"
           controls-position="right"
-          @change="value => setStretch(value)"
+          @change="(value: number | undefined) => setStretch(value ?? false)"
         />
         <button
           v-else
           v-ripple="{ class: 'text-gray-300' }"
           class="bg-transparent flex-c w-full h-20 rounded-md border border-(--pure-border-color)"
-          @click="setStretch(!settings.stretch)"
+          @click="setStretch(settings.stretch ? false : 1440)"
         >
           <div
             class="flex-bc transition-all duration-300"
@@ -456,7 +459,11 @@ onUnmounted(() => removeMatchMedia);
         resize
         class="select-none"
         :modelValue="
-          tagsStyleValue === 'smart' ? 0 : tagsStyleValue === 'card' ? 1 : 2
+          (tagsStyleValue === 'smart'
+            ? 0
+            : tagsStyleValue === 'card'
+              ? 1
+              : 2) as any
         "
         :options="markOptions"
         @change="onChange"
@@ -475,7 +482,9 @@ onUnmounted(() => removeMatchMedia);
             inline-prompt
             :active-text="t('buttons.pureOpenText')"
             :inactive-text="t('buttons.pureCloseText')"
-            @change="onWatermarkSwitchChange"
+            @change="
+              (val: string | number | boolean) => onWatermarkSwitchChange(!!val)
+            "
           />
         </li>
         <li v-if="watermarkConfigs.enable" v-motion-fade>
@@ -547,7 +556,9 @@ onUnmounted(() => removeMatchMedia);
             inline-prompt
             :active-text="t('buttons.pureOpenText')"
             :inactive-text="t('buttons.pureCloseText')"
-            @change="greyChange"
+            @change="
+              (val: string | number | boolean) => greyChange(val as boolean)
+            "
           />
         </li>
         <li>
@@ -557,7 +568,9 @@ onUnmounted(() => removeMatchMedia);
             inline-prompt
             :active-text="t('buttons.pureOpenText')"
             :inactive-text="t('buttons.pureCloseText')"
-            @change="weekChange"
+            @change="
+              (val: string | number | boolean) => weekChange(val as boolean)
+            "
           />
         </li>
       </ul>

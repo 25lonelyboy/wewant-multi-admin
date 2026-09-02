@@ -10,7 +10,7 @@ const props = defineProps<{
   currComp: Component;
 }>();
 
-const compList = shallowRef([]);
+const compList = shallowRef<Array<[string, Component]>>([]);
 const { setMap, getMap, MAP, delMap } = useMultiFrame();
 
 const keep = computed(() => {

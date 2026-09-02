@@ -123,7 +123,7 @@ const tableData = Array.from({ length: 30 }).map((_, index) => {
 /** 最新动态 */
 const latestNewsData = cloneDeep(tableData)
   .slice(0, 14)
-  .map((item, index) => {
+  .map((item: (typeof tableData)[number], index: number) => {
     return Object.assign(item, {
       date: `${dayjs().subtract(index, 'day').format('YYYY-MM-DD')} ${
         days[dayjs().subtract(index, 'day').day()]

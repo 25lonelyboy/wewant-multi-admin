@@ -8,7 +8,7 @@ export function useRole() {
   const form = reactive({
     username: ''
   });
-  const dataList = ref([]);
+  const dataList = ref<Record<string, any>[]>([]);
   const loading = ref(true);
   const pagination = reactive<PaginationProps>({
     total: 0,
@@ -69,11 +69,11 @@ export function useRole() {
     console.log(`current page: ${val}`);
   }
 
-  function handleSelectionChange(val) {
+  function handleSelectionChange(val: any[]) {
     console.log('handleSelectionChange', val);
   }
 
-  function handleOffline(row) {
+  function handleOffline(row: any) {
     message(`${row.username}已被强制下线`, { type: 'success' });
     onSearch();
   }
@@ -83,9 +83,9 @@ export function useRole() {
     const { code, data } = await getOnlineLogsList(toRaw(form));
     if (code === 0) {
       dataList.value = data.list;
-      pagination.total = data.total;
-      pagination.pageSize = data.pageSize;
-      pagination.currentPage = data.currentPage;
+      pagination.total = data.total ?? 0;
+      pagination.pageSize = data.pageSize ?? 10;
+      pagination.currentPage = data.currentPage ?? 1;
     }
 
     setTimeout(() => {
@@ -93,7 +93,7 @@ export function useRole() {
     }, 500);
   }
 
-  const resetForm = formEl => {
+  const resetForm = (formEl: any) => {
     if (!formEl) return;
     formEl.resetFields();
     onSearch();

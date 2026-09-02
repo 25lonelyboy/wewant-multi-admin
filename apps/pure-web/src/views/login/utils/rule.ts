@@ -15,7 +15,7 @@ export const REGEXP_PWD =
 const loginRules = reactive<FormRules>({
   password: [
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule, value, callback) => {
         if (value === '') {
           callback(new Error(transformI18n($t('login.purePassWordReg'))));
         } else if (!REGEXP_PWD.test(value)) {
@@ -29,7 +29,7 @@ const loginRules = reactive<FormRules>({
   ],
   verifyCode: [
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule, value, callback) => {
         if (value === '') {
           callback(new Error(transformI18n($t('login.pureVerifyCodeReg'))));
         } else if (useUserStoreHook().verifyCode !== value) {
@@ -49,7 +49,7 @@ const loginRules = reactive<FormRules>({
 const phoneRules = reactive<FormRules>({
   phone: [
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule, value, callback) => {
         if (value === '') {
           callback(new Error(transformI18n($t('login.purePhoneReg'))));
         } else if (!isPhone(value)) {
@@ -63,7 +63,7 @@ const phoneRules = reactive<FormRules>({
   ],
   verifyCode: [
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule, value, callback) => {
         if (value === '') {
           callback(new Error(transformI18n($t('login.pureVerifyCodeReg'))));
         } else if (!REGEXP_SIX.test(value)) {
@@ -81,7 +81,7 @@ const phoneRules = reactive<FormRules>({
 const updateRules = reactive<FormRules>({
   phone: [
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule, value, callback) => {
         if (value === '') {
           callback(new Error(transformI18n($t('login.purePhoneReg'))));
         } else if (!isPhone(value)) {
@@ -95,7 +95,7 @@ const updateRules = reactive<FormRules>({
   ],
   verifyCode: [
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule, value, callback) => {
         if (value === '') {
           callback(new Error(transformI18n($t('login.pureVerifyCodeReg'))));
         } else if (!REGEXP_SIX.test(value)) {
@@ -109,7 +109,7 @@ const updateRules = reactive<FormRules>({
   ],
   password: [
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule, value, callback) => {
         if (value === '') {
           callback(new Error(transformI18n($t('login.purePassWordReg'))));
         } else if (!REGEXP_PWD.test(value)) {

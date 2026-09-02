@@ -12,7 +12,7 @@ export function useRole(tableRef: Ref) {
     status: '',
     loginTime: ''
   });
-  const dataList = ref([]);
+  const dataList = ref<Record<string, any>[]>([]);
   const loading = ref(true);
   const selectedNum = ref(0);
   const { tagStyle } = usePublicHooks();
@@ -93,7 +93,7 @@ export function useRole(tableRef: Ref) {
   }
 
   /** 当CheckBox选择项发生变化时会触发该事件 */
-  function handleSelectionChange(val) {
+  function handleSelectionChange(val: any[]) {
     selectedNum.value = val.length;
     // 重置表格高度
     tableRef.value.setAdaptive();
@@ -132,9 +132,9 @@ export function useRole(tableRef: Ref) {
     const { code, data } = await getLoginLogsList(toRaw(form));
     if (code === 0) {
       dataList.value = data.list;
-      pagination.total = data.total;
-      pagination.pageSize = data.pageSize;
-      pagination.currentPage = data.currentPage;
+      pagination.total = data.total ?? 0;
+      pagination.pageSize = data.pageSize ?? 10;
+      pagination.currentPage = data.currentPage ?? 1;
     }
 
     setTimeout(() => {
@@ -142,7 +142,7 @@ export function useRole(tableRef: Ref) {
     }, 500);
   }
 
-  const resetForm = formEl => {
+  const resetForm = (formEl: any) => {
     if (!formEl) return;
     formEl.resetFields();
     onSearch();

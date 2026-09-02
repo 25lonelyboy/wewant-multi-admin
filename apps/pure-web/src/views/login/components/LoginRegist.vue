@@ -28,10 +28,14 @@ const ruleFormRef = ref<FormInstance>();
 const { isDisabled, text } = useVerifyCode();
 const repeatPasswordRule = [
   {
-    validator: (rule, value, callback) => {
+    validator: (
+      _rule: unknown,
+      value: unknown,
+      callback: (error?: Error) => void
+    ) => {
       if (value === '') {
         callback(new Error(transformI18n($t('login.purePassWordSureReg'))));
-      } else if (ruleForm.password !== value) {
+      } else if (ruleForm.password !== (value as string)) {
         callback(
           new Error(transformI18n($t('login.purePassWordDifferentReg')))
         );

@@ -19,7 +19,7 @@ import Setting from '~icons/ri/settings-3-line';
 import Check from '~icons/ep/check';
 
 const menuRef = ref();
-const defaultActive = ref(null);
+const defaultActive = ref<string | undefined>(undefined);
 
 const { t, route, locale, translationCh, translationEn } =
   useTranslationLang(menuRef);
@@ -37,13 +37,14 @@ const {
   getDropdownItemClass
 } = useNav();
 
-function getDefaultActive(routePath) {
+function getDefaultActive(routePath: string) {
   const wholeMenus = usePermissionStoreHook().wholeMenus;
   /** 当前路由的父级路径 */
   const parentRoutes = getParentPaths(routePath, wholeMenus)[0];
   defaultActive.value = !isAllEmpty(route.meta?.activePath)
-    ? route.meta.activePath
-    : findRouteByPath(parentRoutes, wholeMenus)?.children[0]?.path;
+    ? (route.meta.activePath as string)
+    : (findRouteByPath(parentRoutes, wholeMenus)?.children?.[0]?.path ??
+      undefined);
 }
 
 onMounted(() => {

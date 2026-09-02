@@ -27,7 +27,8 @@ const { t } = useI18n();
 const { onReset } = useDataThemeChange();
 
 onClickOutside(target, (event: any) => {
-  if (event.clientX > target.value.offsetLeft) return;
+  const el = target.value as HTMLElement | null;
+  if (!el || event.clientX > el.offsetLeft) return;
   show.value = false;
 });
 

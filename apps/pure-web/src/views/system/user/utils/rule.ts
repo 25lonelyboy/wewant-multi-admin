@@ -9,7 +9,7 @@ export const formRules = reactive(<FormRules>{
   password: [{ required: true, message: '用户密码为必填项', trigger: 'blur' }],
   phone: [
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule, value, callback) => {
         if (value === '') {
           callback();
         } else if (!isPhone(value)) {
@@ -24,7 +24,7 @@ export const formRules = reactive(<FormRules>{
   ],
   email: [
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule, value, callback) => {
         if (value === '') {
           callback();
         } else if (!isEmail(value)) {
