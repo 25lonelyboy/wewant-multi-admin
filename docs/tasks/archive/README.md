@@ -129,8 +129,8 @@
 | `2026-08-31-pure-web-testing-foundation-b4-plan.md` | B4 收口批次计划（13 任务） |
 | `2026-08-29-pure-web-testing-foundation-plan.md` | 总体实施计划 |
 | `component-inventory.md` | 遗留组件盘点 |
-| `upstream-baseline.md` | 上游基线 SHA 记录 |
+| ~~`upstream-baseline.md`~~ | 已提升为活文档 → [upstream-tracking.md](../../engineering/upstream-tracking.md)（上游同步为持续性机制，不随任务归档） |
 
-结论去向：测试基建与 strict 单一配置 → [build-and-verify.md](../../engineering/build-and-verify.md)；已关闭 backlog 条目（测试基建 / E2E / 最终态收口 / print.ts / Canvas 豁免 / vitest 兼容）→ [backlog.md](../../governance/backlog.md)。
+结论去向：测试基建与 strict 单一配置 → [build-and-verify.md](../../engineering/build-and-verify.md)；上游基线长期维护 → [upstream-tracking.md](../../engineering/upstream-tracking.md)；已关闭 backlog 条目（测试基建 / E2E / 最终态收口 / print.ts / Canvas 豁免 / vitest 兼容）→ [backlog.md](../../governance/backlog.md)。
 
-归档日期：2026-09-02（B4 收口批次 13 任务全部完成，963 单测 / 122 文件 / 9 E2E / strict 全量迁入单一 tsconfig，结论提升完毕）。
+归档日期：2026-09-02（B4 收口批次 13 任务全部完成，单测 / E2E 全绿，strict 全量迁入单一 tsconfig，结论提升完毕）。

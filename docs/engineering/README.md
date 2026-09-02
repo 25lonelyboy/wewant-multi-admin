@@ -7,4 +7,5 @@
 | 文档 | 内容 |
 |---|---|
 | [dependency-catalog.md](dependency-catalog.md) | pnpm catalog 依赖治理：入 catalog 判据、A/B/C/D 分类法、named catalog 隔离、pin 策略 |
-| [build-and-verify.md](build-and-verify.md) | 质量门禁（pnpm check + husky）、各端构建链、Docker 构建约束 |
+| [build-and-verify.md](build-and-verify.md) | 质量门禁（pnpm check + husky）、各端构建链、Docker 构建约束、测试分层 |
+| [upstream-tracking.md](upstream-tracking.md) | pure-web 上游同步跟踪：基线快照 + 选择性吸收机制、当前基线记录与推进历史 |
