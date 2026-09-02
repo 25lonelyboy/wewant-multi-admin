@@ -4,13 +4,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mocks = vi.hoisted(() => ({
   getSystemLogsList: vi.fn(),
   getSystemLogsDetail: vi.fn(),
-  addDialog: vi.fn()
+  addDialog: vi.fn(),
+  message: vi.fn(),
+  copiedValue: true
 }));
 vi.mock('@/api/system', () => ({
   getSystemLogsList: mocks.getSystemLogsList,
   getSystemLogsDetail: mocks.getSystemLogsDetail
 }));
-vi.mock('@/utils/message', () => ({ message: vi.fn() }));
+vi.mock('@/utils/message', () => ({ message: mocks.message }));
 vi.mock('@/components/ReDialog', () => ({ addDialog: mocks.addDialog }));
 vi.mock('./detail.vue', () => ({ default: { template: '<div />' } }));
 vi.mock('@pureadmin/utils', async () => {
@@ -19,7 +21,11 @@ vi.mock('@pureadmin/utils', async () => {
     ...actual,
     getKeyList: (list: any[], key: string) => list.map((i: any) => i[key]),
     useCopyToClipboard: () => ({
-      copied: { value: true },
+      copied: {
+        get value() {
+          return mocks.copiedValue;
+        }
+      },
       update: vi.fn()
     })
   };
@@ -39,6 +45,7 @@ const mockTableRef = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.copiedValue = true;
   mocks.getSystemLogsList.mockResolvedValue({
     code: 0,
     data: { list: [], total: 0, pageSize: 10, currentPage: 1 }
@@ -78,6 +85,32 @@ describe('monitor/logs/system/hook', () => {
     expect(pagination.total).toBe(1);
     expect(pagination.pageSize).toBe(10);
     expect(pagination.currentPage).toBe(1);
+  });
+
+  it('onSearch 非 0 码时不更新 dataList', async () => {
+    mocks.getSystemLogsList.mockResolvedValue({ code: 1, data: null });
+    const { onSearch, dataList } = useRole(mockTableRef);
+    await onSearch();
+    expect(dataList.value).toEqual([]);
+  });
+
+  it('onSearch 分页字段缺失时使用兜底默认值', async () => {
+    mocks.getSystemLogsList.mockResolvedValue({
+      code: 0,
+      data: { list: [] }
+    });
+    const { onSearch, pagination } = useRole(mockTableRef);
+    await onSearch();
+    expect(pagination.total).toBe(0);
+    expect(pagination.pageSize).toBe(10);
+    expect(pagination.currentPage).toBe(1);
+  });
+
+  it('url 列 headerRenderer 渲染提示图标', () => {
+    const { columns } = useRole(mockTableRef);
+    const col = columns.find((c: any) => c.prop === 'url') as any;
+    expect(col.headerRenderer).toBeDefined();
+    expect(() => col.headerRenderer()).not.toThrow();
   });
 
   it('handleSelectionChange 更新 selectedNum', () => {
@@ -178,6 +211,25 @@ describe('monitor/logs/system/hook', () => {
         fullscreen: true,
         hideFooter: true
       })
+    );
+  });
+
+  it('onDetail contentRenderer 可执行并返回详情组件', async () => {
+    const { onDetail } = useRole(mockTableRef);
+    onDetail({ id: 3 });
+    await vi.dynamicImportSettled();
+    const opts = mocks.addDialog.mock.calls[0][0];
+    expect(typeof opts.contentRenderer).toBe('function');
+    expect(opts.contentRenderer()).toBeDefined();
+  });
+
+  it('handleCellDblclick 拷贝失败时提示 warning', () => {
+    mocks.copiedValue = false;
+    const { handleCellDblclick } = useRole(mockTableRef);
+    handleCellDblclick({ url: '/api/test' }, { property: 'url' });
+    expect(mocks.message).toHaveBeenCalledWith(
+      '拷贝失败',
+      expect.objectContaining({ type: 'warning' })
     );
   });
 

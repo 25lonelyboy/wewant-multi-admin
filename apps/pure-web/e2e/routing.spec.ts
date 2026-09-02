@@ -19,7 +19,15 @@ async function loginAsAdmin(page: import('@playwright/test').Page) {
 
   await page.getByPlaceholder('验证码').fill(code);
   await page.getByRole('button', { name: '登录', exact: true }).click();
-  await page.waitForURL('**/#/**', { timeout: 15_000 });
+  // 等待动态路由注册完成（兜底路由 PageNotFound 注册即标志 initRouter 已完成）
+  await page.waitForFunction(
+    () => {
+      const app = document.querySelector('#app') as any;
+      const router = app?.__vue_app__?.config?.globalProperties?.$router;
+      return router?.hasRoute('PageNotFound') === true;
+    },
+    { timeout: 15_000 }
+  );
   await page.waitForLoadState('load');
 }
 
@@ -67,8 +75,12 @@ test.describe('动态路由冒烟', () => {
   test('404 页面：访问未知路由命中兜底渲染 404 页', async ({ page }) => {
     await loginAsAdmin(page);
 
-    // 动态路由注册完成后，未知路径应命中 `/:pathMatch(.*)*` 兜底路由并渲染 404 组件
-    await page.goto('/#/e2e-nonexistent-route');
+    // 登录后兜底路由已注册，用客户端导航触发 404 组件渲染
+    await page.evaluate(() => {
+      const app = document.querySelector('#app') as any;
+      const router = app?.__vue_app__?.config?.globalProperties?.$router;
+      router.push('/e2e-nonexistent-route');
+    });
     await expect(page.getByText('抱歉，你访问的页面不存在')).toBeVisible({
       timeout: 15_000
     });

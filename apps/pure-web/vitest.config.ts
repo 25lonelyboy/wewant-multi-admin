@@ -268,12 +268,12 @@ export default defineConfig({
           branches: 80
         },
         'src/views/monitor/utils.ts': { lines: 80, branches: 80 },
-        'src/views/monitor/online/hook.tsx': { lines: 80, branches: 60 },
-        'src/views/monitor/logs/system/hook.tsx': { lines: 80, branches: 60 },
-        'src/views/monitor/logs/login/hook.tsx': { lines: 80, branches: 60 },
+        'src/views/monitor/online/hook.tsx': { lines: 80, branches: 80 },
+        'src/views/monitor/logs/system/hook.tsx': { lines: 80, branches: 80 },
+        'src/views/monitor/logs/login/hook.tsx': { lines: 80, branches: 80 },
         'src/views/monitor/logs/operation/hook.tsx': {
           lines: 80,
-          branches: 60
+          branches: 80
         }
       }
     }

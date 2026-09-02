@@ -57,6 +57,25 @@ describe('monitor/online/hook', () => {
     expect(pagination.currentPage).toBe(1);
   });
 
+  it('onSearch 非 0 码时不更新 dataList', async () => {
+    apiMock.getOnlineLogsList.mockResolvedValue({ code: 1, data: null });
+    const { onSearch, dataList } = useRole();
+    await onSearch();
+    expect(dataList.value).toEqual([]);
+  });
+
+  it('onSearch 分页字段缺失时使用兜底默认值', async () => {
+    apiMock.getOnlineLogsList.mockResolvedValue({
+      code: 0,
+      data: { list: [] }
+    });
+    const { onSearch, pagination } = useRole();
+    await onSearch();
+    expect(pagination.total).toBe(0);
+    expect(pagination.pageSize).toBe(10);
+    expect(pagination.currentPage).toBe(1);
+  });
+
   it('handleOffline 调用 message 并重新搜索', () => {
     const { handleOffline } = useRole();
     expect(() => handleOffline({ username: 'test' })).not.toThrow();

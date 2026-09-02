@@ -68,6 +68,25 @@ describe('monitor/logs/login/hook', () => {
     expect(pagination.total).toBe(1);
   });
 
+  it('onSearch 非 0 码时不更新 dataList', async () => {
+    apiMock.getLoginLogsList.mockResolvedValue({ code: 1, data: null });
+    const { onSearch, dataList } = useRole(mockTableRef);
+    await onSearch();
+    expect(dataList.value).toEqual([]);
+  });
+
+  it('onSearch 分页字段缺失时使用兜底默认值', async () => {
+    apiMock.getLoginLogsList.mockResolvedValue({
+      code: 0,
+      data: { list: [] }
+    });
+    const { onSearch, pagination } = useRole(mockTableRef);
+    await onSearch();
+    expect(pagination.total).toBe(0);
+    expect(pagination.pageSize).toBe(10);
+    expect(pagination.currentPage).toBe(1);
+  });
+
   it('handleSelectionChange 更新 selectedNum', () => {
     const { handleSelectionChange, selectedNum } = useRole(mockTableRef);
     handleSelectionChange([{ id: 1 }]);
