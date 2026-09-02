@@ -64,28 +64,17 @@ test.describe('动态路由冒烟', () => {
     expect(routeMeta.title).toBeTruthy();
   });
 
-  test('404 页面：404 组件已注册且路由守卫逻辑正确', async ({ page }) => {
+  test('404 页面：访问未知路由命中兜底渲染 404 页', async ({ page }) => {
     await loginAsAdmin(page);
 
-    // 验证 404 组件模块存在（通过动态导入检查）
-    const componentExists = await page.evaluate(async () => {
-      try {
-        const mod = await import('/src/views/error/404.vue');
-        return !!mod?.default;
-      } catch {
-        return false;
-      }
+    // 动态路由注册完成后，未知路径应命中 `/:pathMatch(.*)*` 兜底路由并渲染 404 组件
+    await page.goto('/#/e2e-nonexistent-route');
+    await expect(page.getByText('抱歉，你访问的页面不存在')).toBeVisible({
+      timeout: 15_000
     });
-    expect(componentExists).toBe(true);
 
-    // 验证路由守卫中有 404 重定向逻辑
-    const guardHas404Logic = await page.evaluate(() => {
-      const app = document.querySelector('#app') as any;
-      const router = app?.__vue_app__?.config?.globalProperties?.$router;
-      // 检查路由实例是否存在
-      return !!router;
-    });
-    expect(guardHas404Logic).toBe(true);
+    // 404 页提供返回首页入口（组件真实渲染而非仅模块存在）
+    await expect(page.getByRole('button', { name: '返回首页' })).toBeVisible();
   });
 
   test('未登录访问受保护路由重定向到登录页', async ({ page }) => {
