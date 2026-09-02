@@ -62,12 +62,12 @@ describe('menu/form.vue', () => {
           activePath: '',
           auths: '',
           frameSrc: '',
-          frameLoading: 1,
-          keepAlive: 0,
-          hiddenTag: 0,
-          fixedTag: 0,
-          showLink: 1,
-          showParent: 0
+          frameLoading: true,
+          keepAlive: false,
+          hiddenTag: false,
+          fixedTag: false,
+          showLink: true,
+          showParent: false
         }
       }
     });
