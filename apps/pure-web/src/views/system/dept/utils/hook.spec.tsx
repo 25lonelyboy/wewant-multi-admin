@@ -34,6 +34,21 @@ vi.mock('@/utils/tree', () => ({
 }));
 
 import { useDept } from './hook';
+import type { FormInstance } from 'element-plus';
+import type { DeptRow } from './types';
+
+const deptRowFixture: DeptRow = {
+  id: 1,
+  parentId: 0,
+  name: '测试部门',
+  principal: '',
+  phone: '',
+  email: '',
+  sort: 0,
+  status: 1,
+  createTime: '2026-01-01 00:00:00',
+  remark: ''
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -89,14 +104,14 @@ describe('useDept', () => {
 
   it('resetForm 无参时安全返回', () => {
     const { resetForm } = useDept();
-    expect(() => resetForm(null)).not.toThrow();
+    expect(() => resetForm(null as unknown as FormInstance)).not.toThrow();
     expect(() => resetForm(undefined)).not.toThrow();
   });
 
   it('resetForm 有参时调用 resetFields 并刷新', () => {
     const { resetForm } = useDept();
     const mockFormEl = { resetFields: vi.fn() };
-    resetForm(mockFormEl);
+    resetForm(mockFormEl as unknown as FormInstance);
     expect(mockFormEl.resetFields).toHaveBeenCalled();
   });
 
@@ -140,7 +155,7 @@ describe('useDept', () => {
 
   it('handleDelete 调用 message 并触发 onSearch', () => {
     const { handleDelete } = useDept();
-    handleDelete({ name: '测试部门' });
+    handleDelete(deptRowFixture);
     // handleDelete 内部调用 message 和 onSearch
   });
 

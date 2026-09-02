@@ -1,13 +1,18 @@
 import dayjs from 'dayjs';
 import editForm from '../form.vue';
 import { message } from '@/utils/message';
-import { ElMessageBox } from 'element-plus';
+import { ElMessageBox, type FormInstance } from 'element-plus';
 import { usePublicHooks } from '../../hooks';
 import { transformI18n } from '@/plugins/i18n';
 import { addDialog } from '@/components/ReDialog';
 import type { FormItemProps } from '../utils/types';
 import type { PaginationProps } from '@pureadmin/table';
-import type { EntityId, MenuVO, RoleQuery } from '@multi-admin/contracts';
+import type {
+  EntityId,
+  MenuVO,
+  RoleQuery,
+  RoleVO
+} from '@multi-admin/contracts';
 import {
   createRole,
   deleteRole,
@@ -39,9 +44,9 @@ export function useRole(treeRef: Ref) {
     code: '',
     status: ''
   });
-  const curRow = ref();
+  const curRow = ref<RoleVO | null>(null);
   const formRef = ref();
-  const dataList = ref<any[]>([]);
+  const dataList = ref<RoleVO[]>([]);
   const treeIds = ref<EntityId[]>([]);
   const treeData = ref<MenuVO[]>([]);
   const isShow = ref(false);
@@ -89,7 +94,7 @@ export function useRole(treeRef: Ref) {
           inactive-text="已停用"
           inline-prompt
           style={switchStyle.value}
-          onChange={() => onChange(scope as any)}
+          onChange={() => onChange(scope as { row: RoleVO; index: number })}
         />
       ),
       minWidth: 90
@@ -123,7 +128,7 @@ export function useRole(treeRef: Ref) {
   //   ];
   // });
 
-  function onChange({ row, index }: { row: any; index: number }) {
+  function onChange({ row, index }: { row: RoleVO; index: number }) {
     ElMessageBox.confirm(
       `确认要<strong>${
         row.status === 'DISABLED' ? '停用' : '启用'
@@ -172,7 +177,7 @@ export function useRole(treeRef: Ref) {
       });
   }
 
-  async function handleDelete(row: any) {
+  async function handleDelete(row: RoleVO) {
     try {
       await deleteRole(row.id);
       message(`已删除角色名称为${row.name}的数据`, { type: 'success' });
@@ -215,7 +220,7 @@ export function useRole(treeRef: Ref) {
     loading.value = false;
   }
 
-  const resetForm = (formEl: any) => {
+  const resetForm = (formEl: FormInstance | undefined) => {
     if (!formEl) return;
     formEl.resetFields();
     onSearch();
@@ -276,7 +281,7 @@ export function useRole(treeRef: Ref) {
   }
 
   /** 菜单权限 */
-  async function handleMenu(row?: any) {
+  async function handleMenu(row?: RoleVO) {
     const id = row?.id;
     if (id) {
       curRow.value = row;
@@ -301,6 +306,7 @@ export function useRole(treeRef: Ref) {
 
   /** 菜单权限-保存 */
   function handleSave() {
+    if (!curRow.value) return;
     const { id, name } = curRow.value;
     setRoleMenus(id, { menuIds: treeRef.value.getCheckedKeys() })
       .then(() => {
@@ -320,7 +326,8 @@ export function useRole(treeRef: Ref) {
     treeRef.value!.filter(query);
   };
 
-  const filterMethod = (query: string, node: any) => {
+  /** el-tree filter-node-method：节点数据仅依赖 title（transformI18n 兼容 i18n 对象） */
+  const filterMethod = (query: string, node: { title?: string }) => {
     return transformI18n(node.title)!.includes(query);
   };
 

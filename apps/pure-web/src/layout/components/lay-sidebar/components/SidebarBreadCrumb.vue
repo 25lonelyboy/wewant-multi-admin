@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { isEqual } from '@pureadmin/utils';
 import { transformI18n } from '@/plugins/i18n';
+import type { multiType } from '@/store/types';
 import { useRoute, useRouter, type RouteRecordRaw } from 'vue-router';
 import { ref, watch, onMounted, toRaw } from 'vue';
 import { getParentPaths, findRouteByPath } from '@/router/utils';
@@ -9,21 +10,21 @@ import { useMultiTagsStoreHook } from '@/store/modules/multiTags';
 const route = useRoute();
 const levelList = ref<RouteRecordRaw[]>([]);
 const router = useRouter();
-const routes: any = router.options.routes;
-const multiTags: any = useMultiTagsStoreHook().multiTags;
+const routes = router.options.routes as RouteRecordRaw[];
+const multiTags: multiType[] = useMultiTagsStoreHook().multiTags;
 
 const getBreadcrumb = (): void => {
   // 当前路由信息
   let currentRoute: any;
 
   if (Object.keys(route.query).length > 0) {
-    multiTags.forEach((item: any) => {
+    multiTags.forEach((item: multiType) => {
       if (isEqual(route.query, item?.query)) {
         currentRoute = toRaw(item);
       }
     });
   } else if (Object.keys(route.params).length > 0) {
-    multiTags.forEach((item: any) => {
+    multiTags.forEach((item: multiType) => {
       if (isEqual(route.params, item?.params)) {
         currentRoute = toRaw(item);
       }

@@ -7,7 +7,8 @@ import {
   computed,
   nextTick,
   onUnmounted,
-  onBeforeMount
+  onBeforeMount,
+  type Ref
 } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { emitter } from '@/utils/mitt';
@@ -17,7 +18,7 @@ import { useAppStoreHook } from '@/store/modules/app';
 import { useMultiTagsStoreHook } from '@/store/modules/multiTags';
 import Segmented, { type OptionsType } from '@/components/ReSegmented';
 import { useDataThemeChange } from '@/layout/hooks/useDataThemeChange';
-import { useDark, useGlobal, debounce, isNumber } from '@pureadmin/utils';
+import { useDark, useGlobal, isNumber } from '@pureadmin/utils';
 
 import Check from '~icons/ep/check';
 import LeftArrow from '~icons/ri/arrow-left-s-line?width=20&height=20';
@@ -153,8 +154,8 @@ function logoChange() {
   emitter.emit('logoChange', unref(logoVal));
 }
 
-function setFalse(Doms: any[]): any {
-  Doms.forEach((v: any) => {
+function setFalse(Doms: Ref<HTMLElement | undefined>[]): void {
+  Doms.forEach(v => {
     toggleClass(false, 'is-select', unref(v));
   });
 }
@@ -274,18 +275,18 @@ watch($storage, ({ layout }) => {
   switch (layout['layout']) {
     case 'vertical':
       toggleClass(true, 'is-select', unref(verticalRef));
-      debounce(setFalse([horizontalRef]), 50);
-      debounce(setFalse([mixRef]), 50);
+      setFalse([horizontalRef]);
+      setFalse([mixRef]);
       break;
     case 'horizontal':
       toggleClass(true, 'is-select', unref(horizontalRef));
-      debounce(setFalse([verticalRef]), 50);
-      debounce(setFalse([mixRef]), 50);
+      setFalse([verticalRef]);
+      setFalse([mixRef]);
       break;
     case 'mix':
       toggleClass(true, 'is-select', unref(mixRef));
-      debounce(setFalse([verticalRef]), 50);
-      debounce(setFalse([horizontalRef]), 50);
+      setFalse([verticalRef]);
+      setFalse([horizontalRef]);
       break;
   }
 });

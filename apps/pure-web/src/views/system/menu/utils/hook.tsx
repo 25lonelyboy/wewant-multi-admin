@@ -3,7 +3,8 @@ import { message } from '@/utils/message';
 import { transformI18n } from '@/plugins/i18n';
 import { addDialog } from '@/components/ReDialog';
 import { reactive, ref, onMounted, h } from 'vue';
-import type { FormItemProps } from '../utils/types';
+import type { FormInstance } from 'element-plus';
+import type { FormItemProps, MenuDisplayRow } from '../utils/types';
 import { useRenderIcon } from '@/components/ReIcon/src/hooks';
 import { cloneDeep, isAllEmpty, deviceDetection } from '@pureadmin/utils';
 import { createMenu, deleteMenu, getMenuList, updateMenu } from '@/api/system';
@@ -30,8 +31,11 @@ const NUM_TO_MENU_TYPE: Record<number, MenuTypeValue> = {
   3: 'BUTTON'
 };
 
+/** el-tag type 合法取值（菜单类型标签色） */
+type MenuTagType = 'primary' | 'warning' | 'danger' | 'info';
+
 /** MenuVO 树 → 表单/展示行（meta 展开、visible→showLink、permission→auths） */
-function toDisplayRows(nodes: MenuVO[]): any[] {
+function toDisplayRows(nodes: MenuVO[]): MenuDisplayRow[] {
   return nodes.map(node => ({
     id: node.id,
     parentId: node.parentId ?? '',
@@ -43,25 +47,28 @@ function toDisplayRows(nodes: MenuVO[]): any[] {
     component: node.component ?? '',
     auths: node.permission ?? '',
     sort: node.sort,
-    showLink: node.visible ? 1 : 0,
+    showLink: node.visible ?? true,
     redirect: node.meta?.redirect ?? '',
     extraIcon: node.meta?.extraIcon ?? '',
     enterTransition: node.meta?.enterTransition ?? '',
     leaveTransition: node.meta?.leaveTransition ?? '',
     activePath: node.meta?.activePath ?? '',
     frameSrc: node.meta?.frameSrc ?? '',
-    frameLoading: (node.meta?.frameLoading ?? true) ? 1 : 0,
-    keepAlive: (node.meta?.keepAlive ?? false) ? 1 : 0,
-    hiddenTag: (node.meta?.hiddenTag ?? false) ? 1 : 0,
-    fixedTag: (node.meta?.fixedTag ?? false) ? 1 : 0,
-    showParent: (node.meta?.showParent ?? false) ? 1 : 0,
+    frameLoading: node.meta?.frameLoading ?? true,
+    keepAlive: node.meta?.keepAlive ?? false,
+    hiddenTag: node.meta?.hiddenTag ?? false,
+    fixedTag: node.meta?.fixedTag ?? false,
+    showParent: node.meta?.showParent ?? false,
     children: toDisplayRows(node.children)
   }));
 }
 
 /** 树过滤：自身或任一子孙命中即保留（保持嵌套结构） */
-function filterMenuTree(rows: any[], keyword: string): any[] {
-  return rows.reduce<any[]>((acc, row) => {
+function filterMenuTree(
+  rows: MenuDisplayRow[],
+  keyword: string
+): MenuDisplayRow[] {
+  return rows.reduce<MenuDisplayRow[]>((acc, row) => {
     const children = filterMenuTree(row.children ?? [], keyword);
     if (transformI18n(row.title).includes(keyword) || children.length) {
       acc.push({ ...row, children });
@@ -76,7 +83,7 @@ export function useMenu() {
   });
 
   const formRef = ref();
-  const dataList = ref<any[]>([]);
+  const dataList = ref<MenuDisplayRow[]>([]);
   const loading = ref(true);
 
   const getMenuType = (type: number, text = false) => {
@@ -90,7 +97,7 @@ export function useMenu() {
       case 3:
         return text ? '按钮' : 'info';
       default:
-        return text ? '' : '';
+        return text ? '' : 'info';
     }
   };
 
@@ -117,7 +124,7 @@ export function useMenu() {
       cellRenderer: ({ row, props }) => (
         <el-tag
           size={props.size}
-          type={getMenuType(row.menuType) as any}
+          type={getMenuType(row.menuType) as MenuTagType}
           effect="plain"
         >
           {getMenuType(row.menuType, true)}
@@ -161,7 +168,7 @@ export function useMenu() {
     console.log('handleSelectionChange', _val);
   }
 
-  function resetForm(formEl: any) {
+  function resetForm(formEl: FormInstance | undefined) {
     if (!formEl) return;
     formEl.resetFields();
     onSearch();
@@ -179,9 +186,9 @@ export function useMenu() {
     loading.value = false;
   }
 
-  function formatHigherMenuOptions(treeList: any[]) {
+  function formatHigherMenuOptions(treeList: MenuDisplayRow[] | undefined) {
     if (!treeList || !treeList.length) return;
-    const newTreeList = [];
+    const newTreeList: MenuDisplayRow[] = [];
     for (let i = 0; i < treeList.length; i++) {
       treeList[i].title = transformI18n(treeList[i].title);
       formatHigherMenuOptions(treeList[i].children);
@@ -212,12 +219,12 @@ export function useMenu() {
           activePath: row?.activePath ?? '',
           auths: row?.auths ?? '',
           frameSrc: row?.frameSrc ?? '',
-          frameLoading: row?.frameLoading ?? 1,
-          keepAlive: row?.keepAlive ?? 0,
-          hiddenTag: row?.hiddenTag ?? 0,
-          fixedTag: row?.fixedTag ?? 0,
-          showLink: row?.showLink ?? 1,
-          showParent: row?.showParent ?? 0
+          frameLoading: row?.frameLoading ?? true,
+          keepAlive: row?.keepAlive ?? false,
+          hiddenTag: row?.hiddenTag ?? false,
+          fixedTag: row?.fixedTag ?? false,
+          showLink: row?.showLink ?? true,
+          showParent: row?.showParent ?? false
         }
       },
       width: '45%',
@@ -284,7 +291,7 @@ export function useMenu() {
     });
   }
 
-  async function handleDelete(row: any) {
+  async function handleDelete(row: MenuDisplayRow) {
     try {
       await deleteMenu(row.id);
       message(`已删除菜单名称为${transformI18n(row.title)}的数据`, {

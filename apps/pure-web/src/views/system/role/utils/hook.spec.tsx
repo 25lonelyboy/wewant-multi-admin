@@ -31,6 +31,18 @@ vi.mock('@pureadmin/utils', async () => {
 });
 
 import { useRole } from './hook';
+import type { FormInstance } from 'element-plus';
+import type { MenuVO, RoleVO } from '@multi-admin/contracts';
+
+const roleFixture: RoleVO = {
+  id: '1',
+  code: 'admin',
+  name: '管理员',
+  status: 'ACTIVE',
+  remark: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z'
+};
 
 const mockTreeRef = {
   value: {
@@ -92,7 +104,7 @@ describe('useRole', () => {
 
   it('resetForm 无参时安全返回', () => {
     const { resetForm } = useRole(mockTreeRef);
-    expect(() => resetForm(null)).not.toThrow();
+    expect(() => resetForm(null as unknown as FormInstance)).not.toThrow();
   });
 
   it('openDialog 调用 addDialog（新增模式）', () => {
@@ -105,16 +117,16 @@ describe('useRole', () => {
   it('handleDelete 调用 deleteRole API', async () => {
     apiMock.deleteRole.mockResolvedValue({ code: 0, data: null });
     const { handleDelete } = useRole(mockTreeRef);
-    await handleDelete({ id: '1', name: '管理员' });
+    await handleDelete(roleFixture);
     expect(apiMock.deleteRole).toHaveBeenCalledWith('1');
   });
 
   it('handleMenu 有 id 时设置 isShow=true 并加载菜单权限', async () => {
     apiMock.getRoleMenuIds.mockResolvedValue({ code: 0, data: ['1', '2'] });
     const { handleMenu, isShow, curRow } = useRole(mockTreeRef);
-    await handleMenu({ id: '1', name: '管理员' });
+    await handleMenu(roleFixture);
     expect(isShow.value).toBe(true);
-    expect(curRow.value).toEqual({ id: '1', name: '管理员' });
+    expect(curRow.value).toEqual(roleFixture);
     expect(mockTreeRef.value.setCheckedKeys).toHaveBeenCalledWith(['1', '2']);
   });
 
@@ -127,7 +139,7 @@ describe('useRole', () => {
 
   it('rowStyle 当前行高亮', () => {
     const { rowStyle, curRow } = useRole(mockTreeRef);
-    curRow.value = { id: '1', name: '管理员' };
+    curRow.value = roleFixture;
     const style = rowStyle({ row: { id: '1' } });
     expect(style.background).toBeTruthy();
   });
@@ -140,7 +152,8 @@ describe('useRole', () => {
 
   it('filterMethod 使用 transformI18n 匹配', () => {
     const { filterMethod } = useRole(mockTreeRef);
-    expect(filterMethod('菜单', { title: '菜单管理' })).toBe(true);
-    expect(filterMethod('不存在', { title: '菜单管理' })).toBe(false);
+    const menuNode = { title: '菜单管理' } as MenuVO;
+    expect(filterMethod('菜单', menuNode)).toBe(true);
+    expect(filterMethod('不存在', menuNode)).toBe(false);
   });
 });

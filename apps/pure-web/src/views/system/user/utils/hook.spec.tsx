@@ -51,6 +51,23 @@ vi.mock('@zxcvbn-ts/core', () => ({
 }));
 
 import { useUser } from './hook';
+import type { FormInstance } from 'element-plus';
+import type { UserVO } from '@multi-admin/contracts';
+
+const userFixture: UserVO = {
+  id: '1',
+  username: 'admin',
+  nickname: '管理员',
+  status: 'ACTIVE',
+  avatar: null,
+  phone: null,
+  email: null,
+  sex: 0,
+  remark: null,
+  roles: ['admin'],
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z'
+};
 
 const mockTableRef = {
   value: {
@@ -127,7 +144,7 @@ describe('useUser', () => {
       mockTableRef,
       mockTreeRef
     );
-    handleSelectionChange([{ id: 1 }, { id: 2 }]);
+    handleSelectionChange([{ id: '1' }, { id: '2' }] as unknown as UserVO[]);
     expect(selectedNum.value).toBe(2);
   });
 
@@ -142,13 +159,13 @@ describe('useUser', () => {
 
   it('resetForm 无参时安全返回', () => {
     const { resetForm } = useUser(mockTableRef, mockTreeRef);
-    expect(() => resetForm(null)).not.toThrow();
+    expect(() => resetForm(null as unknown as FormInstance)).not.toThrow();
   });
 
   it('onTreeSelect 选中时设置 deptId', () => {
     const { onTreeSelect, form } = useUser(mockTableRef, mockTreeRef);
     onTreeSelect({ id: 5, selected: true });
-    expect(form.deptId).toBe(5);
+    expect(form.deptId).toBe('5');
   });
 
   it('onTreeSelect 取消选中时清空 deptId', () => {
@@ -179,12 +196,12 @@ describe('useUser', () => {
   it('handleDelete 调用 deleteUser API', async () => {
     apiMock.deleteUser.mockResolvedValue({ code: 0, data: null });
     const { handleDelete } = useUser(mockTableRef, mockTreeRef);
-    await handleDelete({ id: '1' });
+    await handleDelete(userFixture);
     expect(apiMock.deleteUser).toHaveBeenCalledWith('1');
   });
 
   it('handleUpdate 不抛异常', () => {
     const { handleUpdate } = useUser(mockTableRef, mockTreeRef);
-    expect(() => handleUpdate({ id: '1' })).not.toThrow();
+    expect(() => handleUpdate(userFixture)).not.toThrow();
   });
 });

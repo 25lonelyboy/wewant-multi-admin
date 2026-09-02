@@ -6,7 +6,8 @@ import { getDeptList } from '@/api/system';
 import { usePublicHooks } from '../../hooks';
 import { addDialog } from '@/components/ReDialog';
 import { reactive, ref, onMounted, h } from 'vue';
-import type { FormItemProps } from '../utils/types';
+import type { FormInstance } from 'element-plus';
+import type { DeptRow, FormItemProps } from '../utils/types';
 import { cloneDeep, isAllEmpty, deviceDetection } from '@pureadmin/utils';
 
 export function useDept() {
@@ -16,7 +17,7 @@ export function useDept() {
   });
 
   const formRef = ref();
-  const dataList = ref<any[]>([]);
+  const dataList = ref<DeptRow[]>([]);
   const loading = ref(true);
   const { tagStyle } = usePublicHooks();
 
@@ -66,7 +67,7 @@ export function useDept() {
     console.log('handleSelectionChange', _val);
   }
 
-  function resetForm(formEl: any) {
+  function resetForm(formEl: FormInstance | undefined) {
     if (!formEl) return;
     formEl.resetFields();
     onSearch();
@@ -76,7 +77,7 @@ export function useDept() {
     loading.value = true;
     const { code, data } = await getDeptList(); // 这里是返回一维数组结构，前端自行处理成树结构，返回格式要求：唯一id加父节点parentId，parentId取父节点id
     if (code === 0) {
-      let newData = data;
+      let newData: DeptRow[] = data;
       if (!isAllEmpty(form.name)) {
         // 前端搜索部门名称
         newData = newData.filter(item => item.name.includes(form.name));
@@ -85,7 +86,7 @@ export function useDept() {
         // 前端搜索状态
         newData = newData.filter(item => item.status === form.status);
       }
-      dataList.value = handleTree(newData); // 处理成树结构
+      dataList.value = handleTree(newData) as DeptRow[]; // 处理成树结构
     }
 
     setTimeout(() => {
@@ -93,10 +94,10 @@ export function useDept() {
     }, 500);
   }
 
-  function formatHigherDeptOptions(treeList: any[]) {
+  function formatHigherDeptOptions(treeList: DeptRow[] | undefined) {
     // 根据返回数据的status字段值判断追加是否禁用disabled字段，返回处理后的树结构，用于上级部门级联选择器的展示（实际开发中也是如此，不可能前端需要的每个字段后端都会返回，这时需要前端自行根据后端返回的某些字段做逻辑处理）
     if (!treeList || !treeList.length) return;
-    const newTreeList = [];
+    const newTreeList: DeptRow[] = [];
     for (let i = 0; i < treeList.length; i++) {
       treeList[i].disabled = treeList[i].status === 0 ? true : false;
       formatHigherDeptOptions(treeList[i].children);
@@ -155,7 +156,7 @@ export function useDept() {
     });
   }
 
-  function handleDelete(row: any) {
+  function handleDelete(row: DeptRow) {
     message(`您删除了部门名称为${row.name}的这条数据`, { type: 'success' });
     onSearch();
   }

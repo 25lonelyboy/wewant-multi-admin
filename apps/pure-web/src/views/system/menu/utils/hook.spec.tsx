@@ -33,6 +33,34 @@ vi.mock('@pureadmin/utils', async () => {
 });
 
 import { useMenu } from './hook';
+import type { FormInstance } from 'element-plus';
+import type { MenuDisplayRow } from './types';
+
+const menuRowFixture: MenuDisplayRow = {
+  id: '1',
+  parentId: '',
+  menuType: 0,
+  title: '系统管理',
+  name: 'System',
+  icon: '',
+  path: '/system',
+  component: '',
+  auths: '',
+  sort: 1,
+  showLink: true,
+  redirect: '',
+  extraIcon: '',
+  enterTransition: '',
+  leaveTransition: '',
+  activePath: '',
+  frameSrc: '',
+  frameLoading: true,
+  keepAlive: false,
+  hiddenTag: false,
+  fixedTag: false,
+  showParent: false,
+  children: []
+};
 
 const mockMenuVO = [
   {
@@ -96,7 +124,7 @@ describe('useMenu', () => {
 
   it('resetForm 无参时安全返回', () => {
     const { resetForm } = useMenu();
-    expect(() => resetForm(null)).not.toThrow();
+    expect(() => resetForm(null as unknown as FormInstance)).not.toThrow();
   });
 
   it('openDialog 调用 addDialog（新增模式）', () => {
@@ -109,7 +137,7 @@ describe('useMenu', () => {
   it('handleDelete 调用 deleteMenu API', async () => {
     apiMock.deleteMenu.mockResolvedValue({ code: 0, data: null });
     const { handleDelete } = useMenu();
-    await handleDelete({ id: '1', title: '系统管理' });
+    await handleDelete(menuRowFixture);
     expect(apiMock.deleteMenu).toHaveBeenCalledWith('1');
   });
 

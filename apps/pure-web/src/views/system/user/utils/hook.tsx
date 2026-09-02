@@ -10,14 +10,24 @@ import { ZxcvbnFactory } from '@zxcvbn-ts/core';
 import { addDialog } from '@/components/ReDialog';
 import type { PaginationProps } from '@pureadmin/table';
 import ReCropperPreview from '@/components/ReCropperPreview';
-import type { FormItemProps, RoleFormItemProps } from '../utils/types';
+import type {
+  CropperPayload,
+  DeptTreeNode,
+  FormItemProps,
+  RoleFormItemProps
+} from '../utils/types';
 import {
   getKeyList,
   isAllEmpty,
   hideTextAtIndex,
   deviceDetection
 } from '@pureadmin/utils';
-import type { UserQuery, UserStatus } from '@multi-admin/contracts';
+import type {
+  RoleOption,
+  UserQuery,
+  UserStatus,
+  UserVO
+} from '@multi-admin/contracts';
 import {
   createUser,
   deleteUser,
@@ -33,7 +43,8 @@ import {
   ElInput,
   ElFormItem,
   ElProgress,
-  ElMessageBox
+  ElMessageBox,
+  type FormInstance
 } from 'element-plus';
 import { type Ref, h, ref, watch, computed, reactive, onMounted } from 'vue';
 
@@ -47,14 +58,14 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
   });
   const formRef = ref();
   const ruleFormRef = ref();
-  const dataList = ref<any[]>([]);
+  const dataList = ref<UserVO[]>([]);
   const loading = ref(true);
-  // 上传头像信息
-  const avatarInfo = ref();
+  // 上传头像信息（裁剪结果载荷）
+  const avatarInfo = ref<CropperPayload>();
   const switchLoadMap = ref<Record<number, { loading?: boolean }>>({});
   const { switchStyle } = usePublicHooks();
   const higherDeptOptions = ref();
-  const treeData = ref<any[]>([]);
+  const treeData = ref<DeptTreeNode[]>([]);
   const treeLoading = ref(true);
   const selectedNum = ref(0);
   const pagination = reactive<PaginationProps>({
@@ -139,7 +150,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
           inactive-text="已停用"
           inline-prompt
           style={switchStyle.value}
-          onChange={() => onChange(scope as any)}
+          onChange={() => onChange(scope as { row: UserVO; index: number })}
         />
       )
     },
@@ -179,10 +190,10 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
   ];
   // 当前密码强度（0-4）
   const curScore = ref();
-  const roleOptions = ref<any[]>([]);
+  const roleOptions = ref<RoleOption[]>([]);
   const zxcvbnFactory = new ZxcvbnFactory();
 
-  function onChange({ row, index }: { row: any; index: number }) {
+  function onChange({ row, index }: { row: UserVO; index: number }) {
     ElMessageBox.confirm(
       `确认要<strong>${
         row.status === 'DISABLED' ? '停用' : '启用'
@@ -228,11 +239,11 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
       });
   }
 
-  function handleUpdate(row: any) {
+  function handleUpdate(row: UserVO) {
     console.log(row);
   }
 
-  async function handleDelete(row: any) {
+  async function handleDelete(row: UserVO) {
     try {
       await deleteUser(row.id);
       message(`已删除用户编号为${row.id}的数据`, { type: 'success' });
@@ -253,7 +264,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
   }
 
   /** 当CheckBox选择项发生变化时会触发该事件 */
-  function handleSelectionChange(val: any[]) {
+  function handleSelectionChange(val: UserVO[]) {
     selectedNum.value = val.length;
     // 重置表格高度
     tableRef.value.setAdaptive();
@@ -296,7 +307,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
     loading.value = false;
   }
 
-  const resetForm = (formEl: any) => {
+  const resetForm = (formEl: FormInstance | undefined) => {
     if (!formEl) return;
     formEl.resetFields();
     form.deptId = '';
@@ -304,15 +315,18 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
     onSearch();
   };
 
-  function onTreeSelect({ id, selected }: { id: any; selected: boolean }) {
-    form.deptId = selected ? id : '';
+  /** 部门树节点 id 为数字主键，统一转字符串入 form */
+  function onTreeSelect({ id, selected }: { id: number; selected: boolean }) {
+    form.deptId = selected ? String(id) : '';
     onSearch();
   }
 
-  function formatHigherDeptOptions(treeList: any[]) {
+  function formatHigherDeptOptions(
+    treeList: DeptTreeNode[] | undefined
+  ): DeptTreeNode[] | undefined {
     // 根据返回数据的status字段值判断追加是否禁用disabled字段，返回处理后的树结构，用于上级部门级联选择器的展示（实际开发中也是如此，不可能前端需要的每个字段后端都会返回，这时需要前端自行根据后端返回的某些字段做逻辑处理）
     if (!treeList || !treeList.length) return;
-    const newTreeList = [];
+    const newTreeList: DeptTreeNode[] = [];
     for (let i = 0; i < treeList.length; i++) {
       treeList[i].disabled = treeList[i].status === 0 ? true : false;
       formatHigherDeptOptions(treeList[i].children);
@@ -389,7 +403,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
 
   const cropRef = ref();
   /** 上传头像 */
-  function handleUpload(row: any) {
+  function handleUpload(row: UserVO) {
     addDialog({
       title: '裁剪、上传头像',
       width: '40%',
@@ -399,7 +413,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
         h(ReCropperPreview, {
           ref: cropRef,
           imgSrc: row.avatar || userAvatar,
-          onCropper: (info: any) => (avatarInfo.value = info)
+          onCropper: (info: CropperPayload) => (avatarInfo.value = info)
         }),
       beforeSure: done => {
         console.log('裁剪后的图片信息：', avatarInfo.value);
@@ -420,7 +434,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
   );
 
   /** 重置密码 */
-  function handleReset(row: any) {
+  function handleReset(row: UserVO) {
     addDialog({
       title: `重置 ${row.username} 用户的密码`,
       width: '30%',
@@ -496,7 +510,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
   }
 
   /** 分配角色 */
-  async function handleRole(row: any) {
+  async function handleRole(row: UserVO) {
     const ids = (await getUserRoleIds(row.id)).data ?? [];
     addDialog({
       title: `分配 ${row.username} 用户的角色`,
