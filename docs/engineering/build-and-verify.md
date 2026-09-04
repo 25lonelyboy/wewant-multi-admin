@@ -10,7 +10,7 @@ covers:
   - docker-compose.yml
   - packages/contracts/
   - turbo.json
-last_verified: 2026-09-02
+last_verified: 2026-09-04
 ---
 
 # 构建与验证
