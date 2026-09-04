@@ -29,4 +29,5 @@
 | [2026-08-30-pure-web-testing-foundation-b3-plan.md](2026-08-30-pure-web-testing-foundation-b3-plan.md) | B3 实施计划 |
 | [2026-08-31-pure-web-testing-foundation-b4-plan.md](2026-08-31-pure-web-testing-foundation-b4-plan.md) | B4 收口批次计划（13 任务） |
 | [component-inventory.md](component-inventory.md) | 组件资产盘点（16 在用 / 8 遗留，勘误后口径） |
+| [2026-09-04-retrospective.md](2026-09-04-retrospective.md) | 复盘（测试基建 8 条 + 治理审查 6 条可复用经验，收口时缺失后补建） |
 | ~~`upstream-baseline.md`~~ | 已提升为活文档 → [upstream-tracking.md](../../../engineering/upstream-tracking.md)（上游同步为持续性机制，不随任务归档） |

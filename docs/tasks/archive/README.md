@@ -129,6 +129,7 @@
 | `2026-08-31-pure-web-testing-foundation-b4-plan.md` | B4 收口批次计划（13 任务） |
 | `2026-08-29-pure-web-testing-foundation-plan.md` | 总体实施计划 |
 | `component-inventory.md` | 遗留组件盘点 |
+| `2026-09-04-retrospective.md` | 复盘（测试基建 8 条 + 治理审查 6 条可复用经验） |
 | ~~`upstream-baseline.md`~~ | 已提升为活文档 → [upstream-tracking.md](../../engineering/upstream-tracking.md)（上游同步为持续性机制，不随任务归档） |
 
 结论去向：测试基建与 strict 单一配置 → [build-and-verify.md](../../engineering/build-and-verify.md)；上游基线长期维护 → [upstream-tracking.md](../../engineering/upstream-tracking.md)；已关闭 backlog 条目（测试基建 / E2E / 最终态收口 / print.ts / Canvas 豁免 / vitest 兼容）→ [backlog.md](../../governance/backlog.md)。
