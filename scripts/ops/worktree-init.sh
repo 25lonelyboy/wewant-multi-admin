@@ -132,6 +132,56 @@ run_install() {
   esac
 }
 
+sync_env_files() {
+  local copied=0 skipped=0 f base check=1
+  git -C "$MAIN_REPO" check-ignore --version >/dev/null 2>&1 || check=0
+  [ "$check" -eq 0 ] && warn 'git check-ignore 不可用，降级为仅模式匹配'
+  while IFS= read -r f; do
+    base="$(basename "$f")"
+    case "$base" in
+      .env | .env.* | *.local) ;;
+      *) continue ;;
+    esac
+    if [ "$check" -eq 1 ] && ! git -C "$MAIN_REPO" check-ignore -q "$base"; then
+      continue  # 未被 gitignore = 已跟踪或普通文件，不同步
+    fi
+    if [ -e "$base" ]; then
+      skipped=$((skipped + 1))
+      ok "已存在，跳过：$base"
+    else
+      cp "$MAIN_REPO/$base" "$base"
+      copied=$((copied + 1))
+      ok "已复制：$base（来源：主仓库）"
+    fi
+  done < <(cd "$MAIN_REPO" && find . -maxdepth 1 -type f \
+           \( -name '.env' -o -name '.env.*' -o -name '*.local' \) | sort -u)
+  ok "env 类文件同步完成：复制 $copied，跳过 $skipped（.env.local 双模式命中由 sort -u 去重）"
+}
+
+bootstrap_env() {
+  if [ ! -e .env ] && [ -f .env.example ]; then
+    cp .env.example .env
+    warn '已从 .env.example 生成 .env——请核对值是否需要本地修改'
+  fi
+}
+
+ensure_hooks() {
+  [ -d .husky ] || { ok '无 .husky/，钩子兜底跳过'; return 0; }
+  if [ -n "$(git config core.hooksPath || true)" ]; then
+    ok "hooksPath 已设置：$(git config core.hooksPath)"
+    return 0
+  fi
+  if json_field scripts.prepare | grep -q husky; then
+    if "$PM" run prepare; then
+      ok "钩子已初始化（$PM run prepare）"
+    else
+      warn '钩子初始化失败（prepare 执行报错），请手工处理'
+    fi
+  else
+    warn '存在 .husky/ 但无 husky prepare script，请手工设置钩子'
+  fi
+}
+
 cd "$ROOT"
 
 # git 仓库校验：必须退出码 3（未识别技术栈或不在 git 仓库内），不能用 set -e 默认退出码 1
@@ -193,4 +243,15 @@ else
   exit 2
 fi
 
-exit "$EXIT_CODE"
+step "[5/5] 机器级文件与钩子兜底"
+if [ "$MODE" = 'worktree' ]; then
+  sync_env_files
+else
+  bootstrap_env
+fi
+ensure_hooks
+step_done '机器级文件与钩子兜底'
+
+echo ""
+echo "仓库就绪：$ROOT"
+[ "$MODE" = 'worktree' ] && echo '后端开发前记得：docker compose up -d postgres redis（或等价的环境启动命令）'
