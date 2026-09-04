@@ -1,7 +1,8 @@
 # 通用 worktree 初始化脚本设计
 
-> 状态：设计已确认（2026-09-04 头脑风暴逐项澄清），待实施。
+> 状态：设计已确认（2026-09-04 头脑风暴逐项澄清 + 同日审查修正），待实施。
 > 起点：`scripts/worktree-init.ps1`（未跟踪、Windows/PowerShell 限定、硬编码本仓库版本约束），评估结论见文末背景。
+> 2026-09-04 审查修正：I-1 探测目标改为 worktree 自身 / I-2 git 路径降级为实测项 / M-1 调用约定 / M-2 复杂范围语义 / M-3 措辞统一 / M-4 命名权衡（D8）。
 
 ## 一、目标与范围
 
@@ -29,6 +30,7 @@
 | D5 | 版本校验策略 | 读目标仓库 `package.json` `engines`；无该字段则跳过 | 对任意 Node 仓库自适应，去掉硬编码 |
 | D6 | 存放分发 | 落本仓库 `scripts/ops/worktree-init.sh` + 登记（build-and-verify.md + package.json `ops:` 脚本） | 未跟踪脚本不随 `git worktree add` 检出——这是旧脚本的致命缺陷；登记保证可发现性 |
 | D7 | 旧 ps1 处置 | 删除 | bash 版是严格超集；双份必然漂移；untracked 无历史可失 |
+| D8 | 命名 | 保留 `worktree-init.sh` | 名称未完全覆盖场景 B（新克隆引导），但与旧 ps1、`ops:*` 命名同构，调用惯例与连续性优先于语义完备——刻意权衡 |
 
 ## 三、总体架构
 
@@ -48,12 +50,14 @@
 | 步骤 | worktree 模式 | 主仓库模式 |
 |---|---|---|
 | ① 定位与校验 | 经 `git rev-parse --git-common-dir` 反推主仓库路径 | 主仓库 = 自身 |
-| ② 技术栈探测 | 读主仓库根标志文件 | 读当前根标志文件 |
+| ② 技术栈探测 | 读 worktree 自身根标志文件（检出的是其分支内容；主仓库工作区可能停在不同分支，不可作为探测源） | 读当前根标志文件 |
 | ③ 环境版本校验 | 按 ② 结果读 engines 校验（无则跳过） | 同左 |
 | ④ 依赖安装 | 探测到的包管理器执行 install | 同左；非 Node 栈只打印指引退出 0 |
-| ⑤ 机器级文件同步 + 钩子兜底 | 从主仓库复制 env 类文件 + husky hooksPath 兜底 | `.env` 缺失且有 `.env.example` 时自动生成 + 钩子兜底 |
+| ⑤ 机器级文件同步 + 钩子兜底 | 从主仓库复制 env 类文件 + 钩子兜底 | `.env` 缺失且有 `.env.example` 时自动生成 + 钩子兜底 |
 
 ## 四、技术栈探测与包管理器优先级
+
+探测对象一律为**当前工作区自身根**（worktree 模式 = worktree 检出内容，主仓库模式 = 仓库根）。主仓库在 worktree 模式下仅承担两个角色：`--git-common-dir` 反推定位 + env 类文件同步来源，不参与技术栈探测。
 
 ### Node 项目（深度路径）
 
@@ -71,7 +75,7 @@
 
 - 用 `node -p` 读取 `engines.node` 与 `engines.<管理器名>`；node 缺失则提前报错（无 node 本就装不了依赖，消息明确指引安装）；
 - **版本比较 = 提取范围下限 + 数字元组比较**：从 `>=24`、`^20.1`、`20.11.0` 等常见写法提取最小版本号，与本机版本做 major.minor.patch 数值比较；
-- 复杂范围（`||`、`-` 区间、`x` 通配）降级为打印原始范围供人工确认，不阻断——不引入 semver 解析依赖的刻意取舍；
+- 复杂范围（`||`、`-` 区间、`x` 通配）降级为告警并跳过该项校验，不阻断（主要消费方是 subagent 无人值守场景，不存在「人工确认」）——不引入 semver 解析依赖的刻意取舍；
 - 无 `engines` 字段 → 跳过校验直接安装。
 
 ### 非 Node 栈（浅路径）
@@ -95,7 +99,7 @@
 2. 被主仓库 gitignore（`git -C <主仓库> check-ignore` 验证）——排除「已跟踪但本地有改动」的文件；
 3. 目标 worktree 中不存在——存在即跳过并注明，绝不覆盖。
 
-逐条打印来源与去向，结束汇总复制/跳过数量；`check-ignore` 不可用时降级为仅模式匹配并告警。
+逐条打印来源与去向，结束汇总复制/跳过数量；`check-ignore` 不可用时降级为仅模式匹配并告警。实现注意：`.env.local` 同时命中 `.env.*` 与 `*.local` 两个模式，复制时需去重。
 
 ### `.env` 处理（仅主仓库模式）
 
@@ -134,15 +138,16 @@
 本机 `bash` = `C:\Windows\system32\bash.exe`（GNU bash 5.2.21，WSL 提供，无 Git Bash）；现有 8 个 `ops:*` 脚本全部经此路径实战过。设计约束：
 
 1. 脚本内不得出现 Windows 盘符路径，一律相对定位；
-2. 不依赖 `~/.npmrc` 全局配置（WSL 的 HOME ≠ Windows 用户目录）；
-3. node / pnpm 经 WSL interop 调用 Windows 可执行文件——主链路（WSL 内 `pnpm install` 到 worktree）无现成先例，列为验收首测项；
-4. `git rev-parse --git-common-dir` 反推主仓库路径与 git 实现无关，安全。
+2. **调用约定**：调用方必须自仓库根以相对路径调用（`bash scripts/ops/worktree-init.sh`，或经 `pnpm ops:worktree-init`）——WSL 下 Windows 绝对路径（`D:\...`）无法被 `dirname "$0"` 解析；
+3. 不依赖 `~/.npmrc` 全局配置（WSL 的 HOME ≠ Windows 用户目录）；
+4. node / pnpm 经 WSL interop 调用 Windows 可执行文件——主链路（WSL 内 `pnpm install` 到 worktree）无现成先例，列为验收首测项；
+5. WSL 解析到的 `git` 实现（Windows `git.exe` 还是 WSL 自有）未实证，在 WSL cwd（`/mnt/d/...`）下 `git rev-parse --git-common-dir` 的输出路径格式是否可直接消费，不作安全声明，列入验收用例 1 实测。
 
 ## 八、验收测试（实施计划承接）
 
 | 用例 | 方式 |
 |---|---|
-| 本仓库真实 worktree 全链路（本机 = WSL bash + Windows pnpm interop） | 建 `.worktrees/smoke-init` 实测 install / .env 同步 / 钩子，随后 `git worktree remove` 清理 |
+| 本仓库真实 worktree 全链路（本机 = WSL bash + Windows pnpm interop） | 建 `.worktrees/smoke-init` 实测：git 路径反推可用性（§7 第 5 条）/ install / .env 同步 / 钩子，随后 `git worktree remove` 清理 |
 | 本仓库根模式（模拟新克隆） | `git clone` 到临时目录实测 `.env` 自动生成 |
 | 无 engines / 无 package.json 仓库 | 临时目录构造最小仓库，验证跳过校验与退出码 3 |
 | 非 Node 栈 | 临时目录放 `requirements.txt`，验证指引输出与退出码 0 |
