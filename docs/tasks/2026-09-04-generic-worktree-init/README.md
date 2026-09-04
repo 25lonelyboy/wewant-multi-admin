@@ -7,4 +7,5 @@
 
 | 文件 | 说明 |
 | --- | --- |
-| [2026-09-04-generic-worktree-init-design.md](2026-09-04-generic-worktree-init-design.md) | 设计文档（7 项锁定决策 + 五步链架构 + 验收用例） |
+| [2026-09-04-generic-worktree-init-design.md](2026-09-04-generic-worktree-init-design.md) | 设计文档（8 项锁定决策 + 五步链架构 + 验收用例，含同日审查修正） |
+| [2026-09-04-generic-worktree-init-plan.md](2026-09-04-generic-worktree-init-plan.md) | 实施计划（6 任务，按函数分节增量构建 + 五组验收） |
