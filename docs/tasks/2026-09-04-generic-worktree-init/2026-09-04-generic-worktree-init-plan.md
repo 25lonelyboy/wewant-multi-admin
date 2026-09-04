@@ -592,7 +592,7 @@ Expected: ps1 已删除；`pnpm ops:worktree-init` 走通主仓库模式 `仓库
 
 `docs/tasks/2026-09-04-generic-worktree-init/README.md` 状态行改为「实施完成，待归档」（计划行已在计划落盘时登记，不重复添加）。
 
-`docs/tasks/README.md` 进行中表的任务行收口说明改为：「实施完成：`scripts/ops/worktree-init.sh` 落地（双场景实测全绿），旧 ps1 已删除，登记 → [build-and-verify.md](../engineering/build-and-verify.md)」。
+`docs/tasks/README.md` 进行中表的任务行收口说明改为：「实施完成：`scripts/ops/worktree-init.sh` 落地（双场景实测全绿），旧 ps1 已删除，登记 → build-and-verify.md（链接沿用该表现有行的 `../engineering/build-and-verify.md` 相对层级）」。
 
 - [ ] **Step 5: 质量门禁**
 
