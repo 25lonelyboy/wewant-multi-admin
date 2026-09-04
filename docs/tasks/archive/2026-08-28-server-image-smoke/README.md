@@ -17,5 +17,5 @@
 
 | 文件 | 说明 |
 | --- | --- |
-| `2026-08-28-server-image-smoke-design.md` | 设计文档（7 项锁定决策 D1-D7：探针深度 / 双分支宿主适配 / 三段断言 / CI services 集成） |
-| `2026-08-28-server-image-smoke-plan.md` | 实施计划（Task 0-7 全部勾选；含 SIGPIPE/pipefail 修正同步与 Self-Review 记录） |
+| [2026-08-28-server-image-smoke-design.md](2026-08-28-server-image-smoke-design.md) | 设计文档（7 项锁定决策 D1-D7：探针深度 / 双分支宿主适配 / 三段断言 / CI services 集成） |
+| [2026-08-28-server-image-smoke-plan.md](2026-08-28-server-image-smoke-plan.md) | 实施计划（Task 0-7 全部勾选；含 SIGPIPE/pipefail 修正同步与 Self-Review 记录） |

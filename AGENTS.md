@@ -6,15 +6,15 @@ This file provides guidance to AI Agents when working with code in this reposito
 
 多端管理后台 pnpm monorepo，由四应用 + 两类共享包组成：
 
-| Workspace               | 说明                                                                                                                                                           |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/pure-web`         | Vue3 管理后台（vue-pure-admin 基底），缺省直连真实后端（代理 `/api/v1`），`VITE_MOCK=true` 切离线 mock（契约同形）；vitest 单测 + Playwright E2E               |
-| `apps/nestjs-server`    | NestJS 后端：Prisma + Redis、JWT 双令牌轮换 + RBAC、system 三域 CRUD（软删除）、单测/e2e 合并覆盖率门禁；架构细节见 [backend.md](docs/architecture/backend.md) |
-| `apps/uni-mobile`       | uni-app 多端应用（H5 + 各家小程序），基于 Vue3                                                                                                                 |
-| `apps/electron-desktop` | Electron 桌面端，托管 pure-web 构建产物作为渲染层                                                                                                              |
-| `packages/common`       | 跨端共享 TS 代码（tsdown 构建），暂无应用实际引用                                                                                                              |
-| `packages/contracts`    | 前后端接口契约包（纯类型 + BizCode/MenuType 常量），nestjs-server 与 pure-web 以 `workspace:*` 消费                                                            |
-| `internal/*`            | 仓库内部工具：`eslint-config` / `stylelint-config` / `tsconfig` / `node-utils`                                                                                 |
+| Workspace               | 说明                                                                                                                                                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/pure-web`         | Vue3 管理后台（vue-pure-admin 基底），缺省直连真实后端（代理 `/api/v1`），`VITE_MOCK=true` 切离线 mock（契约同形）；vitest 单测 + Playwright E2E；应用级见 [apps/pure-web/AGENTS.md](apps/pure-web/AGENTS.md)                         |
+| `apps/nestjs-server`    | NestJS 后端：Prisma + Redis、JWT 双令牌轮换 + RBAC、system 三域 CRUD（软删除）、单测/e2e 合并覆盖率门禁；应用级见 [apps/nestjs-server/AGENTS.md](apps/nestjs-server/AGENTS.md)，架构细节见 [backend.md](docs/architecture/backend.md) |
+| `apps/uni-mobile`       | uni-app 多端应用（H5 + 各家小程序），基于 Vue3                                                                                                                                                                                        |
+| `apps/electron-desktop` | Electron 桌面端，托管 pure-web 构建产物作为渲染层                                                                                                                                                                                     |
+| `packages/common`       | 跨端共享 TS 代码（tsdown 构建），暂无应用实际引用                                                                                                                                                                                     |
+| `packages/contracts`    | 前后端接口契约包（纯类型 + BizCode/MenuType 常量），nestjs-server 与 pure-web 以 `workspace:*` 消费                                                                                                                                   |
+| `internal/*`            | 仓库内部工具：`eslint-config` / `stylelint-config` / `tsconfig` / `node-utils`                                                                                                                                                        |
 
 环境约束：Node >=24（`.nvmrc` pin 24.18.1）、pnpm >=11（`engines` + 根 `.npmrc` `engine-strict=true` 强制）；registry 与 Electron 二进制镜像已在根 `.npmrc` 配置。
 
@@ -47,6 +47,9 @@ pnpm ops:pre-push                 # push 前 CI 同构校验（frozen-lockfile +
 pnpm ops:ci / ops:ci-logs         # CI 状态拉取 / 失败日志导出
 pnpm ops:smoke / ops:coverage     # Docker 冒烟 / 覆盖率报表
 pnpm ops:check-digests            # 镜像 digest pin 季度漂移巡检（新建 Dockerfile/compose/CI 镜像引用时同步维护）
+
+# 文档治理自检（孤儿/死链/frontmatter/covers 漂移/行数；根 "type": "module" 故副本用 .cjs）
+node scripts/doc-lint.cjs .
 ```
 
 ## 架构要点
@@ -57,7 +60,7 @@ pnpm ops:check-digests            # 镜像 digest pin 季度漂移巡检（新�
 - **桌面端链路**：turbo `^build` 编排 pure-web 产物 → esbuild 编译主进程（ESM）/preload（CJS，sandbox 要求）→ 复制 dist 到 `dist-electron/web/` → electron-builder 打包；渲染层由自定义 `app://` 协议托管（含路径穿越防护）；单实例锁 + 托盘常驻（关窗隐藏不退出）。细节见 [desktop-app.md](docs/architecture/desktop-app.md)。
 - **Lint 薄壳模式**：各应用 eslint / stylelint 一行引用 `internal/*` 工厂；ESLint 只校验（`--max-warnings 0`），格式化由 Prettier 独占。
 - **Docker**：镜像构建必须以仓库根为 context；compose 含 postgres / redis / server / web 四服务，server 启动链 `prisma migrate deploy → prisma db seed → exec node`（幂等）；库名统一 `multi_admin`（存量旧卷需 `down -v` 重建）；本地 redis 无密码映射宿主 6379，禁止暴露生产/共享网络。env 注意事项见 [build-and-verify.md](docs/engineering/build-and-verify.md)。
-- **质量门禁双层**：本地实时（`pnpm check` + husky lint-staged）+ GitHub CI 异步兜底（`.github/workflows/ci.yml`，push master 触发，四 job：gate / docker-build / coverage / audit，报警式不拦截，[ADR-006](docs/decisions/ADR-006-github-ci.md)）。**CI 红 → 下一项工作先修 CI。**
+- **质量门禁双层**：本地实时（`pnpm check` + husky lint-staged）+ GitHub CI 异步兜底（`.github/workflows/ci.yml`，push master 触发，五 job：gate / docker-build / coverage / coverage-web / audit，报警式不拦截，[ADR-006](docs/decisions/ADR-006-github-ci.md)）。**CI 红 → 下一项工作先修 CI。**
 
 ## 安全不变量
 
@@ -75,7 +78,7 @@ pnpm ops:check-digests            # 镜像 digest pin 季度漂移巡检（新�
 
 ## 文档治理
 
-- 读取顺序：本文件 → [docs/README.md](docs/README.md) → 对应领域 README → 最小主题文件；按需读取，不要求通读。
+- 读取顺序：本文件 → [docs/README.md](docs/README.md) → 对应领域 README → 最小主题文件；按需读取，不要求通读。在某个应用内工作时，优先读该应用的 AGENTS.md（已有：[apps/pure-web](apps/pure-web/AGENTS.md) / [apps/nestjs-server](apps/nestjs-server/AGENTS.md)）。
 - 事实源：架构事实在 `docs/architecture/`，工程实践在 `docs/engineering/`，决策在 `docs/decisions/`（ADR），过程材料在 `docs/tasks/`，backlog 在 `docs/governance/`。
-- 文档与代码冲突时以代码为准，并修复文档；信任活文档 frontmatter 的 `last_verified`，不信任编辑时间。
+- 文档与代码冲突时以代码为准，并修复文档；信任活文档 frontmatter 的 `last_verified`，不信任编辑时间。文档变更后跑 `node scripts/doc-lint.cjs .` 验收（副本落后于技能母版时随重组更新）。
 - 新文档必须归位到对应层目录，并登记进该目录 README 索引。

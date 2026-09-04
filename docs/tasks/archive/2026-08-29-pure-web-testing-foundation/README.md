@@ -18,15 +18,15 @@
 
 | 文件 | 说明 |
 | --- | --- |
-| `2026-08-29-pure-web-testing-foundation-design.md` | 总设计：双 tsconfig 分层 + vitest 基建 + 模块化覆盖 + 上游策略前置 |
-| `2026-08-29-pure-web-testing-foundation-plan.md` | 总体实施计划 |
-| `2026-08-29-a1-vue-strict-measurement.md` | A1 `.vue` 全量 strict 错误实测 |
-| `2026-08-29-pure-web-testing-foundation-b1-design.md` | B1 分批设计（纯函数组） |
-| `2026-08-29-pure-web-testing-foundation-b2-design.md` | B2 分批设计（状态机 / store 组） |
-| `2026-08-29-pure-web-testing-foundation-b3-design.md` | B3 分批设计（在用组件组） |
-| `2026-08-30-pure-web-testing-foundation-b1-plan.md` | B1 实施计划 |
-| `2026-08-30-pure-web-testing-foundation-b2-plan.md` | B2 实施计划 |
-| `2026-08-30-pure-web-testing-foundation-b3-plan.md` | B3 实施计划 |
-| `2026-08-31-pure-web-testing-foundation-b4-plan.md` | B4 收口批次计划（13 任务） |
-| `component-inventory.md` | 组件资产盘点（16 在用 / 8 遗留，勘误后口径） |
+| [2026-08-29-pure-web-testing-foundation-design.md](2026-08-29-pure-web-testing-foundation-design.md) | 总设计：双 tsconfig 分层 + vitest 基建 + 模块化覆盖 + 上游策略前置 |
+| [2026-08-29-pure-web-testing-foundation-plan.md](2026-08-29-pure-web-testing-foundation-plan.md) | 总体实施计划 |
+| [2026-08-29-a1-vue-strict-measurement.md](2026-08-29-a1-vue-strict-measurement.md) | A1 `.vue` 全量 strict 错误实测 |
+| [2026-08-29-pure-web-testing-foundation-b1-design.md](2026-08-29-pure-web-testing-foundation-b1-design.md) | B1 分批设计（纯函数组） |
+| [2026-08-29-pure-web-testing-foundation-b2-design.md](2026-08-29-pure-web-testing-foundation-b2-design.md) | B2 分批设计（状态机 / store 组） |
+| [2026-08-29-pure-web-testing-foundation-b3-design.md](2026-08-29-pure-web-testing-foundation-b3-design.md) | B3 分批设计（在用组件组） |
+| [2026-08-30-pure-web-testing-foundation-b1-plan.md](2026-08-30-pure-web-testing-foundation-b1-plan.md) | B1 实施计划 |
+| [2026-08-30-pure-web-testing-foundation-b2-plan.md](2026-08-30-pure-web-testing-foundation-b2-plan.md) | B2 实施计划 |
+| [2026-08-30-pure-web-testing-foundation-b3-plan.md](2026-08-30-pure-web-testing-foundation-b3-plan.md) | B3 实施计划 |
+| [2026-08-31-pure-web-testing-foundation-b4-plan.md](2026-08-31-pure-web-testing-foundation-b4-plan.md) | B4 收口批次计划（13 任务） |
+| [component-inventory.md](component-inventory.md) | 组件资产盘点（16 在用 / 8 遗留，勘误后口径） |
 | ~~`upstream-baseline.md`~~ | 已提升为活文档 → [upstream-tracking.md](../../../engineering/upstream-tracking.md)（上游同步为持续性机制，不随任务归档） |

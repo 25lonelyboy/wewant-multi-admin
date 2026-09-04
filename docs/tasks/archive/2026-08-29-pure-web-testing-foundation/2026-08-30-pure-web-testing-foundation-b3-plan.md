@@ -3072,7 +3072,7 @@ pnpm check
 `docs/tasks/README.md` 第 9 行（进行中表「pure-web 测试基建与 strict 类型安全」行）替换为：
 
 ```md
-| pure-web 测试基建与 strict 类型安全 | 总体设计已定稿（批次 A0 上游基线 → A strict 迁移 → B vitest 基建与模块测试）；批次 A0/A+B0/B1/B2/B3 已合并 master 验收通过；B1（纯函数组）7 提交、B2（状态机/store 组）实施完成（11 spec）；B3（在用组件组）实施完成（23 spec 新增、双 stub 图标 alias + mountWithEP helper、strict 清单 53→124 项、豁免 29→26 项（ReDrawer 移出）、覆盖率键 23→48；Canvas 三件按豁免口径薄测试）；剩余：存量待迁移 126 项（页面/视图域，待 B4+）；见 [2026-08-29-pure-web-testing-foundation/](2026-08-29-pure-web-testing-foundation/) |
+| pure-web 测试基建与 strict 类型安全 | 总体设计已定稿（批次 A0 上游基线 → A strict 迁移 → B vitest 基建与模块测试）；批次 A0/A+B0/B1/B2/B3 已合并 master 验收通过；B1（纯函数组）7 提交、B2（状态机/store 组）实施完成（11 spec）；B3（在用组件组）实施完成（23 spec 新增、双 stub 图标 alias + mountWithEP helper、strict 清单 53→124 项、豁免 29→26 项（ReDrawer 移出）、覆盖率键 23→48；Canvas 三件按豁免口径薄测试）；剩余：存量待迁移 126 项（页面/视图域，待 B4+）；见 [2026-08-29-pure-web-testing-foundation/](./) |
 ```
 
 `docs/governance/backlog.md` **无需改动**：E2E 触发条件（54 行，已随 B2 收口更新为「B3 完成后评估启动」）、Canvas 豁免条目（59 行）、vitest 配置未来兼容条目（60 行）均已存在于库，本批次仅消费不改写。

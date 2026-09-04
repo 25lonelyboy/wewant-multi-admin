@@ -22,8 +22,8 @@
 
 | 文件 | 说明 |
 |---|---|
-| `2026-08-23-turbo-build-orchestration-design.md` | 设计文档（现状问题 / 方案对比 / 任务图建模 / 决策锁 / 验收标准） |
-| `2026-08-23-turbo-build-orchestration-plan.md` | 实施计划（Task 0-6，7 个任务的完整规格） |
+| [2026-08-23-turbo-build-orchestration-design.md](2026-08-23-turbo-build-orchestration-design.md) | 设计文档（现状问题 / 方案对比 / 任务图建模 / 决策锁 / 验收标准） |
+| [2026-08-23-turbo-build-orchestration-plan.md](2026-08-23-turbo-build-orchestration-plan.md) | 实施计划（Task 0-6，7 个任务的完整规格） |
 
 ## 稳定结论去向
 

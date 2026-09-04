@@ -32,13 +32,13 @@ Expected: 仅列出 `docs/tasks/2026-08-27-server-security-baseline/` 与 `docs/
 SearchReplace `docs/tasks/README.md`：
 
 ```markdown
-| 生产安全基线（Tier 2 #6） | 容器非 root（`USER node`）+ 镜像 digest pin（8 处 tag@digest）+ check-digests 刷新兜底脚本；设计 → [design.md](2026-08-27-server-security-baseline/2026-08-27-server-security-baseline-design.md) |
+| 生产安全基线（Tier 2 #6） | 容器非 root（`USER node`）+ 镜像 digest pin（8 处 tag@digest）+ check-digests 刷新兜底脚本；设计 → [design.md](./2026-08-27-server-security-baseline-design.md) |
 ```
 
 改为：
 
 ```markdown
-| 生产安全基线（Tier 2 #6） | 容器非 root（`USER node`）+ 镜像 digest pin（8 处 tag@digest）+ check-digests 刷新兜底脚本；设计 → [design.md](2026-08-27-server-security-baseline/2026-08-27-server-security-baseline-design.md)，计划 → [plan.md](2026-08-27-server-security-baseline/2026-08-27-server-security-baseline-plan.md) |
+| 生产安全基线（Tier 2 #6） | 容器非 root（`USER node`）+ 镜像 digest pin（8 处 tag@digest）+ check-digests 刷新兜底脚本；设计 → [design.md](./2026-08-27-server-security-baseline-design.md)，计划 → [plan.md](./2026-08-27-server-security-baseline-plan.md) |
 ```
 
 - [ ] **Step 1.3: 格式校验**

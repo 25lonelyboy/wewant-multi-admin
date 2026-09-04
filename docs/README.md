@@ -18,7 +18,7 @@
 |---|---|---|
 | [architecture/](architecture/README.md) | 当前架构事实、模块边界、不变量、安全约束 | 有事实源 |
 | [engineering/](engineering/README.md) | 可复用工程实践、构建与验证命令、依赖与兼容性结论 | 有事实源 |
-| [decisions/](decisions/README.md) | 架构决策记录（ADR），跨域决策唯一存放地 | 已有 6 篇 ADR |
+| [decisions/](decisions/README.md) | 架构决策记录（ADR），跨域决策唯一存放地 | 已有 7 篇 ADR |
 | [tasks/](tasks/README.md) | 大任务/阶段/专项治理的过程材料（热索引 + archive） | 全部已归档；热区暂无进行中任务 |
 | product/ | 业务规则、角色、权限、术语表 | 暂无内容，待有业务文档时再建 |
 | operations/ | 部署、环境、CI/CD、观测 | 暂无内容（部署事实暂由代码内注释承载） |

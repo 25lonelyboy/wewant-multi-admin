@@ -16,5 +16,5 @@
 
 | 文件 | 说明 |
 | --- | --- |
-| `2026-08-27-login-account-lockout-design.md` | 设计文档（7 项锁定决策 D1-D7 + 变更矩阵 + e2e 三拆分策略） |
-| `2026-08-27-login-account-lockout-plan.md` | 实施计划（Task 0-6，TDD 步骤 + 验收对照表 + 风险预案） |
+| [2026-08-27-login-account-lockout-design.md](2026-08-27-login-account-lockout-design.md) | 设计文档（7 项锁定决策 D1-D7 + 变更矩阵 + e2e 三拆分策略） |
+| [2026-08-27-login-account-lockout-plan.md](2026-08-27-login-account-lockout-plan.md) | 实施计划（Task 0-6，TDD 步骤 + 验收对照表 + 风险预案） |

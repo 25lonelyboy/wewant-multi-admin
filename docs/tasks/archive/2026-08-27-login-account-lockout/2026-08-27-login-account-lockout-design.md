@@ -12,7 +12,7 @@ last_verified: 2026-08-27
 
 为 `POST /api/v1/auth/login` 增加账号维度的失败计数与临时锁定，补齐现有限流仅 IP 维度的缺口（分布式爆破与共享出口 IP 误伤两类风险）。
 
-来源：[backlog](../../governance/backlog.md)「登录限流账号维度与失败锁定」登记项。
+来源：[backlog](../../../governance/backlog.md)「登录限流账号维度与失败锁定」登记项。
 
 ## 已锁定决策
 

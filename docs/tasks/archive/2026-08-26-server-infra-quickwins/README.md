@@ -15,5 +15,5 @@
 
 | 文件 | 说明 |
 | --- | --- |
-| `2026-08-26-server-infra-quickwins-design.md` | 设计文档（4 项改动 + 6 项锁定决策 + 实施期 fix 补丁标注） |
-| `2026-08-26-server-infra-quickwins-plan.md` | 实施计划（Task 0-4，TDD 步骤 + 影响面清单） |
+| [2026-08-26-server-infra-quickwins-design.md](2026-08-26-server-infra-quickwins-design.md) | 设计文档（4 项改动 + 6 项锁定决策 + 实施期 fix 补丁标注） |
+| [2026-08-26-server-infra-quickwins-plan.md](2026-08-26-server-infra-quickwins-plan.md) | 实施计划（Task 0-4，TDD 步骤 + 影响面清单） |

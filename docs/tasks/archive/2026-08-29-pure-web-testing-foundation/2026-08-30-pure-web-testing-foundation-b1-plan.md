@@ -1264,22 +1264,22 @@ describe('addPreventDefault', () => {
   it('F12 触发 preventDefault', () => {
     addPreventDefault();
     const ev = makeEvent({ key: 'F12' });
-    listeners[0](ev);
+    listeners[0] (ev);
     expect(vi.mocked(ev.preventDefault)).toHaveBeenCalledTimes(1);
   });
 
   it('非 F12 按键不阻止', () => {
     addPreventDefault();
     const ev = makeEvent({ key: 'Enter' });
-    listeners[0](ev);
+    listeners[0] (ev);
     expect(vi.mocked(ev.preventDefault)).not.toHaveBeenCalled();
   });
 
   it('contextmenu/selectstart 无条件阻止', () => {
     addPreventDefault();
     const ev = makeEvent({});
-    listeners[1](ev);
-    listeners[2](ev);
+    listeners[1] (ev);
+    listeners[2] (ev);
     expect(vi.mocked(ev.preventDefault)).toHaveBeenCalledTimes(2);
   });
 
@@ -1287,10 +1287,10 @@ describe('addPreventDefault', () => {
     addPreventDefault();
     const img = new Image();
     const divEv = makeEvent({});
-    listeners[3](divEv);
+    listeners[3] (divEv);
     expect(vi.mocked(divEv.preventDefault)).not.toHaveBeenCalled();
     const imgEv = makeEvent({ target: img });
-    listeners[3](imgEv);
+    listeners[3] (imgEv);
     expect(vi.mocked(imgEv.preventDefault)).toHaveBeenCalledTimes(1);
   });
 });

@@ -362,7 +362,7 @@ b. 第 75 行 ops 表格 `ops:smoke` 行描述改为 `` `--server` 追加构建 
 `docs/tasks/README.md`（注意：「最近已完成」表首现为「生产安全基线（Tier 2 #6）」行——已由 2026-08-28 收口占据，插入锚点按其行内容对齐，而非表头）：从「进行中」移除本任务行（移除后该表为空时，整表替换为一行 `_（暂无进行中任务）_`），在「最近已完成」表首新增：
 
 ```markdown
-| server 镜像启动冒烟（Tier 2） | CI 构建即测：/health 探针 + entrypoint 三段断言 + job services 双依赖（digest pin 沿用安全基线），server-smoke.sh 本地/CI 同源；backlog 已关闭并登记演进行；设计 → [design.md](2026-08-28-server-image-smoke/2026-08-28-server-image-smoke-design.md)，计划 → [plan.md](2026-08-28-server-image-smoke/2026-08-28-server-image-smoke-plan.md) |
+| server 镜像启动冒烟（Tier 2） | CI 构建即测：/health 探针 + entrypoint 三段断言 + job services 双依赖（digest pin 沿用安全基线），server-smoke.sh 本地/CI 同源；backlog 已关闭并登记演进行；设计 → [design.md](./2026-08-28-server-image-smoke-design.md)，计划 → [plan.md](./2026-08-28-server-image-smoke-plan.md) |
 ```
 
 - [x] **Step 4: 格式门禁**

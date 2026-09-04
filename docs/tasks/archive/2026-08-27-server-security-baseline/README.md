@@ -17,5 +17,5 @@
 
 | 文件 | 说明 |
 | --- | --- |
-| `2026-08-27-server-security-baseline-design.md` | 设计文档（非 root + digest pin 变更矩阵 + USER node 安全分析 + pin 注释约定 + 实施期修正标注） |
-| `2026-08-27-server-security-baseline-plan.md` | 实施计划（Task 0-5，验收路径 + 自审记录 + 执行偏差 bullet） |
+| [2026-08-27-server-security-baseline-design.md](2026-08-27-server-security-baseline-design.md) | 设计文档（非 root + digest pin 变更矩阵 + USER node 安全分析 + pin 注释约定 + 实施期修正标注） |
+| [2026-08-27-server-security-baseline-plan.md](2026-08-27-server-security-baseline-plan.md) | 实施计划（Task 0-5，验收路径 + 自审记录 + 执行偏差 bullet） |

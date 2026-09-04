@@ -15,7 +15,7 @@
 ## 关键背景（实施者必读）
 
 - **守卫执行序**：全局 `APP_GUARD`（RedisThrottlerGuard → JwtAuthGuard → PermissionsGuard）先于路由级 `@UseGuards`；本任务新增守卫为**路由级**，置于 `LocalAuthGuard` 之前。
-- **Redis 键约定**：对齐现有 `auth:refresh:` / `auth:blacklist:` 前缀（见 [token.service.ts](../../../apps/nestjs-server/src/modules/auth/token.service.ts) 的 `REFRESH_KEY_PREFIX` 导出风格）。
+- **Redis 键约定**：对齐现有 `auth:refresh:` / `auth:blacklist:` 前缀（见 [token.service.ts](../../../../apps/nestjs-server/src/modules/auth/token.service.ts) 的 `REFRESH_KEY_PREFIX` 导出风格）。
 - **Lua 风格**：对齐 `token.service.ts` 的 `ROTATE_LUA`（模块内常量模板字符串）。
 - **e2e 约束**：登录端点自身有 IP 限流 `5 次/分`（`auth.controller.ts` 的 `@Throttle`），60 秒内同 IP 第 6 个请求先被 42901 拦截——因此累积类用例**最多发 5 个请求**，锁定后的行为用「预写锁定键 + 单请求」验证，状态断言直接查 Redis。
 - **存量用例兼容**：现有用例 2「窗口内第 6 次登录 → 42901」连发 5 次错密后第 6 个请求仍先撞限流器（全局守卫在前），断言不变，无需修改；5 次错密产生的锁定键由 `beforeEach` flushdb 清理。
@@ -707,7 +707,7 @@ b) 同一表格新增一行（登记管理员手动解锁端点，触发条件�
 
 - [ ] **Step 3: 热索引补计划链接**
 
-`docs/tasks/README.md`「进行中」本任务行，说明列末尾追加：`，计划 → [plan.md](2026-08-27-login-account-lockout/2026-08-27-login-account-lockout-plan.md)`。
+`docs/tasks/README.md`「进行中」本任务行，说明列末尾追加：`，计划 → [plan.md](./2026-08-27-login-account-lockout-plan.md)`。
 
 - [ ] **Step 4: 全量质量门禁**
 

@@ -261,7 +261,7 @@ export class PrismaService
         this.config.prismaQueryLog
       );
       if (resolved) {
-        this.logger[resolved.level](resolved.message);
+        this.logger[resolved.level] (resolved.message);
       }
     });
   }

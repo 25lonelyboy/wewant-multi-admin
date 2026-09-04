@@ -5,7 +5,7 @@ covers:
   - apps/nestjs-server/src/
   - apps/pure-web/src/api/
   - apps/pure-web/mock/
-last_verified: 2026-08-28
+last_verified: 2026-09-03
 ---
 
 # contracts 契约包

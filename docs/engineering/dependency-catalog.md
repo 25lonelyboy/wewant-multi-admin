@@ -3,7 +3,7 @@ status: living
 covers:
   - pnpm-workspace.yaml
   - .npmrc
-last_verified: 2026-08-26
+last_verified: 2026-09-03
 ---
 
 # 依赖治理：pnpm catalog 策略
@@ -34,6 +34,7 @@ uni-app 编译链与主仓 Vite 大版本不兼容：主仓走 `catalog:`（Vite
 ## Pin 策略
 
 - **Electron 生态**（electron / electron-builder / esbuild 编译链相关）在 `apps/electron-desktop/package.json` 精确 pin、不加 `^`：升级需整链评估（主进程 API、打包二进制、协议行为联动）。
+- **express `^5.0.0`** 入主 catalog：NestJS 11 依赖 express 5，框架级核心按判据 2 入 catalog（当前仅 nestjs-server 消费），避免未来多消费者分歧。
 - **jest 30.4.1** 被 catalog + 根 `package.json` 的 `overrides`（jest / jest-runtime / jest-circus / jest-mock / expect / jest-snapshot 全家）双重强制，避免 NestJS 生态拉入不兼容版本。
 - **istanbul 三库**（istanbul-lib-coverage 3.2.2 / istanbul-lib-report 3.0.1 / istanbul-reports 3.2.0）为 `apps/nestjs-server` 本地 devDependencies 精确 pin（D 类：单消费者不入 catalog）；版本与 jest 传递依赖一致，零新下载，决策见 P4 分设计 §7。
 - catalog 中已 pin 的包保持 pinned，不擅自补 `^`。

@@ -1757,7 +1757,7 @@ pnpm check
 `docs/tasks/README.md` 第 9 行（pure-web 测试基建条目）替换为：
 
 ```md
-| pure-web 测试基建与 strict 类型安全 | 总体设计已定稿（批次 A0 上游基线 → A strict 迁移 → B vitest 基建与模块测试）；批次 A0/A+B0/B1/B2 已合并 master 验收通过；B1（纯函数组）7 提交实施完成（14 spec 文件、strict 清单 6→31 项含 print.spec.ts 防御性纳入、print.ts 架构性豁免），覆盖率 glob 阈值经审查修复为 vitest 4 顶层键形式后 13 键真实生效；B2（状态机/store 组）实施完成（11 spec 新增含 user↔http 40102 真实联动集成、strict 清单 31→53 项、覆盖率键 13→23）；B3（在用组件组）设计已定稿待实施；见 [2026-08-29-pure-web-testing-foundation/](2026-08-29-pure-web-testing-foundation/) |
+| pure-web 测试基建与 strict 类型安全 | 总体设计已定稿（批次 A0 上游基线 → A strict 迁移 → B vitest 基建与模块测试）；批次 A0/A+B0/B1/B2 已合并 master 验收通过；B1（纯函数组）7 提交实施完成（14 spec 文件、strict 清单 6→31 项含 print.spec.ts 防御性纳入、print.ts 架构性豁免），覆盖率 glob 阈值经审查修复为 vitest 4 顶层键形式后 13 键真实生效；B2（状态机/store 组）实施完成（11 spec 新增含 user↔http 40102 真实联动集成、strict 清单 31→53 项、覆盖率键 13→23）；B3（在用组件组）设计已定稿待实施；见 [2026-08-29-pure-web-testing-foundation/](./) |
 ```
 
 `docs/governance/backlog.md` 第 54 行（pure-web E2E 测试基建）所列「触发条件」列原为 `B2（状态机/store 测试）完成后评估启动`——B2 已完成，改为 `B3（在用组件组）测试完成后评估启动（B2 状态机/store 测试已完成）`（E2E 覆盖登录 → 动态路由全链路，依赖组件级测试 B3 完成）。
