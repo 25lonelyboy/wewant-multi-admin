@@ -70,7 +70,11 @@ step_done() { COMPLETED_STEPS+=("$1"); }
 
 cd "$ROOT"
 
-if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
+# git 仓库校验：必须退出码 3（未识别技术栈或不在 git 仓库内），不能用 set -e 默认退出码 1
+# （ERR trap 会抢在 if 之前以 rc=1 触发，掩盖预期的退出码 3）
+_git_rc=0
+git rev-parse --show-toplevel >/dev/null 2>&1 || _git_rc=$?
+if [ "$_git_rc" -ne 0 ]; then
   echo "[FAIL] 当前不在 git 仓库内：$ROOT" >&2
   exit 3
 fi
@@ -80,9 +84,9 @@ if [ -d .git ]; then
   MAIN_REPO="$ROOT"
 else
   MODE='worktree'
-  # linked worktree 的 gitdir 恒为 <主仓库>/.git/worktrees/<名>，上两级即主仓库根（不依赖 --git-common-dir 的输出形态）
-  gitdir="$(git rev-parse --absolute-git-dir)"
-  MAIN_REPO="$(cd "$gitdir/../.." && pwd)"
+  # worktree 的 .git 文件内容恒为 "gitdir: <主仓库>/.git/worktrees/<名>"，上三级即主仓库根
+  gitdir="$(sed 's/^gitdir: //' .git)"
+  MAIN_REPO="$(cd "$gitdir/../../.." && pwd)"
 fi
 
 step "[1/5] 定位与模式判定"
@@ -622,4 +626,5 @@ git commit -m "chore(repo): worktree-init 收口——删除旧 ps1 与文档登
 - 规格覆盖：设计 §三（五步链）→ Task 0-3；§四（探测/校验）→ Task 1-2；§五（文件/钩子细节）→ Task 3；§六（退出码/幂等）→ Task 0/2/4；§七（WSL 约束）→ Task 0 Step 3 + Task 4 Step 2；§八（五验收用例）→ Task 2（engines 三态）/ Task 1（非 Node 栈）/ Task 4（worktree 全链路 + 幂等）；根模式 `.env` 生成用例因本仓库 `.env` 已存在无法直接实测，以 Task 2 fixture（干净临时仓库 + `.env` 生成路径同构的 bootstrap_env）覆盖逻辑，真实克隆场景留待首次真实新克隆时观察——已在计划内明示，不视为缺口。§九（登记）→ Task 5；D7 → Task 5 Step 3。
 - 无占位符；各任务函数名一致（`json_field` / `detect_stack` / `detect_pm` / `version_ge` / `check_engines` / `run_install` / `sync_env_files` / `bootstrap_env` / `ensure_hooks`）。
 - 2026-09-04 计划审查修正：C-1 `json_field` 改 argv 点路径传参（原实现 ReferenceError 被静默吞掉）；C-2 `detect_stack` python 拼接修复；C-3 `check-ignore` 可用性探测改 `--version`（`--help` 会开分页器卡死）；C-4 主仓库反推改 `--absolute-git-dir` 上两级（不依赖 `--git-common-dir` 输出形态）；I-1 fixture shell 上下文声明 + `$REPO` 派生；M-1 子 shell 重复诊断加注；M-2 共享 store 预期降级为观察项；M-3 fixture 改写统一直写 `printf`。
+- 2026-09-05 Task 0 实现期发现（C-5，两项）：①git 2.43.0 WSL 环境下 `--absolute-git-dir` 在 linked worktree 中返回 common dir（`<主仓库>/.git`）而非 worktree gitdir（`<主仓库>/.git/worktrees/<名>`），与设计假设不符——改为解析 `.git` 文件的 `gitdir:` 行，上**三级**（worktrees/`<名>` → worktrees/ → .git/ → 主仓库根）；②`if ! git rev-parse ...` 模式与 `set -e` + ERR trap 配合时，trap 会以 rc=1 **先于** if 的 `exit 3` 触发，掩盖预期退出码——改为显式 `_git_rc=0; git ... || _git_rc=$?` 捕获。两处均已落实到脚本骨架与计划 Task 0 代码块。
 - 已知实现注意：`.env.local` 双模式命中由 `sort -u` 去重（Task 3 注释已标注）。
