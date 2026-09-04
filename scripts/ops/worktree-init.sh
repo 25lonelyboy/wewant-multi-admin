@@ -116,7 +116,7 @@ detect_stack
 case "$STACK" in
   node*) ok "Node 项目，包管理器：$PM" ;;
   unknown) echo "[FAIL] 未识别技术栈：$ROOT" >&2; exit 3 ;;
-  *) ok "检测到非 Node 栈：${STACK#+}（仅打印指引，不代为执行）" ;;
+  *) ok "检测到非 Node 栈：${STACK#unknown+}（仅打印指引，不代为执行）" ;;
 esac
 step_done '技术栈探测'
 

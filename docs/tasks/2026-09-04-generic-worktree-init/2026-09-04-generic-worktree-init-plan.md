@@ -211,7 +211,7 @@ detect_stack
 case "$STACK" in
   node*) ok "Node 项目，包管理器：$PM" ;;
   unknown) echo "[FAIL] 未识别技术栈：$ROOT" >&2; exit 3 ;;
-  *) ok "检测到非 Node 栈：${STACK#+}（仅打印指引，不代为执行）" ;;
+  *) ok "检测到非 Node 栈：${STACK#unknown+}（仅打印指引，不代为执行）" ;;
 esac
 step_done '技术栈探测'
 
@@ -627,4 +627,5 @@ git commit -m "chore(repo): worktree-init 收口——删除旧 ps1 与文档登
 - 无占位符；各任务函数名一致（`json_field` / `detect_stack` / `detect_pm` / `version_ge` / `check_engines` / `run_install` / `sync_env_files` / `bootstrap_env` / `ensure_hooks`）。
 - 2026-09-04 计划审查修正：C-1 `json_field` 改 argv 点路径传参（原实现 ReferenceError 被静默吞掉）；C-2 `detect_stack` python 拼接修复；C-3 `check-ignore` 可用性探测改 `--version`（`--help` 会开分页器卡死）；C-4 主仓库反推改 `--absolute-git-dir` 上两级（不依赖 `--git-common-dir` 输出形态）；I-1 fixture shell 上下文声明 + `$REPO` 派生；M-1 子 shell 重复诊断加注；M-2 共享 store 预期降级为观察项；M-3 fixture 改写统一直写 `printf`。
 - 2026-09-05 Task 0 实现期发现（C-5，两项）：①git 2.43.0 WSL 环境下 `--absolute-git-dir` 在 linked worktree 中返回 common dir（`<主仓库>/.git`）而非 worktree gitdir（`<主仓库>/.git/worktrees/<名>`），与设计假设不符——改为解析 `.git` 文件的 `gitdir:` 行，上**三级**（worktrees/`<名>` → worktrees/ → .git/ → 主仓库根）；②`if ! git rev-parse ...` 模式与 `set -e` + ERR trap 配合时，trap 会以 rc=1 **先于** if 的 `exit 3` 触发，掩盖预期退出码——改为显式 `_git_rc=0; git ... || _git_rc=$?` 捕获。两处均已落实到脚本骨架与计划 Task 0 代码块。
+- 2026-09-05 Task 1 实现期发现（C-6，一项）：Step 2 代码 `${STACK#+}` 仅剥离前缀 `+`，对 `unknown+python` 无效（bash `#` 剥离最短前缀，字符串不以 `+` 开头时不起作用），导致非 Node 单栈输出 `unknown+python` 而非预期的 `python`——改为 `${STACK#unknown+}`（剥离前缀 `unknown+`，混合栈 `node+python` 不受影响）。已落实到脚本 Task 1 代码块。
 - 已知实现注意：`.env.local` 双模式命中由 `sort -u` 去重（Task 3 注释已标注）。
