@@ -6,6 +6,7 @@
 
 | 任务 | 收口说明 |
 |---|---|
+| 通用 worktree 初始化脚本 | 设计已确认（双场景 bash 单脚本 + engines 自适应 + env 类白名单同步）；设计 → [2026-09-04-generic-worktree-init/](2026-09-04-generic-worktree-init/)，待实施 |
 
 ## 最近已完成
 
