@@ -82,6 +82,56 @@ detect_pm() {
   echo "$name"
 }
 
+# 数字元组比较：current >= required 则返回 0
+version_ge() {
+  local IFS=.
+  local i cur=($1) req=($2)
+  for i in 0 1 2; do
+    local c=${cur[i]:-0} r=${req[i]:-0}
+    ((10#$c > 10#$r)) && return 0
+    ((10#$c < 10#$r)) && return 1
+  done
+  return 0
+}
+
+check_engines() {
+  command -v node >/dev/null 2>&1 || {
+    echo "[FAIL] 未找到 node（Node 仓库必需，也是本脚本的 package.json 读取器）" >&2
+    exit 1
+  }
+  local raw pair name range actual
+  for pair in "node:$(json_field engines.node)" \
+              "$PM:$(json_field "engines.$PM")"; do
+    name="${pair%%:*}"
+    range="${pair#*:}"
+    [ -z "$range" ] && continue
+    case "$range" in
+      *'||'* | *' - '* | *x* | *X* | *\**)
+        warn "engines.$name='$range' 为复杂范围，跳过该项校验（不阻断）"
+        continue ;;
+    esac
+    actual="$(node -v | sed 's/^v//')"
+    [ "$name" = "$PM" ] && actual="$("$PM" -v | head -1 | sed 's/^v//')"
+    local min
+    min="$(printf '%s' "$range" | sed -E 's/^[^0-9]*([0-9]+(\.[0-9]+){0,2}).*/\1/')"
+    if version_ge "$actual" "$min"; then
+      ok "engines.$name='$range'：本机 $actual 满足"
+    else
+      echo "[FAIL] engines.$name='$range'：本机 $actual 不满足" >&2
+      exit 1
+    fi
+  done
+}
+
+run_install() {
+  case "$PM" in
+    pnpm) pnpm install ;;
+    npm) npm install ;;
+    yarn) yarn install ;;
+    bun) bun install ;;
+  esac
+}
+
 cd "$ROOT"
 
 # git 仓库校验：必须退出码 3（未识别技术栈或不在 git 仓库内），不能用 set -e 默认退出码 1
@@ -128,6 +178,19 @@ if [[ "$STACK" != node* ]]; then
     *jvm*) echo "    指引：mvn install 或 ./gradlew build" ;;
   esac
   exit 0
+fi
+
+step "[3/5] 环境版本校验"
+check_engines
+step_done '环境版本校验'
+
+step "[4/5] 依赖安装"
+if run_install; then
+  ok "$PM install 完成"
+  step_done '依赖安装'
+else
+  echo "[FAIL] 依赖安装失败（$PM install）" >&2
+  exit 2
 fi
 
 exit "$EXIT_CODE"
