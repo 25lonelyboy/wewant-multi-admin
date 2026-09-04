@@ -17,6 +17,7 @@
 - 每次提交前 `npx prettier --write <本次改动的 md/json>`；bash 文件不进 prettier 写入范围。
 - 设计边界铁律：不启动服务、不执行领域命令（prisma / playwright）、不修改已跟踪文件内容之外的仓库状态、不做任何 `git worktree add` 之外的 git 变更操作。
 - fixture 一律建在系统临时目录（`mktemp -d`），任务结束清理，不进仓库。
+- **fixture 命令必须在 WSL bash 会话内执行**（或 `bash -c '...'` 包裹）：`mktemp` / `sed -i` 等不是 PowerShell 命令。进 fixture 前先在仓库根派生仓库根变量：`REPO="$(git rev-parse --show-toplevel)"`（WSL 内为 `/mnt/d/...` 路径），后续 fixture 步骤统一引用 `$REPO`。
 
 ---
 
@@ -79,11 +80,9 @@ if [ -d .git ]; then
   MAIN_REPO="$ROOT"
 else
   MODE='worktree'
-  common_dir="$(git rev-parse --git-common-dir)"
-  case "$common_dir" in
-    .git | */.git) MAIN_REPO="$(cd "$(dirname "$common_dir")" && pwd)" ;;
-    *) MAIN_REPO="$(cd "$common_dir/.." && pwd)" ;;
-  esac
+  # linked worktree 的 gitdir 恒为 <主仓库>/.git/worktrees/<名>，上两级即主仓库根（不依赖 --git-common-dir 的输出形态）
+  gitdir="$(git rev-parse --absolute-git-dir)"
+  MAIN_REPO="$(cd "$gitdir/../.." && pwd)"
 fi
 
 step "[1/5] 定位与模式判定"
@@ -149,16 +148,19 @@ git commit -m "feat(repo): worktree-init 脚本骨架——模式自动判定与
 在骨架的 `cd "$ROOT"` 行**之前**插入以下函数：
 
 ```bash
-# 打印 package.json 字段值（缺失输出空串）
-json_field() { node -p "const v=require('$1').$2; v==null?'':v" 2>/dev/null || true; }
+# 打印当前目录 package.json 的点路径字段值（缺失输出空串）；$1 = 点路径（如 engines.node）
+json_field() {
+  node -p "let v=require('./package.json');for(const k of process.argv[1].split('.')){v=(v==null)?null:v[k]}v==null?'':String(v)" "$1" 2>/dev/null || true
+}
 
 detect_stack() {
   # 探测对象 = 当前工作区自身根（worktree 检出的是其分支内容，不用主仓库工作区）
   STACK='unknown'
   PM=''
   [ -f package.json ] && STACK='node'
-  [ -f requirements.txt ] || [ -f pyproject.toml ] || [ -f poetry.lock ] \
-    && { STACK="${STACK/+python/}+python"; }
+  if [ -f requirements.txt ] || [ -f pyproject.toml ] || [ -f poetry.lock ]; then
+    STACK="${STACK}+python"
+  fi
   [ -f go.mod ] && STACK="${STACK}+go"
   [ -f Cargo.toml ] && STACK="${STACK}+rust"
   { [ -f pom.xml ] || [ -f build.gradle ] || [ -f build.gradle.kts ]; } && STACK="${STACK}+jvm"
@@ -169,7 +171,7 @@ detect_stack() {
 
 detect_pm() {
   local field name=''
-  field="$(json_field package.json packageManager)"
+  field="$(json_field packageManager)"
   if [ -n "$field" ]; then
     name="${field%%@*}"
   else
@@ -192,6 +194,8 @@ detect_pm() {
   echo "$name"
 }
 ```
+
+说明：`detect_pm` 内的 `exit` 发生在命令替换子 shell 中，赋值语句失败后由 `set -e` 触发 trap——函数内错误消息与 trap 诊断会重复打印，属预期行为，退出码不受影响。
 
 - [ ] **Step 2: 替换尾部占位**
 
@@ -228,8 +232,7 @@ Run:
 f=$(mktemp -d); cd "$f"; git init -q
 printf '{"name":"fx","packageManager":"pnpm@11.18.0"}\n' > package.json
 printf 'pnpm-lock.yaml\n' > pnpm-lock.yaml
-cp <仓库根>/scripts/ops/worktree-init.sh scripts/ops/ 前先建目录：
-mkdir -p scripts/ops && cp <仓库根绝对路径>/scripts/ops/worktree-init.sh scripts/ops/
+mkdir -p scripts/ops && cp "$REPO/scripts/ops/worktree-init.sh" scripts/ops/
 bash scripts/ops/worktree-init.sh; echo "exit=$?"
 ```
 
@@ -243,8 +246,7 @@ Run（承接上目录）:
 touch package-lock.json
 bash scripts/ops/worktree-init.sh 2>&1 | grep -c warn   # 预期 ≥1（多 lockfile 告警），仍选 pnpm
 rm pnpm-lock.yaml package-lock.json
-sed -i 's/"packageManager":"pnpm@11.18.0",//' package.json 2>/dev/null || \
-  printf '{"name":"fx"}\n' > package.json
+printf '{"name":"fx"}\n' > package.json
 bash scripts/ops/worktree-init.sh; echo "exit=$?"
 ```
 
@@ -256,7 +258,7 @@ Run:
 
 ```bash
 cd "$f"; rm -rf package.json scripts; touch requirements.txt
-mkdir -p scripts/ops && cp <仓库根>/scripts/ops/worktree-init.sh scripts/ops/
+mkdir -p scripts/ops && cp "$REPO/scripts/ops/worktree-init.sh" scripts/ops/
 bash scripts/ops/worktree-init.sh; echo "exit=$?"
 rm -rf "$f"
 ```
@@ -306,8 +308,8 @@ check_engines() {
     exit 1
   }
   local raw pair name range actual
-  for pair in "node:$(json_field package.json 'engines&&engines.node')" \
-              "$PM:$(json_field package.json "engines&&engines.$PM"); do
+  for pair in "node:$(json_field engines.node)" \
+              "$PM:$(json_field "engines.$PM")"; do
     name="${pair%%:*}"
     range="${pair#*:}"
     [ -z "$range" ] && continue
@@ -339,7 +341,7 @@ run_install() {
 }
 ```
 
-注意 `json_field` 对空 engines 返回空串（`require(...).engines&&engines.node` 短路），无需额外判空。
+注意 `json_field` 对点路径中途缺失的字段返回空串（循环内判空），无需额外判空。
 
 - [ ] **Step 2: 替换尾部占位**
 
@@ -372,7 +374,7 @@ Run:
 f=$(mktemp -d); cd "$f"; git init -q
 printf '{"name":"fx","engines":{"node":">=99"}}\n' > package.json
 printf 'package-lock.json\n' > package-lock.json
-mkdir -p scripts/ops && cp <仓库根>/scripts/ops/worktree-init.sh scripts/ops/
+mkdir -p scripts/ops && cp "$REPO/scripts/ops/worktree-init.sh" scripts/ops/
 bash scripts/ops/worktree-init.sh; echo "exit=$?"
 ```
 
@@ -383,7 +385,7 @@ Expected: `[FAIL] engines.node='>=99'：本机 <版本> 不满足`，`exit=1`。
 Run:
 
 ```bash
-sed -i 's/,"engines":{"node":">=99"}//' package.json 2>/dev/null || printf '{"name":"fx"}\n' > package.json
+printf '{"name":"fx"}\n' > package.json
 bash scripts/ops/worktree-init.sh; echo "exit=$?"
 test -d node_modules && echo has-node_modules
 ```
@@ -424,8 +426,7 @@ git commit -m "feat(repo): worktree-init engines 自适应校验与依赖安装"
 ```bash
 sync_env_files() {
   local copied=0 skipped=0 f base check=1
-  git -C "$MAIN_REPO" check-ignore .gitignore >/dev/null 2>&1 || true  # 预热无副作用
-  git -C "$MAIN_REPO" check-ignore --help >/dev/null 2>&1 || check=0
+  git -C "$MAIN_REPO" check-ignore --version >/dev/null 2>&1 || check=0
   [ "$check" -eq 0 ] && warn 'git check-ignore 不可用，降级为仅模式匹配'
   while IFS= read -r f; do
     base="$(basename "$f")"
@@ -462,7 +463,7 @@ ensure_hooks() {
     ok "hooksPath 已设置：$(git config core.hooksPath)"
     return 0
   fi
-  if json_field package.json 'scripts&&scripts.prepare' | grep -q husky; then
+  if json_field scripts.prepare | grep -q husky; then
     if "$PM" run prepare; then
       ok "钩子已初始化（$PM run prepare）"
     else
@@ -522,7 +523,7 @@ Expected（逐项核对，任一不符即停并回报）：
 - `[1/5]`：主仓库路径反推正确（§7 第 5 条实测项，路径可直接消费、无 `D:\` 残留）；
 - `[2/5]`：`包管理器：pnpm`（探测源为 worktree 自身的 `package.json`）；
 - `[3/5]`：`engines.node='>=24'` 与 `engines.pnpm='>=11'` 两行均「满足」；
-- `[4/5]`：`pnpm install` 成功（共享 `.pnpm-store`，增量安装）；
+- `[4/5]`：`pnpm install` 成功（耗时不作断言：相对路径 `store-dir=.pnpm-store` 可能解析为 worktree 本地存储，属本任务观察项）；
 - `[5/5]`：`.env` 从主仓库复制（首跑），`[ok] hooksPath` 行出现（worktree 首跑可能走 `pnpm run prepare` 初始化路径，两形态均可）；
 - 核对 `.worktrees/smoke-init/.env` 与主仓库 `.env` 内容一致（`diff` 无输出）。
 
@@ -540,7 +541,7 @@ git worktree remove .worktrees/smoke-init --force
 git branch -D tmp/smoke-init
 ```
 
-Expected: 无报错，`git worktree list` 仅剩主仓库。
+Expected: 无报错，`git worktree list` 仅剩主仓库（`remove` 输出无残留告警；若告警 node_modules / `.pnpm-store` 残留，确认 `--force` 已生效即可）。
 
 - [ ] **Step 5: 若本任务产生脚本修复**
 
@@ -620,4 +621,5 @@ git commit -m "chore(repo): worktree-init 收口——删除旧 ps1 与文档登
 
 - 规格覆盖：设计 §三（五步链）→ Task 0-3；§四（探测/校验）→ Task 1-2；§五（文件/钩子细节）→ Task 3；§六（退出码/幂等）→ Task 0/2/4；§七（WSL 约束）→ Task 0 Step 3 + Task 4 Step 2；§八（五验收用例）→ Task 2（engines 三态）/ Task 1（非 Node 栈）/ Task 4（worktree 全链路 + 幂等）；根模式 `.env` 生成用例因本仓库 `.env` 已存在无法直接实测，以 Task 2 fixture（干净临时仓库 + `.env` 生成路径同构的 bootstrap_env）覆盖逻辑，真实克隆场景留待首次真实新克隆时观察——已在计划内明示，不视为缺口。§九（登记）→ Task 5；D7 → Task 5 Step 3。
 - 无占位符；各任务函数名一致（`json_field` / `detect_stack` / `detect_pm` / `version_ge` / `check_engines` / `run_install` / `sync_env_files` / `bootstrap_env` / `ensure_hooks`）。
+- 2026-09-04 计划审查修正：C-1 `json_field` 改 argv 点路径传参（原实现 ReferenceError 被静默吞掉）；C-2 `detect_stack` python 拼接修复；C-3 `check-ignore` 可用性探测改 `--version`（`--help` 会开分页器卡死）；C-4 主仓库反推改 `--absolute-git-dir` 上两级（不依赖 `--git-common-dir` 输出形态）；I-1 fixture shell 上下文声明 + `$REPO` 派生；M-1 子 shell 重复诊断加注；M-2 共享 store 预期降级为观察项；M-3 fixture 改写统一直写 `printf`。
 - 已知实现注意：`.env.local` 双模式命中由 `sort -u` 去重（Task 3 注释已标注）。
