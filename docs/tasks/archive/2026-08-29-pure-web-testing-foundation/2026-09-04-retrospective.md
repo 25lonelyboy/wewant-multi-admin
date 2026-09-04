@@ -45,3 +45,7 @@
 | 上游基线长期维护机制 | [upstream-tracking.md](../../../engineering/upstream-tracking.md) |
 | 治理规则（活文档归档判据 / 索引定性表述） | [docs/README.md 维护规则](../../README.md) |
 | 已关闭 / 开放条目 | [backlog.md](../../../governance/backlog.md) |
+
+## 四、补记（2026-09-04 提升复核）
+
+经提升复核，经验 5（禁整模块 mock）与经验 7（E2E 等待真实信号）已提升为 [apps/pure-web/AGENTS.md 硬规则](../../../../apps/pure-web/AGENTS.md)（日常开发纪律）；「doc-lint 接入门禁链」作为运维治理决策项登记进 [backlog.md](../../../governance/backlog.md)。经验 6（豁免移出同提交）因最终态已删除豁免机制而过期，不再提升；架构层经复核无事实缺口（测试金字塔属工程实践，已由工程层与应用级 AGENTS.md 承载）。
