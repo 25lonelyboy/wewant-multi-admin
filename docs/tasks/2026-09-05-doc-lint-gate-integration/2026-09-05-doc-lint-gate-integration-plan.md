@@ -170,6 +170,8 @@ run('doc-lint', 'node', ['scripts/doc-lint.cjs', '.']);
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # ④ covers 漂移靠比对完整 git 历史的提交时间；默认 depth=1 浅克隆会让所有路径时间戳塌缩到 HEAD，漂移检测静默失效
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -245,7 +247,7 @@ pnpm doc:lint; echo "exit=$?"
 rm docs/architecture/_tmp-orphan.md
 ```
 
-Expected: ① 孤儿文件报 `docs/architecture/_tmp-orphan.md`，`exit=1`；删除后复跑 `pnpm doc:lint` 仅剩 1 项预期漂移（backlog.md，见下）。
+Expected: ① 孤儿文件报 `docs/architecture/_tmp-orphan.md`，`exit=1`；删除后复跑 `pnpm doc:lint` **全绿**——临时孤儿已删，且此时 ci.yml 等改动尚未提交（④ 只读 git 已提交状态），backlog.md 暂不漂移，与 Step 7 一致；backlog.md 的中间态漂移要到 Step 8 提交后才出现（见 Step 9）。
 
 - [ ] **Step 7: 提交前基线确认（预期全绿）**
 
@@ -410,3 +412,4 @@ Expected: 七 job 全绿；`doc-lint` job 绿（报警式 `continue-on-error: tr
 - 漂移链推演已核验：Task 0 提交消除现有 2 漂移；Task 1 提交触发 backlog.md 漂移（其 covers `.github/workflows/`）；Task 2 提交 backlog.md 自身消除。每个任务的「提交前/提交后」预期已在步骤中写明。
 - 既有事实错误顺带修正：ci.yml L2 注释写「四 job」、AGENTS.md 与 build-and-verify.md 的「五 job」描述均过时（实际六 job 且均漏 `e2e-web`），本计划统一修正为七 job（含新增 doc-lint），不改历史记录。
 - 无占位符；无新增依赖；commit scope 均用 `repo`（白名单内）。
+- 审查修正（2026-09-05）：① 计划文档已登记入任务 README 索引——`checkOrphans`（①）对 `docs/tasks/` 下日期前缀文件无豁免（豁免仅作用于 ③④），未登记会使基线多 1 项孤儿（实测红 3 而非红 2）且计划无任务消除它，直接违背「基线归零」目标；② Task 1 Step 6 预期纠偏——删除临时孤儿后应为全绿（ci.yml 未提交，④ 只读已提交状态，backlog.md 漂移在 Step 8 后才出现）；③ CI doc-lint job 补 `fetch-depth: 0`——`actions/checkout@v4` 默认浅克隆（depth=1）会使 ④ 漂移检测在 CI 静默失效（所有路径时间戳塌缩到 HEAD），与 pre-push 本地全历史检测不对齐。
