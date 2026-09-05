@@ -2,9 +2,8 @@
 status: living
 covers:
   - apps/nestjs-server/
-  - docs/governance/backlog.md
   - docs/decisions/ADR-007-backend-evolution.md
-last_verified: 2026-08-29
+last_verified: 2026-09-05
 ---
 
 # NestJS 后端演进路线图
@@ -29,7 +28,7 @@ last_verified: 2026-08-29
 | --- | --- | --- |
 | 开发质量 | ★★★★★ | contracts 先行、合并覆盖率门禁、lint 薄壳、turbo 任务图 |
 | 安全基线 | ★★★★☆ | argon2、双令牌轮换、限流+账号锁定、非 root、digest pin、helmet；缺审计/秘密轮换 |
-| 交付自动化 | ★★★☆☆ | CI 四 job 异步安全网 + 镜像冒烟；无 PR 门禁/CD/registry |
+| 交付自动化 | ★★★☆☆ | CI 异步安全网 + 镜像冒烟；无 PR 门禁/CD/registry |
 | 可观测性 | ★★★☆☆ | pino+requestId+慢查询；缺 metrics/tracing/日志采集 |
 | 可靠性韧性 | ★★★☆☆ | 健康探针、优雅停机半套；缺备份/幂等/drain 上限 |
 | 架构演化力 | ★★★★☆ | 分层清晰、域聚合约定、backlog 治理机制；待第二个域验证 |
