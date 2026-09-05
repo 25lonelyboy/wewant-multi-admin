@@ -6,7 +6,7 @@
 
 | 任务 | 收口说明 |
 |---|---|
-| doc-lint 接入门禁链 | 设计已确认（pre-push 阻断 + CI 报警兜底，前置清项归零基线）；设计 → [2026-09-05-doc-lint-gate-integration/](2026-09-05-doc-lint-gate-integration/)，待实施 |
+| doc-lint 接入门禁链 | 设计+实施计划已就绪（pre-push 阻断 + CI 报警兜底，前置清项归零基线）；设计+计划 → [2026-09-05-doc-lint-gate-integration/](2026-09-05-doc-lint-gate-integration/)，待实施 |
 
 ## 最近已完成
 
