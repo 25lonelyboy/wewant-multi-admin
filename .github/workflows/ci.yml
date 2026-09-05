@@ -1,5 +1,5 @@
 # GitHub CI：入库后异步安全网（决策见 docs/decisions/ADR-006-github-ci.md）
-# 报警式不拦截：仅 push master + 手动触发；无分支保护；四 job 全并行。
+# 报警式不拦截：仅 push master + 手动触发；无分支保护；七 job 全并行。
 name: CI
 
 on:
@@ -185,3 +185,18 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install chromium --with-deps
       - run: pnpm exec turbo run test:e2e --filter=@multi-admin/pure-web
+
+  doc-lint:
+    name: doc-lint（报警式，不红）
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # ④ covers 漂移靠比对完整 git 历史的提交时间；默认 depth=1 浅克隆会让所有路径时间戳塌缩到 HEAD，漂移检测静默失效
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: 文档一致性五检查
+        run: node scripts/doc-lint.cjs .
+        continue-on-error: true

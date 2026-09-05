@@ -10,7 +10,7 @@ covers:
   - docker-compose.yml
   - packages/contracts/
   - turbo.json
-last_verified: 2026-09-04
+last_verified: 2026-09-05
 ---
 
 # 构建与验证
@@ -21,10 +21,12 @@ last_verified: 2026-09-04
 
 提交质量由两层机制保证，职责分离：
 
-1. **实时拦截（本地，每次 commit）**：
+1. **本地拦截（commit / push 前）**：
    - **`pnpm check`**（`scripts/check.mjs`）：按序执行 Prettier 全量检查 → `turbo run typecheck / lint / stylelint` → `turbo run test` → test 覆盖显式枚举，任一失败立即非零退出。纯校验不改文件。提交前必跑。
    - **husky 钩子**：`pre-commit` 跑 lint-staged（配置在 `.lintstagedrc.json`，只处理暂存文件）；`commit-msg` 跑 commitlint（scope 强制 + 白名单，见 `commitlint.config.mjs`）。
-2. **异步兜底（入库后，每次 push master）**：`.github/workflows/ci.yml` 五 job 并行——`gate`（frozen-lockfile 安装 + `pnpm check` 服务端重验）、`docker-build`（双镜像构建验证 + web/server 双启动冒烟：web curl 200、server /health+entrypoint 三段断言，server 冒烟依赖 job services postgres/redis；不 push）、`coverage`（services 上 `test:coverage` ≥80% 报警式硬门槛）、`coverage-web`（pure-web vitest 覆盖率报警式，`build/utils.ts` 与 `src/utils/tree.ts` glob 键 ≥80%）、`audit`（`pnpm audit --audit-level=high` 报警式）。定位与取舍见 `docs/decisions/ADR-006-github-ci.md`。
+   - **`pnpm ops:pre-push`**（`scripts/ops/pre-push.mjs`）：push 前 CI 同构校验，顺序执行 frozen-lockfile → `pnpm check` → `pnpm doc:lint` → audit（报警式）。
+   - **`pnpm doc:lint`**（`scripts/doc-lint.cjs`，零依赖纯 node）：文档一致性五检查（孤儿/死链/frontmatter/covers 漂移/AGENTS.md 行数预算），pre-push 与 CI doc-lint job 均挂载。
+2. **异步兜底（入库后，每次 push master）**：`.github/workflows/ci.yml` 七 job 并行——`gate`（frozen-lockfile 安装 + `pnpm check` 服务端重验）、`docker-build`（双镜像构建验证 + web/server 双启动冒烟：web curl 200、server /health+entrypoint 三段断言，server 冒烟依赖 job services postgres/redis；不 push）、`coverage`（services 上 `test:coverage` ≥80% 报警式硬门槛）、`coverage-web`（pure-web vitest 覆盖率报警式，`build/utils.ts` 与 `src/utils/tree.ts` glob 键 ≥80%）、`e2e-web`（Playwright E2E 冒烟）、`audit`（`pnpm audit --audit-level=high` 报警式）、`doc-lint`（文档一致性五检查报警式）。定位与取舍见 `docs/decisions/ADR-006-github-ci.md`。
 3. **纪律条款**：报警式不拦截的代价是红了必须有人看——**CI 红 → 下一项工作先修 CI**；感知窗口为根 README badge 与 GitHub watch 通知。
 
 历史教训（pre hook 时代）：生命周期钩子按**精确脚本名**匹配变体（`prebuild` 与 `prebuild:dir` 需各自声明）；迁移到任务图后，变体（`build:dir` / `build:staging` / `build:mp-weixin`）在 `turbo.json` 显式声明，新增变体必须同步入图。

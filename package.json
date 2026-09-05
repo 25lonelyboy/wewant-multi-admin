@@ -13,6 +13,7 @@
     "build:desktop": "turbo run build --filter=@multi-admin/electron-desktop",
     "build:web": "turbo run build --filter=@multi-admin/pure-web",
     "check": "node ./scripts/check.mjs",
+    "doc:lint": "node scripts/doc-lint.cjs .",
     "lint": "turbo run lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

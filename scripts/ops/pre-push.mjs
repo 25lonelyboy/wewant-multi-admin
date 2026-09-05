@@ -26,6 +26,9 @@ run('frozen-lockfile', 'pnpm', ['install', '--frozen-lockfile']);
 // 2. 全量门禁（复用 pnpm check）
 run('check', 'pnpm', ['check']);
 
+// 2.5 文档一致性门禁（阻断式：孤儿/死链/frontmatter/漂移/行数预算）
+run('doc-lint', 'node', ['scripts/doc-lint.cjs', '.']);
+
 // 3. 依赖审计（报警式，失败不阻断）
 console.log('\n▶ audit（报警式）');
 try {
