@@ -27,12 +27,14 @@
 
 ### 1. 前置清项（一次性，与挂载同批提交）
 
-| 文档 | 处理 |
-|---|---|
-| `docs/architecture/backend-evolution.md` | 核对内容（以代码为准）→ 同步落后内容 → 刷新 `last_verified` |
-| `docs/architecture/repo-structure.md` | 同上 |
+| 文档 | 漂移的 covers | 处理 |
+|---|---|---|
+| `docs/architecture/backend-evolution.md` | `docs/governance/backlog.md`、`apps/nestjs-server/`、`docs/decisions/ADR-007-backend-evolution.md` | 核对内容（以代码为准）→ 同步落后内容 → 刷新 `last_verified` |
+| `docs/architecture/repo-structure.md` | `apps/`、`internal/`、`packages/`、`pnpm-workspace.yaml` | 同上 |
 
-清项原则：文档与代码冲突时以代码为准并修复文档；内容仍准确则仅刷新 `last_verified`。验收：`node scripts/doc-lint.cjs .` 五检查全绿。
+清项原则：文档与代码冲突时以代码为准并修复文档；内容仍准确则仅刷新 `last_verified`。
+
+**漂移消除机制**（doc-lint.cjs L317-341 已核验）：④ 比对的是文档自身与 covers 文件的 **git 最后提交时间**（`git log -1 --format=%ct`），与 frontmatter 字段无关——刷新 `last_verified` 本身不消除漂移，**提交文档改动**（docTs 变新）才是消除动作；`last_verified` 刷新是活文档治理合规动作，两者绑定在同一次提交内完成。验收：`node scripts/doc-lint.cjs .` 五检查全绿。
 
 ### 2. pre-push 挂载（`scripts/ops/pre-push.mjs`）
 
@@ -81,8 +83,8 @@ run('doc-lint', 'node', ['scripts/doc-lint.cjs', '.']);
 | 文件 | 动作 |
 |---|---|
 | `docs/governance/backlog.md` | 条目移至关闭表（处置方式列写实现形态，关闭日期 2026-09-05），按既有维护规范整行移动不删行 |
-| `docs/engineering/build-and-verify.md` | 常用命令区补 `pnpm doc:lint` + 刷新 `last_verified` |
-| `AGENTS.md` | 常用命令区登记 `pnpm doc:lint` |
+| `docs/engineering/build-and-verify.md` | 「质量门禁（本地实时 + CI 异步兜底双层）」节补 `pnpm doc:lint` 与 pre-push 新步说明 + 刷新 `last_verified`（该文档无「常用命令区」，登记到门禁节） |
+| `AGENTS.md` | 常用命令区第 52 行 `node scripts/doc-lint.cjs .` **替换**为 `pnpm doc:lint`；文档治理区裸命令同步简化 |
 
 ## 验证
 
