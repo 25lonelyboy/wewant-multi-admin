@@ -43,13 +43,13 @@ pnpm --filter @multi-admin/pure-web run test:e2e              # Playwright E2E�
 
 # 运维辅助脚本（完整表见 docs/engineering/build-and-verify.md）
 pnpm ops:env-up / ops:env-down    # 开发环境启停（postgres + redis + migrate + seed）
-pnpm ops:pre-push                 # push 前 CI 同构校验（frozen-lockfile + check + audit）
+pnpm ops:pre-push                 # push 前 CI 同构校验（frozen-lockfile + check + doc-lint + audit）
 pnpm ops:ci / ops:ci-logs         # CI 状态拉取 / 失败日志导出
 pnpm ops:smoke / ops:coverage     # Docker 冒烟 / 覆盖率报表
 pnpm ops:check-digests            # 镜像 digest pin 季度漂移巡检（新建 Dockerfile/compose/CI 镜像引用时同步维护）
 
 # 文档治理自检（孤儿/死链/frontmatter/covers 漂移/行数；根 "type": "module" 故副本用 .cjs）
-node scripts/doc-lint.cjs .
+pnpm doc:lint
 ```
 
 ## 架构要点
@@ -60,7 +60,7 @@ node scripts/doc-lint.cjs .
 - **桌面端链路**：turbo `^build` 编排 pure-web 产物 → esbuild 编译主进程（ESM）/preload（CJS，sandbox 要求）→ 复制 dist 到 `dist-electron/web/` → electron-builder 打包；渲染层由自定义 `app://` 协议托管（含路径穿越防护）；单实例锁 + 托盘常驻（关窗隐藏不退出）。细节见 [desktop-app.md](docs/architecture/desktop-app.md)。
 - **Lint 薄壳模式**：各应用 eslint / stylelint 一行引用 `internal/*` 工厂；ESLint 只校验（`--max-warnings 0`），格式化由 Prettier 独占。
 - **Docker**：镜像构建必须以仓库根为 context；compose 含 postgres / redis / server / web 四服务，server 启动链 `prisma migrate deploy → prisma db seed → exec node`（幂等）；库名统一 `multi_admin`（存量旧卷需 `down -v` 重建）；本地 redis 无密码映射宿主 6379，禁止暴露生产/共享网络。env 注意事项见 [build-and-verify.md](docs/engineering/build-and-verify.md)。
-- **质量门禁双层**：本地实时（`pnpm check` + husky lint-staged）+ GitHub CI 异步兜底（`.github/workflows/ci.yml`，push master 触发，五 job：gate / docker-build / coverage / coverage-web / audit，报警式不拦截，[ADR-006](docs/decisions/ADR-006-github-ci.md)）。**CI 红 → 下一项工作先修 CI。**
+- **质量门禁双层**：本地实时（`pnpm check` + husky lint-staged）+ GitHub CI 异步兜底（`.github/workflows/ci.yml`，push master 触发，七 job：gate / docker-build / coverage / coverage-web / e2e-web / audit / doc-lint，报警式不拦截，[ADR-006](docs/decisions/ADR-006-github-ci.md)）。**CI 红 → 下一项工作先修 CI。**
 
 ## 安全不变量
 
@@ -80,5 +80,5 @@ node scripts/doc-lint.cjs .
 
 - 读取顺序：本文件 → [docs/README.md](docs/README.md) → 对应领域 README → 最小主题文件；按需读取，不要求通读。在某个应用内工作时，优先读该应用的 AGENTS.md（已有：[apps/pure-web](apps/pure-web/AGENTS.md) / [apps/nestjs-server](apps/nestjs-server/AGENTS.md)）。
 - 事实源：架构事实在 `docs/architecture/`，工程实践在 `docs/engineering/`，决策在 `docs/decisions/`（ADR），过程材料在 `docs/tasks/`，backlog 在 `docs/governance/`。
-- 文档与代码冲突时以代码为准，并修复文档；信任活文档 frontmatter 的 `last_verified`，不信任编辑时间。文档变更后跑 `node scripts/doc-lint.cjs .` 验收（副本落后于技能母版时随重组更新）。
+- 文档与代码冲突时以代码为准，并修复文档；信任活文档 frontmatter 的 `last_verified`，不信任编辑时间。文档变更后跑 `pnpm doc:lint` 验收（副本落后于技能母版时随重组更新）。
 - 新文档必须归位到对应层目录，并登记进该目录 README 索引。

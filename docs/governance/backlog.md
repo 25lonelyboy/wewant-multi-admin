@@ -4,7 +4,7 @@ covers:
   - apps/nestjs-server/
   - docker-compose.yml
   - .github/workflows/
-last_verified: 2026-09-04
+last_verified: 2026-09-05
 ---
 
 # 全局 backlog
@@ -24,7 +24,6 @@ last_verified: 2026-09-04
 |---|---|---|---|
 | 子资源整体替换并发交错窗口 | 角色-菜单 / 用户-角色分配已实现 `$transaction` 原子（deleteMany+createMany），但 READ COMMITTED 下无行级锁，两个并发整体替换事务仍可能交错产生混合态 | 同一资源的真实并发管理操作出现（可考虑行锁/版本号加固） | 2026-08-21 |
 | 管理员手动解锁端点 | 账号锁定目前仅 TTL 自动解锁（15 分钟），无误伤应急手段 | 运维需求或锁定误伤反馈 | 2026-08-27 |
-| doc-lint 接入门禁链 | doc-lint 副本（scripts/doc-lint.cjs）已落仓库并登记 AGENTS.md，但依赖文档变更后自觉执行，孤儿/死链/漂移缺机械保障；当前基线全绿接入成本低 | 下一次文档体系维护或治理任务（候选方案：pnpm check 链加步 / ops:pre-push 加步 / CI 报警式 job） | 2026-09-04 |
 | JWT secret 强度校验与轮换预案 | env.schema 对 JWT_ACCESS_SECRET / JWT_REFRESH_SECRET 仅 min(1) 校验，无强度下限（建议 min 32）与双密钥轮换流程 | 生产部署前（强度校验部分已关闭，2026-08-27，min(32) 强制，BREAKING；轮换预案仍开放） | 2026-08-23 |
 | 审计日志（管理员操作审计） | 登录成功/失败、权限变更、软删除等关键操作无持久化审计记录；与 mine-logs 行关联但独立（后者是个人安全日志视图）；基础版范围已定（ADR-007）：登录事件 + 管理员敏感操作（改权限/软删除/重置密码/改密），全量业务审计待监控域扩 | 阶段 A（生产部署试点）或合规需求 | 2026-08-23 |
 | 自助改密端点与会话吊销 | 无用户自助修改密码端点（仅管理员重置视角）；管理员重置密码后不吊销已签发会话，旧 token 继续有效至过期 | 真实多用户场景 | 2026-08-23 |
@@ -74,3 +73,4 @@ last_verified: 2026-09-04
 | print.ts strict+覆盖补全 | `utils/print.ts` DOM 打印模块 strict 修复 + 覆盖率门槛 | 随 B4 收口批次执行 | strict 部分已随 B4 T3 清零迁入；覆盖口径维持（jsdom 不可达 API 豁免） | 2026-09-02 | 2026-08-29 |
 | B3 Canvas 绘制豁免回补 | 三类 Canvas 行为 jsdom 不可达，采用薄测试 + 豁免清单口径 | 随 B4 收口批次 E2E 回补 | E2E 覆盖验证码/二维码/打印行为级；cropper 深度交互维持永久豁免 | 2026-09-02 | 2026-08-30 |
 | vitest 配置未来兼容 | vitest.config.ts 触发 Vite 未来版本告警 + check-strict-web.mjs DEP0190 告警 | 随 B4 收口批次 T4 修复 | T4 已修复 vitest.config.ts 告警（扩展名 + JSON import attributes）；check-strict-web.mjs 已随 T13 删除（DEP0190 不再适用） | 2026-09-02 | 2026-08-30 |
+| doc-lint 接入门禁链 | doc-lint 副本（scripts/doc-lint.cjs）已落仓库并登记 AGENTS.md，但依赖文档变更后自觉执行，孤儿/死链/漂移缺机械保障；当前基线全绿接入成本低 | 下一次文档体系维护或治理任务（候选方案：pnpm check 链加步 / ops:pre-push 加步 / CI 报警式 job） | 双层门禁：`ops:pre-push` 加 doc-lint 步（阻断）+ CI 独立 doc-lint job（报警式）+ `pnpm doc:lint` 入口；前置清项 2 漂移（backend-evolution.md 移除动态 covers、repo-structure.md 刷新） | 2026-09-05 | 2026-09-04 |
