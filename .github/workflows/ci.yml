@@ -183,7 +183,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install chromium --with-deps
+      - run: pnpm --filter=@multi-admin/pure-web exec playwright install chromium --with-deps
       - run: pnpm exec turbo run test:e2e --filter=@multi-admin/pure-web
 
   doc-lint:
