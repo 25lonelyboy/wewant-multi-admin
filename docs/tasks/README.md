@@ -6,12 +6,12 @@
 
 | 任务 | 收口说明 |
 |---|---|
-| 通用 worktree 初始化脚本 | 设计已确认（双场景 bash 单脚本 + engines 自适应 + env 类白名单同步）；设计 → [2026-09-04-generic-worktree-init/](2026-09-04-generic-worktree-init/)，待实施 |
 
 ## 最近已完成
 
 | 任务 | 收口说明 |
 |---|---|
+| 通用 worktree 初始化脚本 | 实施完成：`scripts/ops/worktree-init.sh` 落地（双场景实测全绿），旧 ps1 已删除，登记 → [build-and-verify.md](../engineering/build-and-verify.md) |
 | pure-web 测试基建与 strict 类型安全 | B4 收口批次 13 任务全部完成（单测 / E2E 全绿，strict 全量迁入单一 tsconfig）；结论 → [build-and-verify.md](../engineering/build-and-verify.md)；已归档 [archive/2026-08-29-pure-web-testing-foundation/](archive/2026-08-29-pure-web-testing-foundation/) |
 | server 镜像启动冒烟（Tier 2） | 合并 master、CI 首跑四 job 全绿；backlog 已关闭并登记演进行；结论 → [build-and-verify.md](../engineering/build-and-verify.md)；已归档 [archive/2026-08-28-server-image-smoke/](archive/2026-08-28-server-image-smoke/) |
 | 生产安全基线（Tier 2 #6） | 7 提交已合并 master（非 root + digest pin 8 处 + check-digests 巡检 + 运行链 3 项修复）；backlog ①② 已关闭；结论 → [build-and-verify.md](../engineering/build-and-verify.md)；已归档 [archive/2026-08-27-server-security-baseline/](archive/2026-08-27-server-security-baseline/) |
