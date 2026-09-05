@@ -47,6 +47,8 @@ run('doc-lint', 'node', ['scripts/doc-lint.cjs', '.']);
 
 ### 3. 手动执行入口（根 `package.json`）
 
+在 `"check"` 行之后插入（逻辑相邻：本地质量门禁区）：
+
 ```json
 "doc:lint": "node scripts/doc-lint.cjs ."
 ```
