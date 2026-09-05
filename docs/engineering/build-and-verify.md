@@ -69,7 +69,7 @@ turbo env 透传约束：Turborepo 不透传自定义 env vars 到 task 子进�
 
 | 命令 | 脚本 | 职责 |
 |---|---|---|
-| `pnpm ops:pre-push` | `pre-push.mjs` | push 前 CI 同构校验：frozen-lockfile + check + audit |
+| `pnpm ops:pre-push` | `pre-push.mjs` | push 前 CI 同构校验：frozen-lockfile + check + doc-lint + audit |
 | `pnpm ops:ci` | `ci-status.sh` | CI 结果拉取：最近 5 次 run 状态 + 失败自动打印日志 |
 | `pnpm ops:ci-logs` | `ci-logs.sh` | CI 失败日志导出：`.ci-failure-<id>.log`（Agent 可读取分析） |
 | `pnpm ops:env-up` | `env-up.sh` | 开发环境启动：postgres + redis + migrate + seed |
