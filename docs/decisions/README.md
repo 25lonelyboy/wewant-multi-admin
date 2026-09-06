@@ -13,6 +13,7 @@
 | [ADR-005-turbo-build-orchestration.md](ADR-005-turbo-build-orchestration.md) | 构建编排采纳 Turborepo 任务图（取代 pre hook；部分取代 ADR-003 编排条款） | accepted |
 | [ADR-006-github-ci.md](ADR-006-github-ci.md) | GitHub CI 异步安全网（报警式不拦截，单人直推工作流兜底；决策时四 job，现增 `coverage-web` 共五） | accepted |
 | [ADR-007-backend-evolution.md](ADR-007-backend-evolution.md) | 后端演进方向：长期模块化单体 + 终态微服务分段路线（D1-D4 与阶段 A 范围决策） | accepted |
+| [ADR-008-tiered-e2e-testing.md](ADR-008-tiered-e2e-testing.md) | 双层 E2E：前端集成（mock）+ 真实后端冒烟（落地 P5 直连决策的测试验证面） | accepted |
 
 ## 规则
 
