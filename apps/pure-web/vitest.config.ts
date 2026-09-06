@@ -210,6 +210,39 @@ export default defineConfig({
         'src/layout/hooks/useDataThemeChange.ts': { lines: 80, branches: 80 },
         'src/layout/hooks/useMultiFrame.ts': { lines: 80, branches: 80 },
 
+        'src/layout/components/lay-search/components/SearchResult.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-setting/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-sidebar/components/SidebarBreadCrumb.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-sidebar/components/SidebarExtraIcon.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-sidebar/components/SidebarItem.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-sidebar/components/SidebarLinkItem.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-sidebar/components/SidebarLogo.vue': {
+          lines: 80,
+          branches: 80
+        },
+        'src/layout/components/lay-tag/index.vue': {
+          lines: 80,
+          branches: 80
+        },
+
         'src/layout/components/lay-search/components/SearchHistoryItem.vue': {
           lines: 80,
           branches: 80

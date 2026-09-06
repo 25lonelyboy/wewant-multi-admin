@@ -3,8 +3,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { shallowMount } from '@vue/test-utils';
 
 // Mock dependencies
+const getTopMenuMock = vi.hoisted(() => vi.fn(() => ({ path: '/welcome' })));
 vi.mock('@/router/utils', () => ({
-  getTopMenu: () => ({ path: '/welcome' })
+  getTopMenu: getTopMenuMock
 }));
 
 const mockNav = vi.hoisted(() => ({
@@ -107,5 +108,47 @@ describe('SidebarLogo', () => {
     });
 
     expect(wrapper.find('.sidebar-title').text()).toBe('Test App');
+  });
+
+  it('renders logo image when collapse is true', () => {
+    const wrapper = shallowMount(SidebarLogo as any, {
+      props: {
+        collapse: true
+      },
+      global: {
+        stubs: {
+          'router-link': {
+            props: ['to'],
+            template: '<a><slot /></a>'
+          },
+          transition: false
+        }
+      }
+    });
+
+    const img = wrapper.find('img');
+    expect(img.exists()).toBe(true);
+    expect(img.attributes('src')).toBe('/logo.png');
+    expect(wrapper.find('.sidebar-title').text()).toBe('Test App');
+  });
+
+  it('falls back to / when getTopMenu returns null', () => {
+    getTopMenuMock.mockReturnValueOnce(null);
+    const wrapper = shallowMount(SidebarLogo as any, {
+      props: {
+        collapse: false
+      },
+      global: {
+        stubs: {
+          'router-link': {
+            props: ['to'],
+            template: '<a><slot /></a>'
+          },
+          transition: false
+        }
+      }
+    });
+
+    expect(wrapper.find('.sidebar-logo-container').exists()).toBe(true);
   });
 });

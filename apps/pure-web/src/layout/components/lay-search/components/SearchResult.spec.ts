@@ -93,4 +93,34 @@ describe('SearchResult', () => {
     const result = (wrapper.vm as any).handleScroll(99);
     expect(result).toBe(0);
   });
+
+  it('handleScroll returns 0 when curRef is null', () => {
+    const wrapper = shallowMount(SearchResult as any, mountOptions);
+    const internalInstance = (wrapper.vm as any).$;
+    internalInstance.refs.resultItemRef0 = [null];
+    const result = (wrapper.vm as any).handleScroll(0);
+    expect(result).toBe(0);
+  });
+
+  it('handleScroll returns scrollTop - innerHeight when scrollTop > innerHeight', () => {
+    const wrapper = shallowMount(SearchResult as any, mountOptions);
+    const mockEl = { offsetTop: 500 } as HTMLElement;
+    const internalInstance = (wrapper.vm as any).$;
+    internalInstance.refs.resultItemRef0 = [mockEl];
+    (wrapper.vm as any).innerHeight = 100;
+    const result = (wrapper.vm as any).handleScroll(0);
+    // scrollTop = 500 + 128 = 628; result = 628 - 100 = 528
+    expect(result).toBe(528);
+  });
+
+  it('handleScroll returns 0 when scrollTop <= innerHeight', () => {
+    const wrapper = shallowMount(SearchResult as any, mountOptions);
+    const mockEl = { offsetTop: 10 } as HTMLElement;
+    const internalInstance = (wrapper.vm as any).$;
+    internalInstance.refs.resultItemRef0 = [mockEl];
+    (wrapper.vm as any).innerHeight = 1000;
+    const result = (wrapper.vm as any).handleScroll(0);
+    // scrollTop = 10 + 128 = 138; 138 <= 1000 → return 0
+    expect(result).toBe(0);
+  });
 });
