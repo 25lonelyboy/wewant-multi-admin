@@ -108,6 +108,11 @@ export default defineConfig({
         'src/views/system/menu/utils/types.ts', // T5: 纯类型
         'src/views/system/role/utils/types.ts', // T5: 纯类型
         'src/views/system/user/utils/types.ts', // T5: 纯类型
+        // ── T5 纯类型：components type.ts ──
+        'src/components/ReDialog/type.ts', // T5: 纯类型
+        'src/components/ReDrawer/type.ts', // T5: 纯类型
+        'src/components/ReSegmented/src/type.ts', // T5: 纯类型
+        'src/components/ReIcon/src/types.ts', // T5: 纯类型
         // ── T3 页面壳：Task 10-12 逐域追加 ──
         // ── T3 页面壳（smoke 已覆盖）──
         'src/layout/index.vue', // T3: 布局壳
