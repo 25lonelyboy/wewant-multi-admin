@@ -7,6 +7,7 @@
 | 任务 | 收口说明 |
 |---|---|
 | doc-lint 接入门禁链 | 设计+实施计划已就绪（pre-push 阻断 + CI 报警兜底，前置清项归零基线）；设计+计划 → [2026-09-05-doc-lint-gate-integration/](2026-09-05-doc-lint-gate-integration/)，待实施 |
+| pure-web 前端测试评估规范与覆盖缺口补齐 | 设计 + 实施计划已就绪（六层分类框架 + 双层 E2E + 阈值终态 + 6 Phase 路线图；22 个 B 类文件判定已前置固化）；决策 → [ADR-008](../decisions/ADR-008-tiered-e2e-testing.md)，设计+计划 → [2026-09-06-frontend-testing-standard/](2026-09-06-frontend-testing-standard/)，待提交与执行 |
 
 ## 最近已完成
 
