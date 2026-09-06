@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { fillAndSubmitLogin } from './helpers';
 
 test.describe('登录链路', () => {
-  test('表单空校验 → 填写凭证 → 登录成功 → 首页菜单渲染 → 退出回到登录页', async ({
+  test('表单空校验 → 填写凭证 → 登录成功 → 首页菜单渲染 → 退出回到登录页 @mock-only', async ({
     page
   }) => {
     // 1. 打开登录页
@@ -19,23 +20,8 @@ test.describe('登录链路', () => {
     await usernameInput.blur();
     await expect(page.locator('.el-form-item__error').first()).toBeVisible();
 
-    // 3. 填写 admin + admin123 + 验证码
-    //    验证码由 canvas 绘制后写入 Pinia store，从 Vue 全局属性读取
-    await usernameInput.fill('admin');
-    await page.getByPlaceholder('密码').fill('admin123');
-
-    const code = await page.evaluate(() => {
-      const app = document.querySelector('#app') as any;
-      const pinia = app?.__vue_app__?.config?.globalProperties?.$pinia;
-      const userStore = pinia?._s?.get('pure-user');
-      return userStore?.verifyCode ?? '';
-    });
-    expect(code).toMatch(/^\d{4}$/);
-
-    await page.getByPlaceholder('验证码').fill(code);
-
-    // 4. 点击登录按钮
-    await page.getByRole('button', { name: '登录', exact: true }).click();
+    // 3. 填写凭证 + 验证码并提交
+    await fillAndSubmitLogin(page);
 
     // 5. 等待跳转到首页（hash 路由）
     await page.waitForURL('**/#/**', { timeout: 15_000 });

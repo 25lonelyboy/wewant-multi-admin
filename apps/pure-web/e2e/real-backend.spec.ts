@@ -1,7 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-const ADMIN_USER = process.env.E2E_ADMIN_USER ?? 'admin';
-const ADMIN_PASS = process.env.E2E_ADMIN_PASS ?? 'dev-admin-pass';
+import { ADMIN_USER, ADMIN_PASS, readVerifyCode } from './helpers';
 
 test('直连真实后端登录→首页菜单→退出 @real-backend', async ({ page }) => {
   await page.goto('/');
@@ -10,13 +8,7 @@ test('直连真实后端登录→首页菜单→退出 @real-backend', async ({ 
   await page.getByPlaceholder('账号').fill(ADMIN_USER);
   await page.getByPlaceholder('密码').fill(ADMIN_PASS);
   // 后端无验证码校验，照填前端 canvas 生成的 4 位码
-  const code = await page.evaluate(() => {
-    const app = document.querySelector('#app') as any;
-    const pinia = app?.__vue_app__?.config?.globalProperties?.$pinia;
-    const userStore = pinia?._s?.get('pure-user');
-    return userStore?.verifyCode ?? '';
-  });
-  expect(code).toMatch(/^\d{4}$/);
+  const code = await readVerifyCode(page);
   await page.getByPlaceholder('验证码').fill(code);
   await page.getByRole('button', { name: '登录', exact: true }).click();
   await page.waitForURL('**/#/**', { timeout: 15_000 });
