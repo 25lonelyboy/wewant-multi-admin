@@ -37,3 +37,11 @@
 | src/views/login/components/LoginQrCode.vue | LoginQrCode.spec.ts | 二维码壳：展示 ReQrcode + 返回按钮 |
 | src/views/welcome/index.vue | index.spec.ts | 欢迎页壳：组合图表/卡片/表格 |
 | src/views/welcome/components/table/index.vue | index.spec.ts | 表格壳：pure-table 包装 |
+| src/views/account-settings/index.vue | index.spec.ts | 账户设置壳：组合子组件，无独立逻辑 |
+| src/views/account-settings/components/AccountManagement.vue | AccountManagement.spec.ts | 账户管理壳：静态列表展示 |
+| src/views/account-settings/components/Preferences.vue | Preferences.spec.ts | 偏好设置壳：开关列表展示 |
+| src/views/monitor/logs/login/index.vue | index.spec.ts | 登录日志壳：组合 hook + 表格 |
+| src/views/monitor/logs/operation/index.vue | index.spec.ts | 操作日志壳：组合 hook + 表格 |
+| src/views/monitor/logs/system/index.vue | index.spec.ts | 系统日志壳：组合 hook + 表格 |
+| src/views/monitor/logs/system/detail.vue | detail.spec.ts | 日志详情壳：JSON 展示 |
+| src/views/monitor/online/index.vue | index.spec.ts | 在线用户壳：组合 hook + 表格 |

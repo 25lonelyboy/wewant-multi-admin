@@ -125,7 +125,15 @@ export default defineConfig({
         'src/views/login/index.vue', // T3: 登录壳
         'src/views/login/components/LoginQrCode.vue', // T3: 二维码壳
         'src/views/welcome/index.vue', // T3: 欢迎页壳
-        'src/views/welcome/components/table/index.vue' // T3: 表格壳
+        'src/views/welcome/components/table/index.vue', // T3: 表格壳
+        'src/views/account-settings/index.vue', // T3: 账户设置壳
+        'src/views/account-settings/components/AccountManagement.vue', // T3: 账户管理壳
+        'src/views/account-settings/components/Preferences.vue', // T3: 偏好设置壳
+        'src/views/monitor/logs/login/index.vue', // T3: 登录日志壳
+        'src/views/monitor/logs/operation/index.vue', // T3: 操作日志壳
+        'src/views/monitor/logs/system/index.vue', // T3: 系统日志壳
+        'src/views/monitor/logs/system/detail.vue', // T3: 日志详情壳
+        'src/views/monitor/online/index.vue' // T3: 在线用户壳
       ],
       thresholds: {
         'build/utils.ts': { lines: 80, branches: 80 },
@@ -326,6 +334,14 @@ export default defineConfig({
         'src/views/monitor/logs/system/hook.tsx': { lines: 80, branches: 80 },
         'src/views/monitor/logs/login/hook.tsx': { lines: 80, branches: 80 },
         'src/views/monitor/logs/operation/hook.tsx': {
+          lines: 80,
+          branches: 80
+        },
+        'src/views/account-settings/components/Profile.vue': {
+          lines: 72,
+          branches: 80
+        },
+        'src/views/account-settings/components/SecurityLog.vue': {
           lines: 80,
           branches: 80
         },
