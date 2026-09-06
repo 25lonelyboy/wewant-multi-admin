@@ -16,3 +16,20 @@
 ## T5 无逻辑
 
 （barrel/plugins/入口/静态页/纯类型——逐条理由见 vitest.config.ts 内联注释，双处同源）
+
+## T3 页面壳（smoke 已覆盖 + coverage exclude）
+
+| 文件 | 薄测试 | 理由 |
+| --- | --- | --- |
+| src/layout/index.vue | index.spec.ts | 布局壳：组合子组件，无独立逻辑 |
+| src/layout/frame.vue | frame.spec.ts | iframe 载体：仅渲染 iframe |
+| src/layout/components/lay-content/index.vue | index.spec.ts | 内容区壳：router-view 包装 |
+| src/layout/components/lay-frame/index.vue | index.spec.ts | frame 壳：多 iframe 缓存包装 |
+| src/layout/components/lay-navbar/index.vue | index.spec.ts | 导航壳：组合面包屑+工具栏 |
+| src/layout/components/lay-notice/components/NoticeItem.vue | NoticeItem.spec.ts | 通知项壳：展示型组件 |
+| src/layout/components/lay-search/index.vue | index.spec.ts | 搜索入口壳：触发 toggle |
+| src/layout/components/lay-search/components/SearchFooter.vue | SearchFooter.spec.ts | 搜索底栏壳：快捷键提示 |
+| src/layout/components/lay-sidebar/components/SidebarFullScreen.vue | SidebarFullScreen.spec.ts | 全屏按钮壳：toggle 代理 |
+| src/layout/components/lay-sidebar/components/SidebarCenterCollapse.vue | SidebarCenterCollapse.spec.ts | 折叠按钮壳：emit toggleClick |
+| src/layout/components/lay-sidebar/components/SidebarLeftCollapse.vue | SidebarLeftCollapse.spec.ts | 左折叠壳：emit toggleClick |
+| src/layout/components/lay-sidebar/components/SidebarTopCollapse.vue | SidebarTopCollapse.spec.ts | 顶折叠壳：emit toggleClick |

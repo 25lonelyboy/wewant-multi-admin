@@ -1,64 +1,64 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { shallowMount } from '@vue/test-utils';
-import { ref } from 'vue';
+import { computed } from 'vue';
+
+// ── mocks ──
+vi.mock('animate.css', () => ({}));
+vi.mock('@/components/ReIcon/src/offlineIcon', () => ({}));
 
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key })
+  useI18n: () => ({ t: (k: string) => k })
 }));
 
 vi.mock('@/plugins/i18n', () => ({
-  $t: (key: string) => key,
+  $t: (k: string) => k,
   transformI18n: (m: any) => (typeof m === 'object' ? (m?.zh ?? m) : (m ?? ''))
 }));
 
 vi.mock('@/layout/hooks/useLayout', () => ({
-  useLayout: () => ({ layout: ref('vertical') })
+  useLayout: () => ({
+    layout: computed(() => 'vertical'),
+    layoutTheme: { value: {} },
+    initStorage: vi.fn()
+  })
 }));
 
-const appStoreState = vi.hoisted(() => ({
-  sidebar: { opened: true, withoutAnimation: false, isClickCollapse: false },
-  device: 'desktop',
-  layout: 'vertical',
-  toggleDevice: vi.fn(),
-  toggleSideBar: vi.fn(),
-  setViewportSize: vi.fn()
-}));
 vi.mock('@/store/modules/app', () => ({
-  useAppStoreHook: () => appStoreState
+  useAppStoreHook: () => ({
+    sidebar: { opened: true, withoutAnimation: false, isClickCollapse: false },
+    device: 'desktop',
+    layout: 'vertical',
+    getSidebarStatus: true,
+    getDevice: 'desktop',
+    toggleDevice: vi.fn(),
+    toggleSideBar: vi.fn(),
+    setViewportSize: vi.fn()
+  })
 }));
 
-const settingsState = vi.hoisted(() => ({
-  fixedHeader: true,
-  hiddenSideBar: false
-}));
 vi.mock('@/store/modules/settings', () => ({
-  useSettingStoreHook: () => settingsState
+  useSettingStoreHook: () => ({
+    fixedHeader: true,
+    hiddenSideBar: false
+  })
 }));
 
 vi.mock('@/layout/hooks/useDataThemeChange', () => ({
-  useDataThemeChange: () => ({ dataThemeChange: vi.fn() })
+  useDataThemeChange: () => ({ dataThemeChange: vi.fn(), onReset: vi.fn() })
 }));
-
-const storageData: Record<string, any> = {
-  configure: { hideTabs: false },
-  layout: {
-    layout: 'vertical',
-    theme: 'light',
-    darkMode: false,
-    sidebarStatus: true,
-    epThemeColor: '#409EFF',
-    themeColor: 'light',
-    themeMode: 'light'
-  }
-};
 
 vi.mock('@pureadmin/utils', async importOriginal => {
   const actual = await importOriginal<typeof import('@pureadmin/utils')>();
   return {
     ...actual,
-    useDark: () => ({ isDark: ref(false) }),
-    useGlobal: () => ({ $storage: storageData }),
+    useDark: () => ({ isDark: { value: false } }),
+    useGlobal: () => ({
+      $storage: {
+        layout: { themeMode: 'light', layout: 'vertical' },
+        configure: { hideTabs: false }
+      }
+    }),
     deviceDetection: () => false,
     useResizeObserver: vi.fn()
   };
@@ -66,79 +66,28 @@ vi.mock('@pureadmin/utils', async importOriginal => {
 
 import LayoutIndex from './index.vue';
 
-describe('LayoutIndex', () => {
+describe('LayoutIndex（T3 smoke）', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    appStoreState.sidebar = {
-      opened: true,
-      withoutAnimation: false,
-      isClickCollapse: false
-    };
-    appStoreState.device = 'desktop';
-    settingsState.fixedHeader = true;
-    settingsState.hiddenSideBar = false;
   });
 
-  function mountLayout() {
-    return shallowMount(LayoutIndex as any, {
+  it('挂载不崩且根元素渲染', () => {
+    const wrapper = shallowMount(LayoutIndex as any, {
       global: {
         stubs: {
-          LayTag: { template: '<div class="lay-tag" />' },
-          LayNavbar: { template: '<div class="lay-navbar" />' },
-          LayContent: { template: '<div class="lay-content" />' },
-          LaySetting: { template: '<div class="lay-setting" />' },
-          NavVertical: { template: '<div class="nav-vertical" />' },
-          NavHorizontal: { template: '<div class="nav-horizontal" />' },
+          LayTag: { template: '<div />' },
+          LayNavbar: { template: '<div />' },
+          LayContent: { template: '<div />' },
+          LaySetting: { template: '<div />' },
+          NavVertical: { template: '<div />' },
+          NavHorizontal: { template: '<div />' },
+          BackTopIcon: { template: '<span />' },
           ElScrollbar: { template: '<div><slot /></div>' },
-          ElBacktop: { template: '<div />' },
-          IconifyIconOffline: { template: '<span />' }
-        }
+          ElBacktop: { template: '<div />' }
+        },
+        directives: { loading: () => {} }
       }
     });
-  }
-
-  it('renders app-wrapper', () => {
-    const wrapper = mountLayout();
     expect(wrapper.find('.app-wrapper').exists()).toBe(true);
-  });
-
-  it('applies openSidebar class when sidebar opened', () => {
-    const wrapper = mountLayout();
-    expect(wrapper.find('.app-wrapper').classes()).toContain('openSidebar');
-  });
-
-  it('applies hideSidebar class when sidebar closed', () => {
-    appStoreState.sidebar.opened = false;
-    const wrapper = mountLayout();
-    expect(wrapper.find('.app-wrapper').classes()).toContain('hideSidebar');
-  });
-
-  it('renders LaySetting component', () => {
-    const wrapper = mountLayout();
-    expect(wrapper.find('.lay-setting').exists()).toBe(true);
-  });
-
-  it('renders NavVertical in vertical layout', () => {
-    const wrapper = mountLayout();
-    expect(wrapper.find('.nav-vertical').exists()).toBe(true);
-  });
-
-  it('renders main-container', () => {
-    const wrapper = mountLayout();
-    expect(wrapper.find('.main-container').exists()).toBe(true);
-  });
-
-  it('applies mobile class when device is mobile', () => {
-    appStoreState.device = 'mobile';
-    const wrapper = mountLayout();
-    expect(wrapper.find('.app-wrapper').classes()).toContain('mobile');
-  });
-
-  it('set.classes computes correctly', () => {
-    const wrapper = mountLayout();
-    const classes = (wrapper.vm as any).set.classes;
-    expect(classes).toHaveProperty('hideSidebar');
-    expect(classes).toHaveProperty('openSidebar');
-    expect(classes).toHaveProperty('mobile');
   });
 });

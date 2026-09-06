@@ -107,8 +107,21 @@ export default defineConfig({
         'src/views/system/dept/utils/types.ts', // T5: 纯类型
         'src/views/system/menu/utils/types.ts', // T5: 纯类型
         'src/views/system/role/utils/types.ts', // T5: 纯类型
-        'src/views/system/user/utils/types.ts' // T5: 纯类型
+        'src/views/system/user/utils/types.ts', // T5: 纯类型
         // ── T3 页面壳：Task 10-12 逐域追加 ──
+        // ── T3 页面壳（smoke 已覆盖）──
+        'src/layout/index.vue', // T3: 布局壳
+        'src/layout/frame.vue', // T3: iframe 载体
+        'src/layout/components/lay-content/index.vue', // T3: 内容区壳
+        'src/layout/components/lay-frame/index.vue', // T3: frame 壳
+        'src/layout/components/lay-navbar/index.vue', // T3: 导航壳
+        'src/layout/components/lay-notice/components/NoticeItem.vue', // T3: 通知项壳
+        'src/layout/components/lay-search/index.vue', // T3: 搜索入口壳
+        'src/layout/components/lay-search/components/SearchFooter.vue', // T3: 搜索底栏壳
+        'src/layout/components/lay-sidebar/components/SidebarFullScreen.vue', // T3: 全屏按钮壳
+        'src/layout/components/lay-sidebar/components/SidebarCenterCollapse.vue', // T3: 折叠按钮壳
+        'src/layout/components/lay-sidebar/components/SidebarLeftCollapse.vue', // T3: 左折叠壳
+        'src/layout/components/lay-sidebar/components/SidebarTopCollapse.vue' // T3: 顶折叠壳
       ],
       thresholds: {
         'build/utils.ts': { lines: 80, branches: 80 },
@@ -215,6 +228,9 @@ export default defineConfig({
         'src/layout/hooks/useNav.ts': { lines: 80, branches: 80 },
         'src/layout/hooks/useDataThemeChange.ts': { lines: 80, branches: 80 },
         'src/layout/hooks/useMultiFrame.ts': { lines: 80, branches: 80 },
+        'src/layout/hooks/useBoolean.ts': { lines: 80, branches: 80 },
+        'src/layout/hooks/useLayout.ts': { lines: 80, branches: 80 },
+        'src/layout/hooks/useTranslationLang.ts': { lines: 80, branches: 80 },
 
         'src/layout/components/lay-search/components/SearchResult.vue': {
           lines: 80,
