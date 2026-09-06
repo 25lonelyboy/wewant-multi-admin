@@ -64,7 +64,47 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
       include: ['src/**/*.{ts,tsx,vue}', 'build/*.ts', 'mock/*.ts'],
-      exclude: ['**/*.d.ts', '**/*.spec.ts'],
+      exclude: [
+        '**/*.d.ts',
+        '**/*.spec.ts',
+        // ── T5 无逻辑：入口 / 根壳 ──
+        'src/main.ts', // T5: bootstrap 入口
+        'src/App.vue', // T5: 根壳
+        // ── T5 无逻辑：barrel ──
+        'src/directives/index.ts', // T5: barrel
+        'src/components/ReAnimateSelector/index.ts', // T5: barrel
+        'src/components/ReAuth/index.ts', // T5: barrel
+        'src/components/ReCountTo/index.ts', // T5: barrel
+        'src/components/ReCropper/index.ts', // T5: barrel
+        'src/components/ReCropper/src/svg/index.ts', // T5: barrel
+        'src/components/ReCropperPreview/index.ts', // T5: barrel
+        'src/components/ReIcon/index.ts', // T5: barrel
+        'src/components/ReImageVerify/index.ts', // T5: barrel
+        'src/components/RePerms/index.ts', // T5: barrel
+        'src/components/RePureTableBar/index.ts', // T5: barrel
+        'src/components/ReQrcode/index.ts', // T5: barrel
+        'src/components/ReSegmented/index.ts', // T5: barrel
+        'src/components/ReText/index.ts', // T5: barrel
+        'src/components/ReTypeit/index.ts', // T5: barrel
+        'src/views/welcome/components/charts/index.ts', // T5: barrel
+        // ── T5 无逻辑：plugin / 配置 / 类型 / 静态页 ──
+        'src/plugins/*.ts', // T5: app.use 副作用注册
+        'src/config/index.ts', // T5: 纯配置对象
+        'src/router/modules/*.ts', // T5: 静态路由配置
+        'src/store/types.ts', // T5: 纯类型
+        'src/layout/types.ts', // T5: 纯类型
+        'src/layout/components/lay-search/types.ts', // T5: 纯类型
+        'src/views/empty/index.vue', // T5: 静态页
+        'src/views/error/*.vue', // T5: 静态页
+        // ── T4 jsdom 受限 ──
+        'src/utils/print.ts', // T4: DOM 打印不可达
+        'src/components/ReImageVerify/**', // T4: canvas 验证码
+        'src/components/ReCropper/**', // T4: cropper 深交互
+        'src/components/ReCropperPreview/**', // T4: canvas 预览
+        'src/components/ReQrcode/**', // T4: canvas 二维码
+        'src/views/welcome/components/charts/*.vue' // T4: echarts 渲染
+        // ── T3 页面壳：Task 10-12 逐域追加 ──
+      ],
       thresholds: {
         'build/utils.ts': { lines: 80, branches: 80 },
         'build/cdn.ts': { lines: 80, branches: 80 },
