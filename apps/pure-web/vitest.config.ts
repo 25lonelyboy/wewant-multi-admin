@@ -69,7 +69,7 @@ export default defineConfig({
         'build/utils.ts': { lines: 80, branches: 80 },
         'build/cdn.ts': { lines: 80, branches: 80 },
         'build/compress.ts': { lines: 80, branches: 80 },
-        'build/info.ts': { lines: 75, branches: 65 },
+        'build/info.ts': { lines: 80, branches: 80 },
         'build/optimize.ts': { lines: 80, branches: 80 },
         'build/plugins.ts': { lines: 80, branches: 80 },
         'mock/asyncRoutes.ts': { lines: 80, branches: 80 },
