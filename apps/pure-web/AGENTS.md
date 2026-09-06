@@ -32,7 +32,7 @@ pnpm test:e2e             # Playwright；webServer 自启 VITE_MOCK=true vite --
 
 ## 硬规则
 
-- 覆盖率门槛 ≥80%（glob 键：`build/utils.ts` 与 `src/utils/tree.ts` 等）只升不降；新页面/模块必须带单测纳入同一门槛（CI `coverage-web` job 报警式守护）。
+- 覆盖率门槛 ≥80% 全局聚合 + crown-jewel 6 键 ≥90%（auth / user store / http / guards / tree / permission，见 vitest.config.ts thresholds）只升不降；新页面/模块必须带单测纳入同一门槛（CI `coverage-web` job 报警式守护）。
 - 测试写法：不对被测模块及其核心依赖整模块 mock（如 `@/utils/auth` 的 `hasAuth` / `hasPerms` 真实现即测试对象）；断言真实行为，禁止恒真断言。
 - E2E：等待业务状态信号（路由注册、元素可见等，`waitForFunction` / `waitFor`），不用宽泛 URL glob（`**/#/**` 会立即命中登录页自身）；整页 `page.goto` 与动态路由注册存在竞争，优先客户端导航。
 - mock fixture 不得出现真实后端不存在的路径/字段；mock-only 端点必须在 [contracts.md](../../docs/architecture/contracts.md) 清单登记。

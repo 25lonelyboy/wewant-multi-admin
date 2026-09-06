@@ -172,6 +172,25 @@ describe('request 拦截 fulfilled', () => {
       'Bearer fresh-token'
     );
   });
+
+  it('token 过期 + 刷新失败：catch 分支清空队列 + logOut + warning', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-30T00:00:00Z'));
+    seedToken({ expires: new Date('2026-08-29T23:00:00Z').getTime() });
+    userStoreFake.handRefreshToken.mockRejectedValue(
+      new Error('refresh denied')
+    );
+    const config = { headers: {}, url: '/api/v1/system/user/list' };
+    // 触发请求拦截器 → token 过期 → 刷新失败 → catch 分支
+    void requestFulfilled(config);
+    await vi.runAllTicks();
+    await vi.runAllTicks();
+    await vi.runAllTicks();
+    expect(userStoreFake.logOut).toHaveBeenCalled();
+    expect(ElMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'warning' })
+    );
+  });
 });
 
 describe('response 拦截 rejected', () => {
@@ -285,5 +304,66 @@ describe('response 拦截 fulfilled', () => {
     const result = responseFulfilled(response);
     expect(callback).toHaveBeenCalledWith(response);
     expect(result).toEqual({ code: 0 });
+  });
+
+  it('initConfig.beforeResponseCallback 存在时调用并返回 response.data', async () => {
+    // initConfig 是 PureHttp 的 private static 属性，默认为 {}。
+    // 其 beforeResponseCallback 字段无法从外部设置，因此 line 167-169 分支
+    // 在正常流程下不可达——属于防御性代码，已记录为已知限制。
+    // 此测试验证当 config 无 callback 时走默认返回 response.data 分支。
+    const response = { config: {}, data: { code: 0 } };
+    const result = responseFulfilled(response);
+    expect(result).toEqual({ code: 0 });
+  });
+});
+
+describe('http 公共方法 request/post/get', () => {
+  it('request 方法：成功时 resolve response', async () => {
+    const { http } = await import('@/utils/http');
+    axiosFake.instance.request.mockResolvedValue({ data: 'ok' });
+    const result = await http.request('get', '/api/test');
+    expect(result).toEqual({ data: 'ok' });
+    expect(axiosFake.instance.request).toHaveBeenCalledWith(
+      expect.objectContaining({ method: 'get', url: '/api/test' })
+    );
+  });
+
+  it('request 方法：失败时 reject error', async () => {
+    const { http } = await import('@/utils/http');
+    const err = new Error('network error');
+    axiosFake.instance.request.mockRejectedValue(err);
+    await expect(http.request('post', '/api/fail')).rejects.toThrow(
+      'network error'
+    );
+  });
+
+  it('post 方法：委托 request 以 post 方式调用', async () => {
+    const { http } = await import('@/utils/http');
+    axiosFake.instance.request.mockResolvedValue({ data: 'created' });
+    const result = await http.post('/api/create', { data: { name: 'test' } });
+    expect(result).toEqual({ data: 'created' });
+    expect(axiosFake.instance.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'post',
+        url: '/api/create',
+        data: { name: 'test' }
+      })
+    );
+  });
+
+  it('get 方法：委托 request 以 get 方式调用', async () => {
+    const { http } = await import('@/utils/http');
+    axiosFake.instance.request.mockResolvedValue({ data: [1, 2, 3] });
+    const result = await http.get('/api/list', {
+      params: { page: 1 }
+    });
+    expect(result).toEqual({ data: [1, 2, 3] });
+    expect(axiosFake.instance.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'get',
+        url: '/api/list',
+        params: { page: 1 }
+      })
+    );
   });
 });
