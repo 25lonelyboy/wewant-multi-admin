@@ -102,7 +102,12 @@ export default defineConfig({
         'src/components/ReCropper/**', // T4: cropper 深交互
         'src/components/ReCropperPreview/**', // T4: canvas 预览
         'src/components/ReQrcode/**', // T4: canvas 二维码
-        'src/views/welcome/components/charts/*.vue' // T4: echarts 渲染
+        'src/views/welcome/components/charts/*.vue', // T4: echarts 渲染
+        // ── T5 纯类型：views/system ──
+        'src/views/system/dept/utils/types.ts', // T5: 纯类型
+        'src/views/system/menu/utils/types.ts', // T5: 纯类型
+        'src/views/system/role/utils/types.ts', // T5: 纯类型
+        'src/views/system/user/utils/types.ts' // T5: 纯类型
         // ── T3 页面壳：Task 10-12 逐域追加 ──
       ],
       thresholds: {
@@ -289,7 +294,29 @@ export default defineConfig({
         'src/views/monitor/logs/operation/hook.tsx': {
           lines: 80,
           branches: 80
-        }
+        },
+
+        // ── views/system A 类已测未登记 ──
+        'src/views/system/hooks.ts': { lines: 80, branches: 80 },
+        'src/views/system/dept/form.vue': { lines: 73, branches: 80 },
+        'src/views/system/dept/index.vue': { lines: 66, branches: 80 },
+        'src/views/system/dept/utils/hook.tsx': { lines: 79, branches: 80 },
+        'src/views/system/dept/utils/rule.ts': { lines: 80, branches: 80 },
+        'src/views/system/menu/form.vue': { lines: 68, branches: 80 },
+        'src/views/system/menu/index.vue': { lines: 61, branches: 75 },
+        'src/views/system/menu/utils/enums.ts': { lines: 80, branches: 80 },
+        'src/views/system/menu/utils/hook.tsx': { lines: 80, branches: 77 },
+        'src/views/system/menu/utils/rule.ts': { lines: 80, branches: 80 },
+        'src/views/system/role/form.vue': { lines: 69, branches: 80 },
+        'src/views/system/role/index.vue': { lines: 63, branches: 80 },
+        'src/views/system/role/utils/hook.tsx': { lines: 75, branches: 60 },
+        'src/views/system/role/utils/rule.ts': { lines: 80, branches: 80 },
+        'src/views/system/user/form/index.vue': { lines: 75, branches: 80 },
+        'src/views/system/user/form/role.vue': { lines: 80, branches: 80 },
+        'src/views/system/user/index.vue': { lines: 62, branches: 68 },
+        'src/views/system/user/tree.vue': { lines: 72, branches: 38 },
+        'src/views/system/user/utils/hook.tsx': { lines: 69, branches: 51 },
+        'src/views/system/user/utils/rule.ts': { lines: 80, branches: 80 }
       }
     }
   }

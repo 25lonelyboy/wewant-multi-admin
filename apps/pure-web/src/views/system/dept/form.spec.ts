@@ -26,7 +26,7 @@ describe('dept/form.vue', () => {
     const wrapper = mountWithEP(DeptForm, {
       props: {
         formInline: {
-          higherDeptOptions: [],
+          higherDeptOptions: [{ id: 1, name: '总公司', children: [] }],
           parentId: 1,
           name: '技术部',
           principal: '张三',
@@ -39,5 +39,48 @@ describe('dept/form.vue', () => {
       }
     });
     expect(wrapper.find('form').exists()).toBe(true);
+  });
+
+  it('默认 withDefaults 工厂生成空表单', () => {
+    const wrapper = mountWithEP(DeptForm);
+    // 默认 formInline 应存在
+    expect(wrapper.find('form').exists()).toBe(true);
+    // el-input 应存在（name/ principal/ phone/ email/ remark）
+    expect(wrapper.findAll('.el-input').length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('el-cascader 渲染（higherDeptOptions 非空）', () => {
+    const wrapper = mountWithEP(DeptForm, {
+      props: {
+        formInline: {
+          higherDeptOptions: [
+            {
+              id: 1,
+              name: '总公司',
+              children: [{ id: 2, name: '子部门', children: [] }]
+            }
+          ],
+          parentId: 0,
+          name: '',
+          principal: '',
+          phone: '',
+          email: '',
+          sort: 0,
+          status: 1,
+          remark: ''
+        }
+      }
+    });
+    expect(wrapper.find('.el-cascader').exists()).toBe(true);
+  });
+
+  it('el-switch 渲染部门状态', () => {
+    const wrapper = mountWithEP(DeptForm);
+    expect(wrapper.find('.el-switch').exists()).toBe(true);
+  });
+
+  it('textarea 渲染备注', () => {
+    const wrapper = mountWithEP(DeptForm);
+    expect(wrapper.find('textarea').exists()).toBe(true);
   });
 });
