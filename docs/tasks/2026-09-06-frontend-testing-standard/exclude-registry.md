@@ -33,3 +33,7 @@
 | src/layout/components/lay-sidebar/components/SidebarCenterCollapse.vue | SidebarCenterCollapse.spec.ts | 折叠按钮壳：emit toggleClick |
 | src/layout/components/lay-sidebar/components/SidebarLeftCollapse.vue | SidebarLeftCollapse.spec.ts | 左折叠壳：emit toggleClick |
 | src/layout/components/lay-sidebar/components/SidebarTopCollapse.vue | SidebarTopCollapse.spec.ts | 顶折叠壳：emit toggleClick |
+| src/views/login/index.vue | index.spec.ts | 登录壳：组合子组件，无独立逻辑 |
+| src/views/login/components/LoginQrCode.vue | LoginQrCode.spec.ts | 二维码壳：展示 ReQrcode + 返回按钮 |
+| src/views/welcome/index.vue | index.spec.ts | 欢迎页壳：组合图表/卡片/表格 |
+| src/views/welcome/components/table/index.vue | index.spec.ts | 表格壳：pure-table 包装 |

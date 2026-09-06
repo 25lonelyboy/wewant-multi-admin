@@ -121,7 +121,11 @@ export default defineConfig({
         'src/layout/components/lay-sidebar/components/SidebarFullScreen.vue', // T3: 全屏按钮壳
         'src/layout/components/lay-sidebar/components/SidebarCenterCollapse.vue', // T3: 折叠按钮壳
         'src/layout/components/lay-sidebar/components/SidebarLeftCollapse.vue', // T3: 左折叠壳
-        'src/layout/components/lay-sidebar/components/SidebarTopCollapse.vue' // T3: 顶折叠壳
+        'src/layout/components/lay-sidebar/components/SidebarTopCollapse.vue', // T3: 顶折叠壳
+        'src/views/login/index.vue', // T3: 登录壳
+        'src/views/login/components/LoginQrCode.vue', // T3: 二维码壳
+        'src/views/welcome/index.vue', // T3: 欢迎页壳
+        'src/views/welcome/components/table/index.vue' // T3: 表格壳
       ],
       thresholds: {
         'build/utils.ts': { lines: 80, branches: 80 },
@@ -299,6 +303,18 @@ export default defineConfig({
         'src/views/login/utils/enums.ts': { lines: 80, branches: 80 },
         'src/views/login/utils/motion.ts': { lines: 80, branches: 80 },
         'src/views/login/utils/static.ts': { lines: 80, branches: 80 },
+        'src/views/login/components/LoginPhone.vue': {
+          lines: 57,
+          branches: 64
+        },
+        'src/views/login/components/LoginRegist.vue': {
+          lines: 57,
+          branches: 60
+        },
+        'src/views/login/components/LoginUpdate.vue': {
+          lines: 57,
+          branches: 59
+        },
         'src/views/welcome/utils.ts': { lines: 80, branches: 80 },
         'src/views/welcome/data.ts': { lines: 80, branches: 80 },
         'src/views/welcome/components/table/columns.tsx': {
