@@ -19,7 +19,10 @@ export default defineConfig({
     }
   ],
   webServer: {
-    command: 'cross-env VITE_MOCK=true vite --port 5199 --strictPort',
+    command:
+      process.env.E2E_MODE === 'real'
+        ? 'vite --port 5199 --strictPort'
+        : 'cross-env VITE_MOCK=true vite --port 5199 --strictPort',
     url: 'http://localhost:5199',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000
