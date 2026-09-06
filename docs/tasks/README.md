@@ -7,12 +7,12 @@
 | 任务 | 收口说明 |
 |---|---|
 | doc-lint 接入门禁链 | 设计+实施计划已就绪（pre-push 阻断 + CI 报警兜底，前置清项归零基线）；设计+计划 → [2026-09-05-doc-lint-gate-integration/](2026-09-05-doc-lint-gate-integration/)，待实施 |
-| pure-web 前端测试评估规范与覆盖缺口补齐 | 设计 + 实施计划已就绪（六层分类框架 + 双层 E2E + 阈值终态 + 6 Phase 路线图；22 个 B 类文件判定已前置固化）；决策 → [ADR-008](../decisions/ADR-008-tiered-e2e-testing.md)，设计+计划 → [2026-09-06-frontend-testing-standard/](2026-09-06-frontend-testing-standard/)，待提交与执行 |
 
 ## 最近已完成
 
 | 任务 | 收口说明 |
 |---|---|
+| pure-web 前端测试评估规范与覆盖缺口补齐 | Phase F 收口完成：阈值翻转（91 键 → 全局聚合 + crown-jewel 90）+ living 规范落位 + 索引与任务状态同步；规范 → [frontend-testing-standard.md](../engineering/frontend-testing-standard.md)，决策 → [ADR-008](../decisions/ADR-008-tiered-e2e-testing.md)，过程 → [2026-09-06-frontend-testing-standard/](2026-09-06-frontend-testing-standard/) |
 | 通用 worktree 初始化脚本 | 实施完成：`scripts/ops/worktree-init.sh` 落地（双场景实测全绿），旧 ps1 已删除，登记 → [build-and-verify.md](../engineering/build-and-verify.md) |
 | pure-web 测试基建与 strict 类型安全 | B4 收口批次 13 任务全部完成（单测 / E2E 全绿，strict 全量迁入单一 tsconfig）；结论 → [build-and-verify.md](../engineering/build-and-verify.md)；已归档 [archive/2026-08-29-pure-web-testing-foundation/](archive/2026-08-29-pure-web-testing-foundation/) |
 | server 镜像启动冒烟（Tier 2） | 合并 master、CI 首跑四 job 全绿；backlog 已关闭并登记演进行；结论 → [build-and-verify.md](../engineering/build-and-verify.md)；已归档 [archive/2026-08-28-server-image-smoke/](archive/2026-08-28-server-image-smoke/) |
