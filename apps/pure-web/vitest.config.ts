@@ -129,6 +129,7 @@ export default defineConfig({
         'src/router/enums.ts': { lines: 80, branches: 80 },
         'src/utils/tree.ts': { lines: 80, branches: 80 },
         'src/router/utils.ts': { lines: 80, branches: 80 },
+        'src/router/guards.ts': { lines: 80, branches: 80 },
         'src/utils/auth.ts': { lines: 80, branches: 80 },
         'src/utils/mitt.ts': { lines: 80, branches: 80 },
         'src/utils/message.ts': { lines: 80, branches: 80 },
