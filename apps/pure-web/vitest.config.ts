@@ -281,6 +281,7 @@ export default defineConfig({
         'src/views/login/utils/verifyCode.ts': { lines: 80, branches: 80 },
         'src/views/login/utils/enums.ts': { lines: 80, branches: 80 },
         'src/views/login/utils/motion.ts': { lines: 80, branches: 80 },
+        'src/views/login/utils/static.ts': { lines: 80, branches: 80 },
         'src/views/welcome/utils.ts': { lines: 80, branches: 80 },
         'src/views/welcome/data.ts': { lines: 80, branches: 80 },
         'src/views/welcome/components/table/columns.tsx': {
