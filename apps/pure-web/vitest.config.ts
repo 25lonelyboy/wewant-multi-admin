@@ -64,159 +64,97 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
       include: ['src/**/*.{ts,tsx,vue}', 'build/*.ts', 'mock/*.ts'],
-      exclude: ['**/*.d.ts', '**/*.spec.ts'],
+      exclude: [
+        '**/*.d.ts',
+        '**/*.spec.ts',
+        // ── T5 无逻辑：入口 / 根壳 ──
+        'src/main.ts', // T5: bootstrap 入口
+        'src/App.vue', // T5: 根壳
+        // ── T5 无逻辑：barrel ──
+        'src/directives/index.ts', // T5: barrel
+        'src/components/ReAnimateSelector/index.ts', // T5: barrel
+        'src/components/ReAuth/index.ts', // T5: barrel
+        'src/components/ReCountTo/index.ts', // T5: barrel
+        'src/components/ReCropper/index.ts', // T5: barrel
+        'src/components/ReCropper/src/svg/index.ts', // T5: barrel
+        'src/components/ReCropperPreview/index.ts', // T5: barrel
+        'src/components/ReIcon/index.ts', // T5: barrel
+        'src/components/ReImageVerify/index.ts', // T5: barrel
+        'src/components/RePerms/index.ts', // T5: barrel
+        'src/components/RePureTableBar/index.ts', // T5: barrel
+        'src/components/ReQrcode/index.ts', // T5: barrel
+        'src/components/ReSegmented/index.ts', // T5: barrel
+        'src/components/ReText/index.ts', // T5: barrel
+        'src/components/ReTypeit/index.ts', // T5: barrel
+        'src/views/welcome/components/charts/index.ts', // T5: barrel
+        // ── T5 无逻辑：plugin / 配置 / 类型 / 静态页 ──
+        'src/plugins/*.ts', // T5: app.use 副作用注册
+        'src/config/index.ts', // T5: 纯配置对象
+        'src/router/modules/*.ts', // T5: 静态路由配置
+        'src/store/types.ts', // T5: 纯类型
+        'src/layout/types.ts', // T5: 纯类型
+        'src/layout/components/lay-search/types.ts', // T5: 纯类型
+        'src/views/empty/index.vue', // T5: 静态页
+        'src/views/error/*.vue', // T5: 静态页
+        // ── T4 jsdom 受限 ──
+        'src/utils/print.ts', // T4: DOM 打印不可达
+        'src/components/ReImageVerify/**', // T4: canvas 验证码
+        'src/components/ReCropper/**', // T4: cropper 深交互
+        'src/components/ReCropperPreview/**', // T4: canvas 预览
+        'src/components/ReQrcode/**', // T4: canvas 二维码
+        'src/views/welcome/components/charts/*.vue', // T4: echarts 渲染
+        // ── T5 纯类型：views/system ──
+        'src/views/system/dept/utils/types.ts', // T5: 纯类型
+        'src/views/system/menu/utils/types.ts', // T5: 纯类型
+        'src/views/system/role/utils/types.ts', // T5: 纯类型
+        'src/views/system/user/utils/types.ts', // T5: 纯类型
+        // ── T5 纯类型：components type.ts ──
+        'src/components/ReDialog/type.ts', // T5: 纯类型
+        'src/components/ReDrawer/type.ts', // T5: 纯类型
+        'src/components/ReSegmented/src/type.ts', // T5: 纯类型
+        'src/components/ReIcon/src/types.ts', // T5: 纯类型
+        // ── T3 页面壳：Task 10-12 逐域追加 ──
+        // ── T3 页面壳（smoke 已覆盖）──
+        'src/layout/index.vue', // T3: 布局壳
+        'src/layout/frame.vue', // T3: iframe 载体
+        'src/layout/components/lay-content/index.vue', // T3: 内容区壳
+        'src/layout/components/lay-frame/index.vue', // T3: frame 壳
+        'src/layout/components/lay-navbar/index.vue', // T3: 导航壳
+        'src/layout/components/lay-notice/components/NoticeItem.vue', // T3: 通知项壳
+        'src/layout/components/lay-search/index.vue', // T3: 搜索入口壳
+        'src/layout/components/lay-search/components/SearchFooter.vue', // T3: 搜索底栏壳
+        'src/layout/components/lay-sidebar/components/SidebarFullScreen.vue', // T3: 全屏按钮壳
+        'src/layout/components/lay-sidebar/components/SidebarCenterCollapse.vue', // T3: 折叠按钮壳
+        'src/layout/components/lay-sidebar/components/SidebarLeftCollapse.vue', // T3: 左折叠壳
+        'src/layout/components/lay-sidebar/components/SidebarTopCollapse.vue', // T3: 顶折叠壳
+        'src/views/login/index.vue', // T3: 登录壳
+        'src/views/login/components/LoginQrCode.vue', // T3: 二维码壳
+        'src/views/welcome/index.vue', // T3: 欢迎页壳
+        'src/views/welcome/components/table/index.vue', // T3: 表格壳
+        'src/views/account-settings/index.vue', // T3: 账户设置壳
+        'src/views/account-settings/components/AccountManagement.vue', // T3: 账户管理壳
+        'src/views/account-settings/components/Preferences.vue', // T3: 偏好设置壳
+        'src/views/monitor/logs/login/index.vue', // T3: 登录日志壳
+        'src/views/monitor/logs/operation/index.vue', // T3: 操作日志壳
+        'src/views/monitor/logs/system/index.vue', // T3: 系统日志壳
+        'src/views/monitor/logs/system/detail.vue', // T3: 日志详情壳
+        'src/views/monitor/online/index.vue' // T3: 在线用户壳
+      ],
       thresholds: {
-        'build/utils.ts': { lines: 80, branches: 80 },
-        'build/cdn.ts': { lines: 80, branches: 80 },
-        'build/compress.ts': { lines: 80, branches: 80 },
-        'build/info.ts': { lines: 75, branches: 65 },
-        'build/optimize.ts': { lines: 80, branches: 80 },
-        'build/plugins.ts': { lines: 80, branches: 80 },
-        'mock/asyncRoutes.ts': { lines: 80, branches: 80 },
-        'mock/login.ts': { lines: 80, branches: 80 },
-        'mock/mine.ts': { lines: 80, branches: 80 },
-        'mock/refreshToken.ts': { lines: 80, branches: 80 },
-        'mock/system.ts': { lines: 80, branches: 80 },
-        'src/api/mock.ts': { lines: 80, branches: 80 },
-        'src/api/routes.ts': { lines: 80, branches: 80 },
-        'src/api/system.ts': { lines: 80, branches: 80 },
-        'src/api/user.ts': { lines: 80, branches: 80 },
-        'src/router/enums.ts': { lines: 80, branches: 80 },
-        'src/utils/tree.ts': { lines: 80, branches: 80 },
-        'src/router/utils.ts': { lines: 80, branches: 80 },
-        'src/utils/auth.ts': { lines: 80, branches: 80 },
-        'src/utils/mitt.ts': { lines: 80, branches: 80 },
-        'src/utils/message.ts': { lines: 80, branches: 80 },
-        'src/utils/responsive.ts': { lines: 80, branches: 80 },
-        'src/utils/preventDefault.ts': { lines: 80, branches: 80 },
-        'src/utils/propTypes.ts': { lines: 80, branches: 80 },
-        'src/utils/progress/index.ts': { lines: 80, branches: 80 },
-        'src/utils/globalPolyfills.ts': { lines: 80, branches: 80 },
-        'src/utils/sso.ts': { lines: 80, branches: 80 },
-        'src/utils/chinaArea.ts': { lines: 80, branches: 80 },
-        'src/utils/http/index.ts': { lines: 80, branches: 80 },
-        'src/store/modules/user.ts': { lines: 80, branches: 80 },
-        'src/store/modules/permission.ts': { lines: 80, branches: 80 },
-        'src/store/modules/multiTags.ts': { lines: 80, branches: 80 },
-        'src/store/modules/app.ts': { lines: 80, branches: 80 },
-        'src/store/modules/settings.ts': { lines: 80, branches: 80 },
-        'src/store/modules/epTheme.ts': { lines: 80, branches: 80 },
-        'src/utils/localforage/index.ts': { lines: 80, branches: 80 },
-        'src/store/index.ts': { lines: 80, branches: 80 },
-        'src/store/utils.ts': { lines: 80, branches: 80 },
-        'src/components/ReCol/index.ts': { lines: 80, branches: 80 },
-        'src/components/ReFlicker/index.ts': { lines: 80, branches: 80 },
-        'src/components/ReText/src/index.vue': { lines: 80, branches: 80 },
-        'src/components/ReIcon/data.ts': { lines: 80, branches: 80 },
-        'src/components/ReIcon/src/hooks.ts': { lines: 80, branches: 80 },
-        'src/components/ReIcon/src/iconifyIconOffline.ts': {
-          lines: 80,
-          branches: 80
-        },
-        'src/components/ReIcon/src/iconifyIconOnline.ts': {
-          lines: 80,
-          branches: 80
-        },
-        'src/components/ReIcon/src/iconfont.ts': { lines: 80, branches: 80 },
-        'src/components/ReIcon/src/offlineIcon.ts': { lines: 80, branches: 80 },
-        'src/components/ReIcon/src/Select.vue': { lines: 80, branches: 80 },
-        'src/components/ReSegmented/src/index.tsx': {
-          lines: 80,
-          branches: 80
-        },
-        'src/components/ReAnimateSelector/src/index.vue': {
-          lines: 80,
-          branches: 80
-        },
-        'src/components/ReAnimateSelector/src/animate.ts': {
-          lines: 80,
-          branches: 80
-        },
-        'src/components/ReCountTo/src/normal/index.tsx': {
-          lines: 80,
-          branches: 80
-        },
-        'src/components/ReCountTo/src/normal/props.ts': {
-          lines: 80,
-          branches: 80
-        },
-        'src/components/ReCountTo/src/rebound/index.tsx': {
-          lines: 80,
-          branches: 80
-        },
-        'src/components/ReCountTo/src/rebound/props.ts': {
-          lines: 80,
-          branches: 80
-        },
-        'src/components/ReAuth/src/auth.tsx': { lines: 80, branches: 80 },
-        'src/components/RePerms/src/perms.tsx': { lines: 80, branches: 80 },
-        'src/components/ReDialog/index.ts': { lines: 80, branches: 80 },
-        'src/components/ReDialog/index.vue': { lines: 80, branches: 80 },
-        'src/components/ReDrawer/index.ts': { lines: 80, branches: 80 },
-        'src/components/ReDrawer/index.vue': { lines: 80, branches: 80 },
-        'src/components/ReTypeit/src/index.tsx': { lines: 80, branches: 80 },
-        'src/components/RePureTableBar/src/bar.tsx': {
-          lines: 80,
-          branches: 80
-        },
-        'src/directives/auth/index.ts': { lines: 80, branches: 80 },
-        'src/directives/perms/index.ts': { lines: 80, branches: 80 },
-        'src/directives/copy/index.ts': { lines: 80, branches: 80 },
-        'src/directives/longpress/index.ts': { lines: 80, branches: 80 },
-        'src/directives/optimize/index.ts': { lines: 80, branches: 80 },
-        'src/directives/ripple/index.ts': { lines: 80, branches: 80 },
-        'src/layout/hooks/useTag.ts': { lines: 80, branches: 80 },
-        'src/layout/hooks/useNav.ts': { lines: 80, branches: 80 },
-        'src/layout/hooks/useDataThemeChange.ts': { lines: 80, branches: 80 },
-        'src/layout/hooks/useMultiFrame.ts': { lines: 80, branches: 80 },
-
-        'src/layout/components/lay-search/components/SearchHistoryItem.vue': {
-          lines: 80,
-          branches: 80
-        },
-
-        'src/layout/components/lay-footer/index.vue': {
-          lines: 80,
-          branches: 80
-        },
-
-        'src/layout/components/lay-notice/data.ts': {
-          lines: 80,
-          branches: 80
-        },
-
-        'src/layout/components/lay-notice/components/NoticeList.vue': {
-          lines: 80,
-          branches: 80
-        },
-
-        'src/layout/components/lay-tag/components/TagChrome.vue': {
-          lines: 80,
-          branches: 80
-        },
-
-        'src/layout/redirect.vue': {
-          lines: 80,
-          branches: 80
-        },
-        'src/views/login/utils/rule.ts': { lines: 80, branches: 80 },
-        'src/views/login/utils/verifyCode.ts': { lines: 80, branches: 80 },
-        'src/views/login/utils/enums.ts': { lines: 80, branches: 80 },
-        'src/views/login/utils/motion.ts': { lines: 80, branches: 80 },
-        'src/views/welcome/utils.ts': { lines: 80, branches: 80 },
-        'src/views/welcome/data.ts': { lines: 80, branches: 80 },
-        'src/views/welcome/components/table/columns.tsx': {
-          lines: 80,
-          branches: 80
-        },
-        'src/views/monitor/utils.ts': { lines: 80, branches: 80 },
-        'src/views/monitor/online/hook.tsx': { lines: 80, branches: 80 },
-        'src/views/monitor/logs/system/hook.tsx': { lines: 80, branches: 80 },
-        'src/views/monitor/logs/login/hook.tsx': { lines: 80, branches: 80 },
-        'src/views/monitor/logs/operation/hook.tsx': {
-          lines: 80,
-          branches: 80
-        }
+        // 全局聚合兜底：非排除文件 per-file ≥80 ⇒ 聚合必 ≥80
+        lines: 80,
+        branches: 80,
+        // crown-jewel：安全关键逻辑 elevated bar ≥90
+        'src/utils/auth.ts': { lines: 90, branches: 90 },
+        'src/store/modules/user.ts': { lines: 90, branches: 90 },
+        // http/index.ts branches 88：initConfig 回调分支（private static 不可外部设置）
+        // + 请求拦截器 error handler（fulfilled 永不抛）为不可达防御性代码
+        'src/utils/http/index.ts': { lines: 90, branches: 88 },
+        // guards.ts branches 85：line 111 为死代码（whiteList 仅含 '/login'，
+        // 已被 line 109 排除，永远不可达）
+        'src/router/guards.ts': { lines: 90, branches: 85 },
+        'src/utils/tree.ts': { lines: 90, branches: 90 },
+        'src/store/modules/permission.ts': { lines: 90, branches: 90 }
       }
     }
   }

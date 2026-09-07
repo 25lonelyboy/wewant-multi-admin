@@ -1,11 +1,14 @@
 # GitHub CI：入库后异步安全网（决策见 docs/decisions/ADR-006-github-ci.md）
-# 报警式不拦截：仅 push master + 手动触发；无分支保护；七 job 全并行。
+# 报警式不拦截：仅 push master + 手动触发 + nightly；无分支保护；八 job 全并行（e2e-web-real 报警式）。
 name: CI
 
 on:
   push:
     branches: [master]
   workflow_dispatch:
+  schedule:
+    # 每日 nightly（UTC 18:00 = 北京 02:00）：Tier B 真实后端冒烟低频兜底
+    - cron: '0 18 * * *'
 
 env:
   HUSKY: '0'
@@ -185,6 +188,70 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter=@multi-admin/pure-web exec playwright install chromium --with-deps
       - run: pnpm exec turbo run test:e2e --filter=@multi-admin/pure-web
+
+  e2e-web-real:
+    name: e2e-web-real（Tier B 真实后端冒烟，报警式不红）
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:15-alpine@sha256:fe0737ba566a2c5b2a28f34433c0a423261900ec17b9bf7ad115e1aae7e57f1b # pin: 2026-08-27
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: multi_admin
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d multi_admin"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf # pin: 2026-08-27
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/multi_admin?schema=public
+      REDIS_URL: redis://localhost:6379
+      ADMIN_INIT_PASSWORD: smoke-admin-password
+      JWT_ACCESS_SECRET: smoke-access-secret-000000000000000000
+      JWT_REFRESH_SECRET: smoke-refresh-secret-000000000000000000
+      E2E_MODE: real
+      E2E_ADMIN_USER: admin
+      E2E_ADMIN_PASS: smoke-admin-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 构建 nestjs-server
+        run: pnpm exec turbo run build --filter=@multi-admin/nestjs-server
+      - name: 建库 + seed
+        run: |
+          pnpm --filter @multi-admin/nestjs-server exec prisma migrate deploy
+          pnpm --filter @multi-admin/nestjs-server run prisma:seed
+      - name: 后台起 server（3000）
+        run: |
+          node apps/nestjs-server/dist/main.js &
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            curl -sf http://localhost:3000/health && break
+            sleep 2
+          done
+          curl -sf http://localhost:3000/health
+      - name: 安装 chromium
+        run: pnpm --filter=@multi-admin/pure-web exec playwright install chromium --with-deps
+      - name: Tier B 冒烟（--grep @real-backend）
+        run: pnpm --filter=@multi-admin/pure-web exec playwright test --grep @real-backend --workers=1
+        continue-on-error: true
 
   doc-lint:
     name: doc-lint（报警式，不红）

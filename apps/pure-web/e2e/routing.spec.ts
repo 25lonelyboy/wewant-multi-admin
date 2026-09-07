@@ -1,38 +1,10 @@
 import { test, expect } from '@playwright/test';
-
-/**
- * 辅助函数：以 admin 身份登录并等待首页加载
- */
-async function loginAsAdmin(page: import('@playwright/test').Page) {
-  await page.goto('/');
-  await page.waitForLoadState('load');
-  await expect(page.getByPlaceholder('验证码')).toBeVisible({
-    timeout: 15_000
-  });
-
-  const code = await page.evaluate(() => {
-    const app = document.querySelector('#app') as any;
-    const pinia = app?.__vue_app__?.config?.globalProperties?.$pinia;
-    const userStore = pinia?._s?.get('pure-user');
-    return userStore?.verifyCode ?? '';
-  });
-
-  await page.getByPlaceholder('验证码').fill(code);
-  await page.getByRole('button', { name: '登录', exact: true }).click();
-  // 等待动态路由注册完成（兜底路由 PageNotFound 注册即标志 initRouter 已完成）
-  await page.waitForFunction(
-    () => {
-      const app = document.querySelector('#app') as any;
-      const router = app?.__vue_app__?.config?.globalProperties?.$router;
-      return router?.hasRoute('PageNotFound') === true;
-    },
-    { timeout: 15_000 }
-  );
-  await page.waitForLoadState('load');
-}
+import { loginAsAdmin } from './helpers';
 
 test.describe('动态路由冒烟', () => {
-  test('一级菜单导航：系统管理 → 用户管理页面可达', async ({ page }) => {
+  test('一级菜单导航：系统管理 → 用户管理页面可达 @mock-only', async ({
+    page
+  }) => {
     await loginAsAdmin(page);
 
     // 点击侧边栏 "系统管理" 一级菜单
@@ -48,7 +20,7 @@ test.describe('动态路由冒烟', () => {
     await expect(page).toHaveURL(/system\/user/);
   });
 
-  test('403 页面：路由配置存在且组件可渲染', async ({ page }) => {
+  test('403 页面：路由配置存在且组件可渲染 @mock-only', async ({ page }) => {
     await loginAsAdmin(page);
 
     // 验证 /access-denied 路由已在路由器中注册
@@ -72,7 +44,9 @@ test.describe('动态路由冒烟', () => {
     expect(routeMeta.title).toBeTruthy();
   });
 
-  test('404 页面：访问未知路由命中兜底渲染 404 页', async ({ page }) => {
+  test('404 页面：访问未知路由命中兜底渲染 404 页 @mock-only', async ({
+    page
+  }) => {
     await loginAsAdmin(page);
 
     // 登录后兜底路由已注册，用客户端导航触发 404 组件渲染
@@ -89,7 +63,7 @@ test.describe('动态路由冒烟', () => {
     await expect(page.getByRole('button', { name: '返回首页' })).toBeVisible();
   });
 
-  test('未登录访问受保护路由重定向到登录页', async ({ page }) => {
+  test('未登录访问受保护路由重定向到登录页 @mock-only', async ({ page }) => {
     // 不登录，直接访问首页
     await page.goto('/#/welcome');
     await page.waitForLoadState('load');

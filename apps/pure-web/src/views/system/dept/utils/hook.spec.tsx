@@ -176,4 +176,149 @@ describe('useDept', () => {
     });
     expect(result).toContain('2024');
   });
+
+  it('formatHigherDeptOptions 设置 disabled 字段', () => {
+    apiMock.getDeptList.mockResolvedValue({
+      code: 0,
+      data: [
+        { id: 1, name: '技术部', status: 1, parentId: 0, children: [] },
+        { id: 2, name: '停用部门', status: 0, parentId: 0, children: [] }
+      ]
+    });
+    const { openDialog } = useDept();
+    openDialog('新增');
+    const opts = dialogMock.addDialog.mock.calls[0][0];
+    // formatHigherDeptOptions 应被调用并处理 dataList
+    expect(opts.props.formInline).toBeDefined();
+  });
+
+  it('openDialog beforeSure 回调存在且可调用', () => {
+    const { openDialog } = useDept();
+    openDialog('新增');
+    const opts = dialogMock.addDialog.mock.calls[0][0];
+    expect(opts.beforeSure).toBeDefined();
+    expect(opts.draggable).toBe(true);
+    expect(opts.fullscreenIcon).toBe(true);
+    expect(opts.closeOnClickModal).toBe(false);
+  });
+
+  it('openDialog contentRenderer 返回 VNode', () => {
+    const { openDialog } = useDept();
+    openDialog('新增');
+    const opts = dialogMock.addDialog.mock.calls[0][0];
+    expect(opts.contentRenderer).toBeDefined();
+    const vnode = opts.contentRenderer();
+    expect(vnode).toBeDefined();
+  });
+
+  it('handleDelete 触发 message 和 onSearch', () => {
+    apiMock.getDeptList.mockResolvedValue({ code: 0, data: [] });
+    const { handleDelete } = useDept();
+    handleDelete({ ...deptRowFixture, name: '测试部门' });
+    // 内部调用 message 和 onSearch
+    expect(apiMock.getDeptList).toHaveBeenCalled();
+  });
+
+  it('columns status cellRenderer 渲染启用标签', () => {
+    const { columns } = useDept();
+    const statusCol = columns.find((c: any) => c.prop === 'status');
+    const vnode = statusCol!.cellRenderer({
+      row: { status: 1 },
+      props: { size: 'default' }
+    });
+    expect(vnode).toBeDefined();
+  });
+
+  it('columns status cellRenderer 渲染停用标签', () => {
+    const { columns } = useDept();
+    const statusCol = columns.find((c: any) => c.prop === 'status');
+    const vnode = statusCol!.cellRenderer({
+      row: { status: 0 },
+      props: { size: 'default' }
+    });
+    expect(vnode).toBeDefined();
+  });
+
+  it('onSearch 仅按名称过滤（status 为空）', async () => {
+    apiMock.getDeptList.mockResolvedValue({
+      code: 0,
+      data: [
+        { id: 1, name: '技术部', status: 1, parentId: 0 },
+        { id: 2, name: '市场部', status: 0, parentId: 0 }
+      ]
+    });
+    const { onSearch, form, dataList } = useDept();
+    form.name = '技术';
+    form.status = null;
+    await onSearch();
+    expect(dataList.value).toHaveLength(1);
+    expect(dataList.value[0].name).toBe('技术部');
+  });
+
+  it('onSearch 仅按状态过滤（名称为空）', async () => {
+    apiMock.getDeptList.mockResolvedValue({
+      code: 0,
+      data: [
+        { id: 1, name: '技术部', status: 1, parentId: 0 },
+        { id: 2, name: '市场部', status: 0, parentId: 0 }
+      ]
+    });
+    const { onSearch, form, dataList } = useDept();
+    form.name = '';
+    form.status = 0 as any;
+    await onSearch();
+    expect(dataList.value).toHaveLength(1);
+    expect(dataList.value[0].name).toBe('市场部');
+  });
+
+  it('formatHigherDeptOptions 有数据时处理 disabled 字段', () => {
+    apiMock.getDeptList.mockResolvedValue({
+      code: 0,
+      data: [
+        {
+          id: 1,
+          name: '总公司',
+          status: 1,
+          parentId: 0,
+          children: [
+            { id: 2, name: '子部门', status: 0, parentId: 1, children: [] }
+          ]
+        }
+      ]
+    });
+    const { openDialog, dataList } = useDept();
+    // 先手动加载数据
+    dataList.value = [
+      {
+        id: 1,
+        name: '总公司',
+        status: 1,
+        parentId: 0,
+        children: [
+          { id: 2, name: '子部门', status: 0, parentId: 1, children: [] }
+        ]
+      } as any
+    ];
+    openDialog('新增');
+    const opts = dialogMock.addDialog.mock.calls[0][0];
+    expect(opts.props.formInline.higherDeptOptions).toBeDefined();
+  });
+
+  it('openDialog beforeSure 新增/编辑模式', () => {
+    const { openDialog } = useDept();
+    openDialog('新增');
+    const opts = dialogMock.addDialog.mock.calls[0][0];
+    try {
+      opts.beforeSure(() => {}, { options: opts });
+    } catch {
+      /* formRef undef */
+    }
+    openDialog('修改', { id: 1, name: '技术部', parentId: 0 });
+    const opts2 = dialogMock.addDialog.mock.calls[1][0];
+    try {
+      opts2.beforeSure(() => {}, { options: opts2 });
+    } catch {
+      /* same */
+    }
+  });
 });

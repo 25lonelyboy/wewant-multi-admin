@@ -1,3 +1,8 @@
+/** 计算周一偏移量：周日(getDay()===0)回退6天，其他前进到本周一 */
+function getMondayOffset(dayOfWeek: number): number {
+  return dayOfWeek === 0 ? -6 : 1;
+}
+
 /** 日期、时间选择器快捷选项，常搭配 [DatePicker](https://element-plus.org/zh-CN/component/date-picker.html) 和 [DateTimePicker](https://element-plus.org/zh-CN/component/datetime-picker.html) 的`shortcuts`属性使用 */
 export const getPickerShortcuts = (): Array<{
   text: string;
@@ -45,7 +50,7 @@ export const getPickerShortcuts = (): Array<{
         const startOfWeek = new Date(
           today.getFullYear(),
           today.getMonth(),
-          today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1)
+          today.getDate() - today.getDay() + getMondayOffset(today.getDay())
         );
         startOfWeek.setHours(0, 0, 0, 0);
         const endOfWeek = new Date(
@@ -66,7 +71,7 @@ export const getPickerShortcuts = (): Array<{
         const startOfLastWeek = new Date(
           today.getFullYear(),
           today.getMonth(),
-          today.getDate() - today.getDay() - 7 + (today.getDay() === 0 ? -6 : 1)
+          today.getDate() - today.getDay() - 7 + getMondayOffset(today.getDay())
         );
         startOfLastWeek.setHours(0, 0, 0, 0);
         const endOfLastWeek = new Date(

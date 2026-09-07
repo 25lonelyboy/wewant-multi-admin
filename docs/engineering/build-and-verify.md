@@ -10,7 +10,7 @@ covers:
   - docker-compose.yml
   - packages/contracts/
   - turbo.json
-last_verified: 2026-09-05
+last_verified: 2026-09-06
 ---
 
 # 构建与验证
@@ -96,7 +96,7 @@ check-digests 远端比对依赖可联网环境：本机无 Registry 直连时�
 
 ## pure-web 测试基建
 
-- **单元测试**：vitest + @vue/test-utils + jsdom；配置 `apps/pure-web/vitest.config.ts`（独立于 `vite.config.ts`，不加载构建期插件）；覆盖范围 `src/**/*.{ts,tsx,vue}` + `build/*.ts` + `mock/*.ts`；v8 provider glob 键门槛 ≥80% 行+分支（`vitest.config.ts` thresholds）。
+- **单元测试**：vitest + @vue/test-utils + jsdom；配置 `apps/pure-web/vitest.config.ts`（独立于 `vite.config.ts`，不加载构建期插件）；覆盖范围 `src/**/*.{ts,tsx,vue}` + `build/*.ts` + `mock/*.ts`；阈值全局聚合 ≥80% + crown-jewel 6 键 ≥90%，exclude 治理与双层 E2E 细则见 [frontend-testing-standard.md](frontend-testing-standard.md)。
 - **E2E 测试**：Playwright（`apps/pure-web/e2e/`）；登录全链路 + 关键页面冒烟（验证码 / 二维码 / 打印行为级由 E2E 覆盖；cropper 深度交互为永久豁免）。
 - **TypeScript strict 单一配置**：`apps/pure-web/tsconfig.json` extends `@multi-admin/tsconfig/web.json`（继承 `strict: true` + `noUnusedLocals` / `noUnusedParameters` / `noImplicitOverride` / `noFallthroughCasesInSwitch` / `moduleDetection: "force"` 等开关）；无双 config、无清单断言、无豁免文件。typecheck 脚本：`tsc --noEmit --skipLibCheck && vue-tsc --noEmit --skipLibCheck`。
 

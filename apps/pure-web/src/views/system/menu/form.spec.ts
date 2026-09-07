@@ -31,8 +31,33 @@ vi.mock('@/components/ReSegmented', () => ({
   }
 }));
 
+const baseFormInline = {
+  menuType: 0,
+  higherMenuOptions: [],
+  parentId: '',
+  title: '',
+  name: '',
+  path: '',
+  component: '',
+  sort: 99,
+  redirect: '',
+  icon: '',
+  extraIcon: '',
+  enterTransition: '',
+  leaveTransition: '',
+  activePath: '',
+  auths: '',
+  frameSrc: '',
+  frameLoading: true,
+  keepAlive: false,
+  hiddenTag: false,
+  fixedTag: false,
+  showLink: true,
+  showParent: false
+};
+
 describe('menu/form.vue', () => {
-  it('渲染菜单表单（新增模式）', () => {
+  it('渲染菜单表单（新增模式 menuType=0）', () => {
     const wrapper = mountWithEP(MenuForm);
     expect(wrapper.find('form').exists()).toBe(true);
   });
@@ -42,32 +67,57 @@ describe('menu/form.vue', () => {
     expect((wrapper.vm as any).getRef).toBeDefined();
   });
 
-  it('编辑模式传入 formInline', () => {
+  it('编辑模式传入 formInline (menuType=0 菜单)', () => {
     const wrapper = mountWithEP(MenuForm, {
       props: {
         formInline: {
-          menuType: 0,
-          higherMenuOptions: [],
-          parentId: '',
+          ...baseFormInline,
           title: '系统管理',
           name: 'system',
           path: '/system',
-          component: 'layout',
-          sort: 1,
-          redirect: '',
-          icon: 'ep/tools',
-          extraIcon: '',
-          enterTransition: '',
-          leaveTransition: '',
-          activePath: '',
-          auths: '',
-          frameSrc: '',
-          frameLoading: true,
-          keepAlive: false,
-          hiddenTag: false,
-          fixedTag: false,
-          showLink: true,
-          showParent: false
+          component: 'layout'
+        }
+      }
+    });
+    expect(wrapper.find('form').exists()).toBe(true);
+  });
+
+  it('menuType=1 iframe 模式渲染', () => {
+    const wrapper = mountWithEP(MenuForm, {
+      props: {
+        formInline: {
+          ...baseFormInline,
+          menuType: 1,
+          title: '外部页面',
+          frameSrc: 'https://example.com'
+        }
+      }
+    });
+    expect(wrapper.find('form').exists()).toBe(true);
+  });
+
+  it('menuType=2 外链模式渲染', () => {
+    const wrapper = mountWithEP(MenuForm, {
+      props: {
+        formInline: {
+          ...baseFormInline,
+          menuType: 2,
+          title: '外部链接',
+          path: 'https://example.com'
+        }
+      }
+    });
+    expect(wrapper.find('form').exists()).toBe(true);
+  });
+
+  it('menuType=3 按钮模式渲染', () => {
+    const wrapper = mountWithEP(MenuForm, {
+      props: {
+        formInline: {
+          ...baseFormInline,
+          menuType: 3,
+          title: '新增按钮',
+          auths: 'system:add'
         }
       }
     });

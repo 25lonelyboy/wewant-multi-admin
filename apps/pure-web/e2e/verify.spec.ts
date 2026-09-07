@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('验证码与打印', () => {
-  test('验证码 canvas 渲染 + 点击刷新', async ({ page }) => {
+  test('验证码 canvas 渲染 + 点击刷新 @mock-only', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('load');
 
@@ -41,7 +41,7 @@ test.describe('验证码与打印', () => {
     expect(codeAfter).not.toBe(codeBefore);
   });
 
-  test('Print 工具模块可加载（行为级冒烟）', async ({ page }) => {
+  test('Print 工具模块可加载（行为级冒烟） @mock-only', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('load');
 
