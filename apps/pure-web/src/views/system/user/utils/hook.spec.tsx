@@ -59,6 +59,7 @@ vi.mock('@zxcvbn-ts/core', () => ({
 }));
 
 import { useUser } from './hook';
+import { message } from '@/utils/message';
 import type { FormInstance } from 'element-plus';
 import type { UserVO } from '@multi-admin/contracts';
 
@@ -137,14 +138,19 @@ describe('useUser', () => {
   });
 
   it('handleSizeChange 更新 pageSize 并触发 onSearch', () => {
-    const { handleSizeChange } = useUser(mockTableRef, mockTreeRef);
+    const { handleSizeChange, pagination } = useUser(mockTableRef, mockTreeRef);
     handleSizeChange(20);
-    // 内部调用 onSearch，验证不抛异常
+    expect(pagination.pageSize).toBe(20);
+    // onSearch 内部调用 getUserList（已 mock），验证不抛异常且状态已更新
   });
 
   it('handleCurrentChange 更新 currentPage 并触发 onSearch', () => {
-    const { handleCurrentChange } = useUser(mockTableRef, mockTreeRef);
+    const { handleCurrentChange, pagination } = useUser(
+      mockTableRef,
+      mockTreeRef
+    );
     handleCurrentChange(2);
+    expect(pagination.currentPage).toBe(2);
   });
 
   it('handleSelectionChange 更新 selectedNum', () => {
@@ -221,7 +227,12 @@ describe('useUser', () => {
 
   it('onbatchDel 调用 message 并清空选择', () => {
     const { onbatchDel } = useUser(mockTableRef, mockTreeRef);
-    expect(() => onbatchDel()).not.toThrow();
+    onbatchDel();
+    // message 已被 mock（L25-27），验证被调用且 type=success
+    expect(vi.mocked(message)).toHaveBeenCalledWith(
+      expect.stringContaining('已删除用户编号'),
+      { type: 'success' }
+    );
   });
 
   it('resetForm 有参时调用 resetFields 并刷新', () => {
@@ -322,11 +333,12 @@ describe('useUser', () => {
     expect(result).toContain('2024');
   });
 
-  it('columns phone formatter 隐藏中间数字', () => {
+  it('columns phone formatter 调用 hideTextAtIndex 掩码', () => {
     const { columns } = useUser(mockTableRef, mockTreeRef);
     const phoneCol = columns.find((c: any) => c.prop === 'phone');
+    // hideTextAtIndex 被 mock 为 identity（L36），characterization 锁定「formatter 调用并返回其结果」
     const result = phoneCol!.formatter({ phone: '13800138000' });
-    expect(result).toBeDefined();
+    expect(result).toBe('13800138000');
   });
 
   it('formatHigherDeptOptions 通过 openDialog 间接覆盖', () => {

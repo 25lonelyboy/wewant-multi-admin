@@ -103,7 +103,8 @@ src/views/system/user/utils/rule.ts
 | src/views/welcome/components/charts/ChartBar.vue | 无（纯渲染） | echarts 渲染 |
 | src/views/welcome/components/charts/ChartLine.vue | 无（纯渲染） | echarts 渲染 |
 | src/views/welcome/components/charts/ChartRound.vue | 无（纯渲染） | echarts 渲染 |
-| src/views/monitor/online/index.vue | — | 已判 T3（无 echarts） |
+
+> NOTE: `src/views/monitor/online/index.vue` 已判 T3（无 echarts，纯表格组合），不在 T4 表中重复登记。
 
 ## T5——无逻辑（exclude + 理由）（36+4 待验证 type.ts）
 

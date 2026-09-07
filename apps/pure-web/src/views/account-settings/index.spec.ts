@@ -3,12 +3,10 @@ import { describe, it, expect, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 
 vi.mock('@/api/user', () => ({
-  getMine: vi
-    .fn()
-    .mockResolvedValue({
-      code: 0,
-      data: { avatar: '', username: '', nickname: '' }
-    })
+  getMine: vi.fn().mockResolvedValue({
+    code: 0,
+    data: { avatar: '', username: '', nickname: '' }
+  })
 }));
 vi.mock('vue-router', () => ({
   useRouter: () => ({ go: vi.fn() })

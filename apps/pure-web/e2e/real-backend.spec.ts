@@ -15,7 +15,8 @@ test('直连真实后端登录→首页菜单→退出 @real-backend', async ({ 
 });
 
 // NOTE: 选择器（按钮文字、placeholder）为骨架值，Docker 可用后需根据真实 DOM 调整
-test('用户管理 CRUD 全链路 @real-backend', async ({ page }) => {
+// FIXME: CRUD 删除步骤待补全（当前 visible→hidden 矛盾断言，需补删除操作或调整断言）
+test.fixme('用户管理 CRUD 全链路 @real-backend', async ({ page }) => {
   await loginAsAdmin(page);
   await page.locator('.el-menu').first().getByText('系统管理').click();
   await page.locator('.el-menu').first().getByText('用户管理').click();

@@ -33,16 +33,19 @@ describe('LoginUpdate.vue（T2）', () => {
     expect(wrapper.findAll('input').length).toBeGreaterThanOrEqual(4);
   });
 
-  it('repeatPasswordRule: 空值 → 错误', () => {
+  // NOTE: ElementPlus form.validate() 回调在 jsdom 不触发（已知限制，Task 11 记录），
+  // 以下三个 repeatPasswordRule 测试为 smoke 语义：验证输入+blur 不崩溃，
+  // 校验错误渲染由 E2E @mock-only 回补（auth.spec.ts 登录旅程覆盖）。
+  it('repeatPasswordRule: 空值输入不崩溃（smoke）', () => {
     const wrapper = mountUpdate();
     const inputs = wrapper.findAll('input');
     const repeatInput = inputs[3];
     repeatInput.setValue('');
     repeatInput.trigger('blur');
-    expect(wrapper.exists()).toBe(true);
+    expect(wrapper.find('form').exists()).toBe(true);
   });
 
-  it('repeatPasswordRule: 密码不一致 → 错误', () => {
+  it('repeatPasswordRule: 密码不一致输入不崩溃（smoke）', () => {
     const wrapper = mountUpdate();
     const inputs = wrapper.findAll('input');
     const pwdInput = inputs[2];
@@ -50,10 +53,10 @@ describe('LoginUpdate.vue（T2）', () => {
     pwdInput.setValue('abc123!@#');
     repeatInput.setValue('different!');
     repeatInput.trigger('blur');
-    expect(wrapper.exists()).toBe(true);
+    expect(wrapper.find('form').exists()).toBe(true);
   });
 
-  it('repeatPasswordRule: 密码一致 → 通过', () => {
+  it('repeatPasswordRule: 密码一致输入不崩溃（smoke）', () => {
     const wrapper = mountUpdate();
     const inputs = wrapper.findAll('input');
     const pwdInput = inputs[2];
@@ -61,7 +64,7 @@ describe('LoginUpdate.vue（T2）', () => {
     pwdInput.setValue('abc123!@#');
     repeatInput.setValue('abc123!@#');
     repeatInput.trigger('blur');
-    expect(wrapper.exists()).toBe(true);
+    expect(wrapper.find('form').exists()).toBe(true);
   });
 
   it('onUpdate: loading 初始为 false（validate 分支未触发）', () => {

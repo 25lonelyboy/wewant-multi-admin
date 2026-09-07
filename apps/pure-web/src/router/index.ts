@@ -122,7 +122,11 @@ router.beforeEach((to: ToRouteType, _from) => {
     });
   }
   /** 访问控制决策委托给 permissionGuard */
-  return permissionGuard(to, _from, { router });
+  const result = permissionGuard(to, _from, { router });
+  // externalLink 分支返回 false 中止导航，vue-router 不触发 afterEach，
+  // 需手动收尾 NProgress 防止进度条挂起（重构前原码在 guards 内调用，现移至调用方）
+  if (result === false) NProgress.done();
+  return result;
 });
 
 router.afterEach(to => {

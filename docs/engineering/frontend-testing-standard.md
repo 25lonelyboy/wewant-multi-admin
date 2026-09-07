@@ -37,6 +37,15 @@ last_verified: 2026-09-06
 - crown-jewel 6 键 ≥90（auth / user store / http / guards / tree / permission）
 - 数学保证：非排除文件 per-file ≥80 ⇒ 聚合 ≥80
 
+### crown-jewel 降级阈值（2 处，有代码证据）
+
+| 文件 | 阈值 | 降级理由 |
+|------|------|----------|
+| `src/utils/http/index.ts` | branches=88 | `initConfig` 为 `private static = {}` 且全仓无赋值点，L100/L167 分支不可达；请求拦截器 error handler（fulfilled 永不抛）为防御性代码 |
+| `src/router/guards.ts` | branches=85 | `whiteList` 仅含 `'/login'`，L109 已排除 `'/login'`，L110-111 为不可达死代码 |
+
+降级论证详见 `vitest.config.ts` 内联注释。
+
 ## 3. exclude 治理
 
 - 每条 exclude 映射 T3/T4/T5 + 理由
