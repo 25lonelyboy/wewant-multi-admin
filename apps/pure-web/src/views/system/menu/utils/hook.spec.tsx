@@ -153,16 +153,16 @@ describe('useMenu', () => {
     const menuTypeCol = columns.find((c: any) => c.prop === 'menuType');
     // 测试所有菜单类型的 cellRenderer
     for (let type = 0; type <= 3; type++) {
-      const vnode = menuTypeCol!.cellRenderer({
+      const vnode = (menuTypeCol as any).cellRenderer({
         row: { menuType: type },
-        props: { size: 'default' }
+        props: { size: 'default' } as any
       });
       expect(vnode).toBeDefined();
     }
     // default case
-    const vnode = menuTypeCol!.cellRenderer({
+    const vnode = (menuTypeCol as any).cellRenderer({
       row: { menuType: 99 },
-      props: { size: 'default' }
+      props: { size: 'default' } as any
     });
     expect(vnode).toBeDefined();
   });
@@ -170,8 +170,10 @@ describe('useMenu', () => {
   it('columns title cellRenderer 渲染图标和文本', () => {
     const { columns } = useMenu();
     const titleCol = columns.find((c: any) => c.prop === 'title');
-    const vnode = titleCol!.cellRenderer({
-      row: { icon: 'ep/home-filled', title: '系统管理' }
+    const vnode = (titleCol as any).cellRenderer({
+      row: { icon: 'ep/home-filled', title: '系统管理' },
+      props: { size: 'default' } as any,
+      index: 0
     });
     expect(vnode).toBeDefined();
   });
@@ -179,22 +181,28 @@ describe('useMenu', () => {
   it('columns component formatter 空组件返回 path', () => {
     const { columns } = useMenu();
     const compCol = columns.find((c: any) => c.prop === 'component');
-    const result = compCol!.formatter({ path: '/system', component: '' });
+    const result = (compCol as any).formatter({
+      path: '/system',
+      component: ''
+    });
     expect(result).toBe('/system');
   });
 
   it('columns component formatter 有组件返回 component', () => {
     const { columns } = useMenu();
     const compCol = columns.find((c: any) => c.prop === 'component');
-    const result = compCol!.formatter({ path: '/system', component: 'layout' });
+    const result = (compCol as any).formatter({
+      path: '/system',
+      component: 'layout'
+    });
     expect(result).toBe('layout');
   });
 
   it('columns showLink formatter', () => {
     const { columns } = useMenu();
     const showLinkCol = columns.find((c: any) => c.prop === 'showLink');
-    expect(showLinkCol!.formatter({ showLink: true })).toBe('否');
-    expect(showLinkCol!.formatter({ showLink: false })).toBe('是');
+    expect((showLinkCol as any).formatter({ showLink: true })).toBe('否');
+    expect((showLinkCol as any).formatter({ showLink: false })).toBe('是');
   });
 
   it('openDialog 编辑模式传入 row', () => {

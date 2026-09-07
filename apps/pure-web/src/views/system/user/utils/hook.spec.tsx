@@ -298,9 +298,9 @@ describe('useUser', () => {
   it('columns sex cellRenderer 渲染男标签', () => {
     const { columns } = useUser(mockTableRef, mockTreeRef);
     const sexCol = columns.find((c: any) => c.prop === 'sex');
-    const vnode = sexCol!.cellRenderer({
+    const vnode = (sexCol as any).cellRenderer({
       row: { sex: 0 },
-      props: { size: 'default' }
+      props: { size: 'default' } as any
     });
     expect(vnode).toBeDefined();
   });
@@ -308,9 +308,9 @@ describe('useUser', () => {
   it('columns sex cellRenderer 渲染女标签', () => {
     const { columns } = useUser(mockTableRef, mockTreeRef);
     const sexCol = columns.find((c: any) => c.prop === 'sex');
-    const vnode = sexCol!.cellRenderer({
+    const vnode = (sexCol as any).cellRenderer({
       row: { sex: 1 },
-      props: { size: 'default' }
+      props: { size: 'default' } as any
     });
     expect(vnode).toBeDefined();
   });
@@ -318,8 +318,10 @@ describe('useUser', () => {
   it('columns avatar cellRenderer 渲染头像', () => {
     const { columns } = useUser(mockTableRef, mockTreeRef);
     const avatarCol = columns.find((c: any) => c.prop === 'avatar');
-    const vnode = avatarCol!.cellRenderer({
-      row: { avatar: null }
+    const vnode = (avatarCol as any).cellRenderer({
+      row: { avatar: null },
+      props: { size: 'default' } as any,
+      index: 0
     });
     expect(vnode).toBeDefined();
   });
@@ -337,7 +339,7 @@ describe('useUser', () => {
     const { columns } = useUser(mockTableRef, mockTreeRef);
     const phoneCol = columns.find((c: any) => c.prop === 'phone');
     // hideTextAtIndex 被 mock 为 identity（L36），characterization 锁定「formatter 调用并返回其结果」
-    const result = phoneCol!.formatter({ phone: '13800138000' });
+    const result = (phoneCol as any).formatter({ phone: '13800138000' });
     expect(result).toBe('13800138000');
   });
 
@@ -357,12 +359,12 @@ describe('useUser', () => {
     const { columns } = useUser(mockTableRef, mockTreeRef);
     const statusCol = columns.find((c: any) => c.prop === 'status');
     const row = { id: '1', status: 'ACTIVE', username: 'admin' };
-    const vnode = statusCol!.cellRenderer({
+    const vnode = (statusCol as any).cellRenderer({
       row,
-      props: { size: 'default' },
+      props: { size: 'default' } as any,
       index: 0
     });
-    const onChange = vnode.props?.onChange;
+    const onChange = (vnode as any).props?.onChange;
     if (typeof onChange === 'function') onChange();
     await vi.waitFor(() => {
       expect(apiMock.updateUser).toHaveBeenCalled();
@@ -374,12 +376,12 @@ describe('useUser', () => {
     const { columns } = useUser(mockTableRef, mockTreeRef);
     const statusCol = columns.find((c: any) => c.prop === 'status');
     const row = { id: '1', status: 'ACTIVE', username: 'admin' };
-    const vnode = statusCol!.cellRenderer({
+    const vnode = (statusCol as any).cellRenderer({
       row,
-      props: { size: 'default' },
+      props: { size: 'default' } as any,
       index: 0
     });
-    const onChange = vnode.props?.onChange;
+    const onChange = (vnode as any).props?.onChange;
     if (typeof onChange === 'function') onChange();
     await vi.waitFor(() => {
       expect(row.status).toBe('DISABLED');
@@ -392,12 +394,12 @@ describe('useUser', () => {
     const { columns } = useUser(mockTableRef, mockTreeRef);
     const statusCol = columns.find((c: any) => c.prop === 'status');
     const row = { id: '1', status: 'ACTIVE', username: 'admin' };
-    const vnode = statusCol!.cellRenderer({
+    const vnode = (statusCol as any).cellRenderer({
       row,
-      props: { size: 'default' },
+      props: { size: 'default' } as any,
       index: 0
     });
-    const onChange = vnode.props?.onChange;
+    const onChange = (vnode as any).props?.onChange;
     if (typeof onChange === 'function') onChange();
     await vi.waitFor(() => {
       expect(row.status).toBe('DISABLED');

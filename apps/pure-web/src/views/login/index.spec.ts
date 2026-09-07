@@ -12,7 +12,7 @@ vi.mock('@/plugins/i18n', () => ({
 }));
 
 vi.mock('@/utils/message', () => ({ message: vi.fn() }));
-vi.mock(import('@/router/utils'), async importOriginal => {
+vi.mock('@/router/utils' as any, async (importOriginal: any) => {
   const actual = await importOriginal();
   return {
     ...actual,

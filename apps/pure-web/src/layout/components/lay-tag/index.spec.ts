@@ -41,7 +41,13 @@ vi.mock('vue-router', async importOriginal => {
 const visibleRef = ref(false);
 const showTagsRef = ref(false);
 const tagsStyleRef = ref('chrome');
-const multiTagsRef = ref([
+interface TagLike {
+  path: string;
+  name: string;
+  meta: { title: string; [k: string]: any };
+  [k: string]: any;
+}
+const multiTagsRef = ref<TagLike[]>([
   { path: '/welcome', name: 'Welcome', meta: { title: 'Home' } },
   { path: '/dashboard', name: 'Dashboard', meta: { title: 'Dashboard' } }
 ]);
@@ -117,10 +123,7 @@ vi.mock('@/store/modules/settings', () => ({
 }));
 
 const multiTagsStoreMock = vi.hoisted(() => ({
-  handleTags: vi.fn((action: string) => {
-    if (action === 'slice') return multiTagsRef.value;
-    return undefined;
-  })
+  handleTags: vi.fn() as any
 }));
 vi.mock('@/store/modules/multiTags', () => ({
   useMultiTagsStoreHook: () => multiTagsStoreMock

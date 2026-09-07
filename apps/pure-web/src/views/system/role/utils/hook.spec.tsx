@@ -206,7 +206,7 @@ describe('useRole', () => {
       name: '管理员',
       code: 'admin',
       remark: '拥有所有权限'
-    });
+    } as any);
     expect(dialogMock.addDialog.mock.calls[0][0].title).toContain('修改');
   });
 
@@ -264,21 +264,15 @@ describe('useRole', () => {
 
   it('status cellRenderer 渲染开关', () => {
     const { columns } = useRole(mockTreeRef);
-    const statusCol = columns.find((c: any) =>
-      c.cellRenderer && c.prop !== 'status' ? false : c.prop === undefined
-    );
-    // 找包含 cellRenderer 的列
     const cellRendererCol = columns.find(
-      (c: any) => c.minWidth === 90 && !c.prop
+      (c: any) => typeof c.cellRenderer === 'function' && c.prop === undefined
     );
-    if (cellRendererCol) {
-      const vnode = (cellRendererCol as any).cellRenderer({
-        row: { status: 'ACTIVE', name: 'test' },
-        props: { size: 'default' },
-        index: 0
-      });
-      expect(vnode).toBeDefined();
-    }
+    const vnode = (cellRendererCol as any).cellRenderer({
+      row: { status: 'ACTIVE', name: 'test' },
+      props: { size: 'default' },
+      index: 0
+    });
+    expect(vnode).toBeDefined();
   });
 
   it('onChange confirm 确认后调用 updateRole', async () => {
@@ -287,12 +281,12 @@ describe('useRole', () => {
     const { columns } = useRole(mockTreeRef);
     const col = columns.find((c: any) => typeof c.cellRenderer === 'function');
     const row = { id: '1', status: 'ACTIVE', name: '管理员' };
-    const vnode = col!.cellRenderer({
+    const vnode = (col as any).cellRenderer({
       row,
-      props: { size: 'default' },
+      props: { size: 'default' } as any,
       index: 0
     });
-    const onChange = vnode.props?.onChange;
+    const onChange = (vnode as any).props?.onChange;
     if (typeof onChange === 'function') onChange();
     await vi.waitFor(() => {
       expect(apiMock.updateRole).toHaveBeenCalled();
@@ -304,12 +298,12 @@ describe('useRole', () => {
     const { columns } = useRole(mockTreeRef);
     const col = columns.find((c: any) => typeof c.cellRenderer === 'function');
     const row = { id: '1', status: 'ACTIVE', name: '管理员' };
-    const vnode = col!.cellRenderer({
+    const vnode = (col as any).cellRenderer({
       row,
-      props: { size: 'default' },
+      props: { size: 'default' } as any,
       index: 0
     });
-    const onChange = vnode.props?.onChange;
+    const onChange = (vnode as any).props?.onChange;
     if (typeof onChange === 'function') onChange();
     await vi.waitFor(() => {
       expect(row.status).toBe('DISABLED');
@@ -322,12 +316,12 @@ describe('useRole', () => {
     const { columns } = useRole(mockTreeRef);
     const col = columns.find((c: any) => typeof c.cellRenderer === 'function');
     const row = { id: '1', status: 'ACTIVE', name: '管理员' };
-    const vnode = col!.cellRenderer({
+    const vnode = (col as any).cellRenderer({
       row,
-      props: { size: 'default' },
+      props: { size: 'default' } as any,
       index: 0
     });
-    const onChange = vnode.props?.onChange;
+    const onChange = (vnode as any).props?.onChange;
     if (typeof onChange === 'function') onChange();
     await vi.waitFor(() => {
       expect(row.status).toBe('DISABLED');
@@ -345,7 +339,12 @@ describe('useRole', () => {
       // formRef.value 为 undefined → TypeError
     }
     // 编辑模式
-    openDialog('修改', { id: '1', name: '管理员', code: 'admin', remark: '' });
+    openDialog('修改', {
+      id: '1',
+      name: '管理员',
+      code: 'admin',
+      remark: ''
+    } as any);
     const opts2 = dialogMock.addDialog.mock.calls[1][0];
     try {
       opts2.beforeSure(() => {}, { options: opts2 });

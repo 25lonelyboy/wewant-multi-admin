@@ -133,7 +133,7 @@ describe('SidebarLogo', () => {
   });
 
   it('falls back to / when getTopMenu returns null', () => {
-    getTopMenuMock.mockReturnValueOnce(null);
+    getTopMenuMock.mockReturnValueOnce(null as any);
     const wrapper = shallowMount(SidebarLogo as any, {
       props: {
         collapse: false

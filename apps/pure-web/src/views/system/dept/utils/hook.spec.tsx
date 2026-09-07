@@ -222,9 +222,10 @@ describe('useDept', () => {
   it('columns status cellRenderer 渲染启用标签', () => {
     const { columns } = useDept();
     const statusCol = columns.find((c: any) => c.prop === 'status');
-    const vnode = statusCol!.cellRenderer({
+    const vnode = (statusCol as any)!.cellRenderer({
       row: { status: 1 },
-      props: { size: 'default' }
+      props: { size: 'default' },
+      index: 0
     });
     expect(vnode).toBeDefined();
   });
@@ -232,9 +233,10 @@ describe('useDept', () => {
   it('columns status cellRenderer 渲染停用标签', () => {
     const { columns } = useDept();
     const statusCol = columns.find((c: any) => c.prop === 'status');
-    const vnode = statusCol!.cellRenderer({
+    const vnode = (statusCol as any)!.cellRenderer({
       row: { status: 0 },
-      props: { size: 'default' }
+      props: { size: 'default' },
+      index: 0
     });
     expect(vnode).toBeDefined();
   });
@@ -313,7 +315,7 @@ describe('useDept', () => {
     } catch {
       /* formRef undef */
     }
-    openDialog('修改', { id: 1, name: '技术部', parentId: 0 });
+    openDialog('修改', { id: 1, name: '技术部', parentId: 0 } as any);
     const opts2 = dialogMock.addDialog.mock.calls[1][0];
     try {
       opts2.beforeSure(() => {}, { options: opts2 });
