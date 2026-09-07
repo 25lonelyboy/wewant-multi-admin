@@ -1,0 +1,36 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "types": [
+      "node",
+      "vite/client",
+      "element-plus/global",
+      "@pureadmin/table/volar",
+      "unplugin-icons/types/vue",
+      "@pureadmin/descriptions/volar",
+      "vite-svg-loader"
+    ]
+  },
+  "include": [
+    "mock/*.ts",
+    "build/*.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "types/*.d.ts",
+    "vite.config.ts",
+    "src/test-utils/svg-raw-stub.ts",
+    "src/test-utils/svg-component-stub.ts",
+    "src/test-utils/mount.ts",
+    "src/components/ReCol/index.ts",
+    "src/components/ReCol/index.spec.ts",
+    "src/components/ReFlicker/index.ts",
+    "src/components/ReFlicker/index.spec.ts",
+    "src/components/ReText/index.ts",
+    "src/components/ReText/src/index.vue",
+    "src/components/ReText/src/index.spec.ts"
+  ]
+}

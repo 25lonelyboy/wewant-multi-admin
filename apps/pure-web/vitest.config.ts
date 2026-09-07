@@ -154,7 +154,10 @@ export default defineConfig({
         // 已被 line 109 排除，永远不可达）
         'src/router/guards.ts': { lines: 90, branches: 85 },
         'src/utils/tree.ts': { lines: 90, branches: 90 },
-        'src/store/modules/permission.ts': { lines: 90, branches: 90 }
+        'src/store/modules/permission.ts': { lines: 90, branches: 90 },
+        'src/components/ReCol/index.ts': { lines: 80, branches: 80 },
+        'src/components/ReFlicker/index.ts': { lines: 80, branches: 80 },
+        'src/components/ReText/src/index.vue': { lines: 80, branches: 80 }
       }
     }
   }
