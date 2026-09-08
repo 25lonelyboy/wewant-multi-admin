@@ -16,7 +16,7 @@ pnpm stylelint            # stylelint --max-warnings 0
 pnpm test                 # vitest run；单文件：pnpm test -- src/utils/auth.spec.ts
 pnpm test:watch           # vitest 增量监听
 pnpm test:coverage        # v8 覆盖率，glob 键 ≥80% 门禁（thresholds 在 vitest.config.ts）
-pnpm test:e2e             # Playwright；webServer 自启 VITE_MOCK=true vite --port 5199 --strictPort，无需手动起 dev
+pnpm test:e2e             # Playwright；缺省 mock 模式（VITE_MOCK=true，grep @mock-only）自启 vite --port 5199 --strictPort；真实后端 Tier B 用 E2E_MODE=real（grep @real-backend）
 ```
 
 全仓入口 `pnpm check` / `pnpm dev:web` 经 turbo 编排，与此处直连脚本等价；e2e 依赖 chromium（`npx playwright install`）。
@@ -26,7 +26,7 @@ pnpm test:e2e             # Playwright；webServer 自启 VITE_MOCK=true vite --
 1. **数据源开关 `VITE_MOCK`**（`vite.config.ts`）：缺省（false）注册 `/api/v1` → `http://localhost:3000` 代理直连 NestJS；`=true` 改为 `vite-plugin-fake-server` 整体接管且**不挂 proxy**（规避同路径冲突，`enableProd` 会注入生产构建）。mock fixture 在 [`mock/`](mock/) 与真实后端**契约同形**（同信封、同路径、同类型）——详见 [contracts.md](../../docs/architecture/contracts.md)，改接口先改 `packages/contracts` 再改 mock 与页面。
 2. **vue-pure-admin 基底，非 fork**：上游（https://github.com/pure-admin/vue-pure-admin）以「手工合入 + 选择性吸收」维护，无 merge 历史；基线 SHA 与季度巡检（`pnpm ops:upstream-diff`）见 [upstream-tracking.md](../../docs/engineering/upstream-tracking.md)，合入纪律：只追加不改写、超季度陈旧做巡检。
 3. **路由与权限**：[`src/router/`](src/router/) 为约定式模块（`modules/home.ts` 登录页、`modules/remaining.ts` 业务侧栏）；mock 态异步路由由 `mock/asyncRoutes.ts` 驱动。页面在 `src/views/` 按域分目录（login / system / monitor / account-settings / error / welcome / empty）。
-4. **测试基建**：单测 vitest + @vue/test-utils + jsdom，配置 [`vitest.config.ts`](vitest.config.ts) **独立于** `vite.config.ts`（不加载构建期插件）；通用挂载与 stub 在 [`src/test-utils/`](src/test-utils/)。E2E（Playwright）四个 spec 在 [`e2e/`](e2e/)：auth 全链路、components、routing、verify 冒烟；cropper 深度交互为永久豁免。
+4. **测试基建**：单测 vitest + @vue/test-utils + jsdom，配置 [`vitest.config.ts`](vitest.config.ts) **独立于** `vite.config.ts`（不加载构建期插件）；通用挂载与 stub 在 [`src/test-utils/`](src/test-utils/)。E2E（Playwright）**双层五 spec** 在 [`e2e/`](e2e/)：Tier A（`@mock-only`）auth 全链路 / components / routing / verify 冒烟 + Tier B（`@real-backend`）real-backend 真实后端冒烟（登录/CRUD/token 轮换/账号锁定）；[`playwright.config.ts`](playwright.config.ts) 按 `E2E_MODE` grep 分流，双模凭证 helpers 在 `e2e/helpers.ts`；cropper 深度交互为永久豁免。分层框架与阈值细则见 [frontend-testing-standard.md](../../docs/engineering/frontend-testing-standard.md)。
 5. **strict 单一配置**：`tsconfig.json` extends `@multi-admin/tsconfig/web.json`（strict 全套开关注入）；**无双 config、无清单断言、无豁免文件**，改类型以 typecheck 全量通过为准。
 6. **构建链事实**：`build/` 目录集中 vite 插件列表、optimize 白名单与 env 包装（wrapperEnv）；构建目标 `es2015`、产物模板 `static/js|ext/[name]-[hash]`、sourcemap 关闭。
 

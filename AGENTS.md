@@ -60,7 +60,7 @@ pnpm doc:lint
 - **桌面端链路**：turbo `^build` 编排 pure-web 产物 → esbuild 编译主进程（ESM）/preload（CJS，sandbox 要求）→ 复制 dist 到 `dist-electron/web/` → electron-builder 打包；渲染层由自定义 `app://` 协议托管（含路径穿越防护）；单实例锁 + 托盘常驻（关窗隐藏不退出）。细节见 [desktop-app.md](docs/architecture/desktop-app.md)。
 - **Lint 薄壳模式**：各应用 eslint / stylelint 一行引用 `internal/*` 工厂；ESLint 只校验（`--max-warnings 0`），格式化由 Prettier 独占。
 - **Docker**：镜像构建必须以仓库根为 context；compose 含 postgres / redis / server / web 四服务，server 启动链 `prisma migrate deploy → prisma db seed → exec node`（幂等）；库名统一 `multi_admin`（存量旧卷需 `down -v` 重建）；本地 redis 无密码映射宿主 6379，禁止暴露生产/共享网络。env 注意事项见 [build-and-verify.md](docs/engineering/build-and-verify.md)。
-- **质量门禁双层**：本地实时（`pnpm check` + husky lint-staged）+ GitHub CI 异步兜底（`.github/workflows/ci.yml`，push master 触发，七 job：gate / docker-build / coverage / coverage-web / e2e-web / audit / doc-lint，报警式不拦截，[ADR-006](docs/decisions/ADR-006-github-ci.md)）。**CI 红 → 下一项工作先修 CI。**
+- **质量门禁双层**：本地实时（`pnpm check` + husky lint-staged）+ GitHub CI 异步兜底（`.github/workflows/ci.yml`，push master + nightly 触发，八 job：gate / docker-build / coverage / coverage-web / e2e-web（Tier A mock 冒烟）/ e2e-web-real（Tier B 真实后端冒烟，报警式）/ audit / doc-lint，报警式不拦截，[ADR-006](docs/decisions/ADR-006-github-ci.md)、双层 E2E 见 [ADR-008](docs/decisions/ADR-008-tiered-e2e-testing.md)）。**CI 红 → 下一项工作先修 CI。**
 
 ## 安全不变量
 
