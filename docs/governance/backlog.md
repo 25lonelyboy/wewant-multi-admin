@@ -51,6 +51,8 @@ last_verified: 2026-09-08
 | system 域只读查询门面 | `auth.service` 直查 system 域表（permissionsOf / getAsyncRoutes / findUserWithRoles 直接 `prisma.role/menu/user`），监控 / dept 域立项后多域直查将使表结构变更影响面发散；方案：抽取 `SystemQueryService` 只读门面，各域统一经门面访问 | 第二个需用户/角色信息的域立项 | 2026-08-26 |
 | Prisma 迁移回滚预案 | Prisma 不支持 down 迁移，`migrate deploy` 单向，生产迁移中途失败无回退剧本；方案：破坏性迁移（删列/改类型）提交时附带手写回滚 SQL（migration 注释或独立文件） | 第一次破坏性 schema 变更前 | 2026-08-26 |
 | pure-web 上游同步周期评估 | vue-pure-admin template 衍生（接入 2026-08-10），无 fork 跟踪机制；方案：基线 SHA 记录 + ops/upstream-diff.sh 差异报告 + 选择性吸收（吸收项走 strict 迁入 + 测试验收） | 上游大版本发布或季度触发 | 2026-08-29 |
+| EMQX 集群的商业授权路径评估 | P1 用 EMQX 6.3.x LTS **单节点**（BSL 1.1 免费额度覆盖）；付费触发点为多节点集群 / 对外托管 / 嵌入转售（记录见 [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md)）。替代路径未评估：商业订阅形态（年度订阅 + License Key，限额为并发会话数）vs 改用 Apache-2.0 且原生集群的 VerneMQ | 需要多节点集群或高可用时 | 2026-10-02 |
+| TDengine 的 AGPL 义务重估 | 时序库选 TDengine 社区版（AGPL-3.0，见 [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md)）。§13 义务要件为"修改源码 + 对外网络交互"；P1 与内部自用不触发，但**对外提供服务或嵌入转售时须重估**（走商业授权，或按 AGPL 义务设计）。客户端 `@tdengine/websocket` 为 MIT、通信在进程边界外，应用侧不构成衍生 | 产品形态转为对外服务或嵌入转售时 | 2026-10-02 |
 
 ## 已关闭
 
