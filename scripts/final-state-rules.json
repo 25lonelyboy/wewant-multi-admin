@@ -1,0 +1,62 @@
+{
+  "rules_version": "1.0.0",
+  "description": "终态痕迹词表。单一事实源：doc-lint 的检查项⑥直接读本文件；项目级 hook 由安装脚本从本文件生成一份带同样 rules_version 的副本，放在 hook 同目录（hook 运行时无法跨仓库引用技能目录）。修改本文件后必须重新生成 hook 副本，doc-lint 会校验两者版本一致。",
+  "scope_note": "应用于事实源层（architecture / engineering / product / operations / governance）与根入口文件。docs/tasks/ 与 docs/decisions/ 豁免：前者的『取代 D1』是合法历史，后者的『备选方案』按模板要求写明被放弃的方案。",
+  "rules": [
+    {
+      "label": "自我更正痕迹",
+      "pattern": "此前[^。\\n]{0,12}(误|写|给|答|称)",
+      "flags": ""
+    },
+    {
+      "label": "修订史/更正记录",
+      "pattern": "(已更正|已修订|修订说明|修订史|勘误)",
+      "flags": ""
+    },
+    {
+      "label": "自我更正痕迹",
+      "pattern": "判定为记忆错误",
+      "flags": ""
+    },
+    {
+      "label": "版本变更说明",
+      "pattern": "(文档状态|报告状态|讲义状态)[：:]\\s*\\*{0,2}v\\d",
+      "flags": ""
+    },
+    {
+      "label": "版本变更说明",
+      "pattern": "v\\d+\\.\\d+\\s*[（(]\\s*20\\d\\d[-.]\\d\\d",
+      "flags": ""
+    },
+    {
+      "label": "删除线保留旧结论",
+      "pattern": "~~[^~\\n]+~~",
+      "flags": ""
+    },
+    {
+      "label": "验收过程标记",
+      "pattern": "验收(补录|深化|时|中)",
+      "flags": ""
+    },
+    {
+      "label": "对用户答题过程的评价",
+      "pattern": "(被记过|记过一次|答出第|未答出)",
+      "flags": ""
+    },
+    {
+      "label": "防御式声明",
+      "pattern": "不提供[^。\\n]{0,24}(因为|由于|核实不了)",
+      "flags": ""
+    },
+    {
+      "label": "免责式声明",
+      "pattern": "(假设性框架|不外推为|无数据支撑|不构成结论)",
+      "flags": ""
+    },
+    {
+      "label": "待办占位",
+      "pattern": "(待第\\s*\\d+\\s*讲|通道恢复后|待增量\\s*\\d+|待核实|核实后补)",
+      "flags": ""
+    }
+  ]
+}
