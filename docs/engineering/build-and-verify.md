@@ -72,7 +72,7 @@ turbo env 透传约束：`envMode` 为 strict，只有声明过的环境变量�
 | `pnpm ops:pre-push` | `pre-push.mjs` | push 前 CI 同构校验：frozen-lockfile + check + doc-lint + audit |
 | `pnpm ops:ci` | `ci-status.sh` | CI 结果拉取：最近 5 次 run 状态 + 失败自动打印日志 |
 | `pnpm ops:ci-logs` | `ci-logs.sh` | CI 失败日志导出：`.ci-failure-<id>.log`（Agent 可读取分析） |
-| `pnpm ops:env-up` | `env-up.sh` | 开发环境启动：postgres + redis + migrate + seed |
+| `pnpm ops:env-up` | `env-up.sh` | 开发环境启动：postgres + redis + emqx + migrate + seed |
 | `pnpm ops:env-down` | `env-down.sh` | 开发环境停止（`--clean` 清除数据卷） |
 | `pnpm ops:smoke` | `docker-smoke.sh` | 本地 Docker 冒烟（`--server` 追加构建 + 运行态冒烟） |
 | `pnpm ops:server-smoke` | `server-smoke.sh` | server 镜像运行态冒烟（/health + entrypoint 三段断言；前置：镜像已构建 + ops:env-up） |
@@ -84,6 +84,8 @@ turbo env 透传约束：`envMode` 为 strict，只有声明过的环境变量�
 前置依赖：gh CLI（ci-status / ci-logs，需首次 `gh auth login`）、Docker Desktop（env-up / smoke / coverage / check-digests）、Git Bash 或 WSL bash（shell 脚本执行；仓库 `.sh` 统一 LF 行尾，见根 `.gitattributes`）、可联网环境（upstream-diff，需 fetch github）。
 
 check-digests 远端比对依赖可联网环境：本机无 Registry 直连时按设计输出「远端 digest 获取失败」exit 1（本地同 tag 一致性检查仍有效）；CI 无该巡检 step（不在 CI 内新增验证逻辑），首次在线巡检需在可联网环境手动执行一次。
+
+设备接入 e2e（iot 域）连真实 Broker：本地需 `pnpm ops:env-up`，CI 的 `coverage` job 已配 emqx service。`docker-build` 与 `e2e-web-real` 不需要 EMQX——接入链路连不上 Broker 只记 warn 并自动重连，不阻断应用启动（见 [backend.md](../architecture/backend.md) 设备接入链路）。
 
 `set -o pipefail` 下 `docker logs X | grep -qF` 断言必假：grep -q 命中即退出使 docker logs 收到 SIGPIPE（exit 141），管道整体非零、`if` 恒假。写法必须是先捕获变量（`LOGS="$(docker logs X 2>&1 || true)"`）再 `echo "${LOGS}" | grep -qF` 断言。
 

@@ -4,13 +4,13 @@ This file provides guidance to AI Agents when working with code in this reposito
 
 ## 应用定位
 
-`apps/nestjs-server` 是多端管理后台 monorepo 的后端应用：NestJS 11 + Prisma 7（PostgreSQL）+ Redis + JWT 双令牌轮换 + 五表三级 RBAC，响应统一 `{ code, message, data }` 信封。
+`apps/nestjs-server` 是多端管理后台 monorepo 的后端应用：NestJS 11 + Prisma 7（PostgreSQL）+ Redis + JWT 双令牌轮换 + 五表三级 RBAC + MQTT 设备接入（iot 域），响应统一 `{ code, message, data }` 信封。
 
 本文件只写本应用特有内容；仓库全局规则（依赖 catalog 判据、commit scope 白名单、Docker 构建 context、文档治理读取顺序）见根 [`AGENTS.md`](../../AGENTS.md)，架构事实源见 [`docs/architecture/backend.md`](../../docs/architecture/backend.md)。
 
 ## 常用命令
 
-从仓库根执行（本地开发前置：`docker compose up -d postgres redis`）：
+从仓库根执行（本地开发前置：`pnpm ops:env-up` 或 `docker compose up -d postgres redis emqx`）：
 
 ```bash
 pnpm --filter @multi-admin/nestjs-server run dev            # watch 启动（prisma generate 先行）
@@ -27,12 +27,13 @@ pnpm --filter @multi-admin/nestjs-server run prisma:seed    # 显式 seed（Pris
 
 ## 架构要点
 
-- **模块分层**（详见 backend.md）：`config/`（AppConfigModule，Zod 校验 env + 类型安全访问）、`common/`（横切：bootstrap 装配 / guards / filters / interceptors / errors / redis / throttler / logging / middleware）、`database/`（PrismaModule）、`modules/`（auth / system / health 三个域）、`generated/`（prisma generate 产物，git-ignored）。
+- **模块分层**（详见 backend.md）：`config/`（AppConfigModule，Zod 校验 env + 类型安全访问）、`common/`（横切：bootstrap 装配 / guards / filters / interceptors / errors / redis / throttler / logging / middleware）、`database/`（PrismaModule）、`modules/`（auth / system / iot / health 四个域）、`generated/`（prisma generate 产物，git-ignored）。
 - **组合根**：`app.module.ts` 只 import 三个域聚合模块 + 基础设施模块；全局横切经 `APP_GUARD`（RedisThrottlerGuard → JwtAuthGuard → PermissionsGuard 链）、`APP_FILTER`、`APP_INTERCEPTOR` 注册。新域遵循 `SystemModule` 聚合模式（域聚合模块包 leaf，app.module 只 import 聚合）。
 - **装配共享**：`common/bootstrap/apply-app-defaults.ts` 是 main.ts 与 e2e 共用的应用装配（全局前缀 `api/v1`（exclude `health`）/ helmet / 请求体大小（上传路由 UPLOAD_BODY_LIMIT 优先于全局 BODY_LIMIT）/ ValidationPipe / CORS / Swagger / shutdown 钩子），修改应用级中间件时只改这一处。
 - **请求链**：`requestId 中间件 → helmet → json → CORS → ValidationPipe → 限流 → JWT → 权限 → Controller → ResponseEnvelopeInterceptor`。
 - **Prisma**：datasource url 由 `prisma.config.ts` 从 env 读取；连接池经 driver adapter（`PrismaPg`）自管，`DATABASE_POOL_MAX` 显式配置；query 日志经 `PRISMA_SLOW_QUERY_MS` 阈值 warn + `PRISMA_QUERY_LOG` 全量开关（排障临时用）；seed 走 `tsx` 执行 TS 源码，`ADMIN_INIT_PASSWORD` 创建超管。
 - **env 单点声明**：所有环境变量必须在 `src/config/env.schema.ts` 的 zod schema 中声明（校验失败启动即崩）；测试默认值在 `test/setup-env.ts` 注入。
+- **接入链路不阻断启动**：iot 域的 MQTT 连接失败只记 warn 并自动重连，禁止让 Broker 不可达导致应用起不来——server 镜像冒烟与 CI 的 `docker-build` / `e2e-web-real` 都在无 EMQX 的情况下启动本应用。
 
 ## 硬规则
 

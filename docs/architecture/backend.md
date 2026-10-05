@@ -2,7 +2,7 @@
 status: living
 covers:
   - apps/nestjs-server/
-last_verified: 2026-09-03
+last_verified: 2026-10-05
 ---
 
 # NestJS 后端架构
@@ -30,6 +30,7 @@ src/
 ├── modules/
 │   ├── auth/        # 认证域：LocalStrategy + JwtStrategy + TokenService（双令牌轮换）
 │   ├── system/      # RBAC 三域 CRUD：user / role / menu（软删除，两张关联表物理维护）
+│   ├── iot/         # 设备接入域：MQTT 订阅设备上行（只做订阅 + 可见性日志）
 │   └── health/      # /health 探针（DB + Redis），不受全局前缀约束
 └── generated/       # prisma generate 产物（git-ignored）
 ```
@@ -39,6 +40,20 @@ src/
 `requestId 中间件 → helmet（非生产关 CSP，Swagger UI 依赖内联脚本）→ 请求体解析（路由级 UPLOAD_BODY_LIMIT 优先于全局 BODY_LIMIT）→ CORS（逗号分隔多来源）→ RedisThrottlerGuard → JwtAuthGuard → PermissionsGuard → ValidationPipe(whitelist+transform，自定义 exceptionFactory 展开字段级校验明细) → Controller`，响应经 `ResponseEnvelopeInterceptor` 封装。
 
 守卫先于管道执行（Nest 的固定顺序）：未认证请求携带非法 body 时先被 `JwtAuthGuard` 拦下返回 401，不会走到校验环节的 400。
+
+## 设备接入链路（iot 域）
+
+HTTP 之外的第二条入口，不经全局前缀与守卫链：
+
+```text
+设备 → TCP 1883 → EMQX → TelemetrySubscriberService（订阅 wewant/devices/+/telemetry）→ 每秒聚合日志
+```
+
+- 主题与载荷契约定义在 `packages/contracts` 的 iot 段（`telemetryTopic` / `TELEMETRY_TOPIC_FILTER` / `TelemetryPayload`），模拟器与后端消费同一份，不在应用内各自写常量。
+- 连接串为 `MQTT_URL`（默认 `mqtt://127.0.0.1:1883`，容器内为 `mqtt://emqx:1883`）。
+- **Broker 不可达不阻断启动**：连接失败只记 warn 并交 mqtt.js 自动重连。server 镜像冒烟与 CI 的 `docker-build` / `e2e-web-real` 两条 job 都在没有 EMQX 的情况下启动本应用。
+- 日志分两层：`debug` 逐条报文，`info` 每秒一行聚合（条数 / 测点数 / 设备数）——聚合行即接入链路的观测证据，逐条打印在百级设备下不可读。
+- 本阶段只做订阅与可见性日志：不进队列、不落库（缓冲层与存储属数据链路增量，见 [ADR-010](../decisions/ADR-010-ingest-buffer-bullmq.md)）；设备注册与物模型属物模型增量。
 
 ## API 约定
 

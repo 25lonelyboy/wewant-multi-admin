@@ -12,8 +12,9 @@ This file provides guidance to AI Agents when working with code in this reposito
 | `apps/nestjs-server`    | NestJS 后端：Prisma + Redis、JWT 双令牌轮换 + RBAC、system 三域 CRUD（软删除）、单测/e2e 合并覆盖率门禁；应用级见 [apps/nestjs-server/AGENTS.md](apps/nestjs-server/AGENTS.md)，架构细节见 [backend.md](docs/architecture/backend.md) |
 | `apps/uni-mobile`       | uni-app 多端应用（H5 + 各家小程序），基于 Vue3                                                                                                                                                                                        |
 | `apps/electron-desktop` | Electron 桌面端，托管 pure-web 构建产物作为渲染层                                                                                                                                                                                     |
+| `apps/iot-simulator`    | 设备模拟器：以 MQTT 上行虚拟设备遥测（100 台起，可调规模与频率），用于打穿接入链路与后续规模压测                                                                                                                                      |
 | `packages/common`       | 跨端共享 TS 代码（tsdown 构建），暂无应用实际引用                                                                                                                                                                                     |
-| `packages/contracts`    | 前后端接口契约包（纯类型 + BizCode/MenuType 常量），nestjs-server 与 pure-web 以 `workspace:*` 消费                                                                                                                                   |
+| `packages/contracts`    | 前后端接口契约包（纯类型 + BizCode/MenuType 常量 + 设备接入主题与载荷），nestjs-server 与 pure-web 以 `workspace:*` 消费                                                                                                              |
 | `internal/*`            | 仓库内部工具：`eslint-config` / `stylelint-config` / `tsconfig` / `node-utils`                                                                                                                                                        |
 
 环境约束：Node >=24（`.nvmrc` pin 24.18.1）、pnpm >=11（`engines` + 根 `.npmrc` `engine-strict=true` 强制）；registry 与 Electron 二进制镜像已在根 `.npmrc` 配置。
@@ -23,6 +24,7 @@ This file provides guidance to AI Agents when working with code in this reposito
 ```bash
 pnpm install
 pnpm dev:web / dev:server / dev:mobile / dev:desktop   # 各端启动（turbo 编排）
+pnpm dev:sim                      # 设备模拟器单独启动（100 台虚拟设备上行遥测，规模/频率见 apps/iot-simulator/README.md）
 pnpm build                        # 全量构建（turbo 任务图 + 缓存）
 pnpm build:web / build:desktop    # build:desktop 经任务图 ^build 自动先构建 pure-web
 pnpm check                        # 本地质量门禁：prettier → typecheck → lint → stylelint → test → test 覆盖枚举，纯校验不改文件
@@ -59,7 +61,7 @@ pnpm doc:lint
 - **NestJS 后端**：模块分层、请求链、API 约定（全局前缀 `api/v1`、信封 `{ code, message, data }`）、数据库事实见 [backend.md](docs/architecture/backend.md)。
 - **桌面端链路**：turbo `^build` 编排 pure-web 产物 → esbuild 编译主进程（ESM）/preload（CJS，sandbox 要求）→ 复制 dist 到 `dist-electron/web/` → electron-builder 打包；渲染层由自定义 `app://` 协议托管（含路径穿越防护）；单实例锁 + 托盘常驻（关窗隐藏不退出）。细节见 [desktop-app.md](docs/architecture/desktop-app.md)。
 - **Lint 薄壳模式**：各应用 eslint / stylelint 一行引用 `internal/*` 工厂；ESLint 只校验（`--max-warnings 0`），格式化由 Prettier 独占。
-- **Docker**：镜像构建必须以仓库根为 context；compose 含 postgres / redis / server / web 四服务，server 启动链 `prisma migrate deploy → prisma db seed → exec node`（幂等）；库名统一 `multi_admin`（存量旧卷需 `down -v` 重建）；本地 redis 无密码映射宿主 6379，禁止暴露生产/共享网络。env 注意事项见 [build-and-verify.md](docs/engineering/build-and-verify.md)。
+- **Docker**：镜像构建必须以仓库根为 context；compose 含 postgres / redis / emqx / server / web 五服务，server 启动链 `prisma migrate deploy → prisma db seed → exec node`（幂等）；库名统一 `multi_admin`（存量旧卷需 `down -v` 重建）；本地 postgres / redis / emqx 均无认证并映射宿主端口（emqx 只绑宿主回环），禁止暴露生产/共享网络。env 注意事项见 [build-and-verify.md](docs/engineering/build-and-verify.md)。
 - **质量门禁双层**：本地实时（`pnpm check` + husky lint-staged）+ GitHub CI 异步兜底（`.github/workflows/ci.yml`，push master + nightly 触发，八 job：gate / docker-build / coverage / coverage-web / e2e-web（Tier A mock 冒烟）/ e2e-web-real（Tier B 真实后端冒烟，报警式）/ audit / doc-lint，报警式不拦截，[ADR-006](docs/decisions/ADR-006-github-ci.md)、双层 E2E 见 [ADR-008](docs/decisions/ADR-008-tiered-e2e-testing.md)）。**CI 红 → 下一项工作先修 CI。**
 
 ## 安全不变量

@@ -10,6 +10,7 @@
 
 | 任务 | 收口说明 |
 |---|---|
+| MQTT 设备接入（增量 1） | 收口完成：EMQX 进 compose（digest pin + 仅绑回环）+ 新增 `apps/iot-simulator` + nestjs-server iot 域（通配订阅 + 每秒聚合日志）；判据双证据成立（Broker 侧 101 连接 / 92 msg·s⁻¹ / 1 订阅；订阅端「每秒 100 条 / 300 测点 / 100 台设备」）；验收通过。事实源 → [backend.md](../architecture/backend.md)、[build-and-verify.md](../engineering/build-and-verify.md)，选型与许可口径 → [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md)，过程 → [2026-10-05-iot-p1-increment-1/](2026-10-05-iot-p1-increment-1/) |
 | pure-web 前端测试评估规范与覆盖缺口补齐 | Phase F 收口完成：阈值翻转（91 键 → 全局聚合 + crown-jewel 90）+ living 规范落位 + 索引与任务状态同步；规范 → [frontend-testing-standard.md](../engineering/frontend-testing-standard.md)，决策 → [ADR-008](../decisions/ADR-008-tiered-e2e-testing.md)，过程 → [2026-09-06-frontend-testing-standard/](2026-09-06-frontend-testing-standard/) |
 
 ## 规则
