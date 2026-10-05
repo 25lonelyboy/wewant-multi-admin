@@ -28,6 +28,7 @@ last_verified: 2026-10-05
    - **`pnpm doc:lint`**（`scripts/doc-lint.cjs`，零依赖纯 node）：文档一致性与新鲜度校验（可达性 / 死链 / frontmatter / covers 漂移 / 入口文件行数预算 / 终态痕迹 / 引用与定位符（含代码行号） / 索引一致性（含索引行精确计数） / 活文档体积基线），pre-push 与 CI doc-lint job 均挂载；检查项以脚本头部注释为准，终态痕迹词表在同目录 `final-state-rules.json`。副本与技能母版以 `--version` 比对，随治理任务同步。
 2. **异步兜底（入库后，push master + nightly）**：`.github/workflows/ci.yml` 八 job 并行——`gate`（frozen-lockfile 安装 + `pnpm check` 服务端重验）、`docker-build`（双镜像构建验证 + web/server 双启动冒烟：web curl 200、server /health+entrypoint 三段断言，server 冒烟依赖 job services postgres/redis；不 push）、`coverage`（services 上 `test:coverage` ≥80% 报警式硬门槛）、`coverage-web`（pure-web vitest 覆盖率报警式，全局聚合 ≥80% + crown-jewel 6 键 ≥90%）、`e2e-web`（Playwright Tier A mock 冒烟，grep `@mock-only`）、`e2e-web-real`（Tier B 真实后端冒烟，grep `@real-backend`，报警式 + nightly，双层 E2E 见 [ADR-008](../decisions/ADR-008-tiered-e2e-testing.md)）、`audit`（`pnpm audit --audit-level=high` 报警式）、`doc-lint`（文档一致性与新鲜度校验报警式）。定位与取舍见 `docs/decisions/ADR-006-github-ci.md`。
 3. **纪律条款**：报警式不拦截的代价是红了必须有人看——**CI 红 → 下一项工作先修 CI**；感知窗口为根 README badge 与 GitHub watch 通知。
+   - **报警式的实现前提**：`continue-on-error` 标在**步骤**上，拦的是那一步的退出码；同一 job 内**其他任何步骤失败仍会把 job 打成失败、整轮随之变红**——包括 action 自身的 post 步骤。因此报警式 job 不应引入与该 job 目标无关的步骤（2026-10-05 实例：`audit` job 的 `setup-node` 配了 `cache: pnpm`，而该 job 刻意不 install、无 pnpm store 可缓存，缓存 post 步骤路径校验失败 → 整轮 CI 变红）。
 
 构建变体（`build:dir` / `build:staging` / `build:mp-weixin`）必须在 `turbo.json` 显式声明——新增变体不同步入图即不会被编排。
 
