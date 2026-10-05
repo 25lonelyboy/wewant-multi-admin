@@ -13,12 +13,16 @@ if ! gh auth status >/dev/null 2>&1; then
   exit 1
 fi
 
+# 显式指定仓库：本仓另有 upstream remote（跟踪 pure-web 上游），
+# gh 的默认仓库解析会落到上游，必须从 origin 推导后显式传入
+REPO="$(git remote get-url origin | sed -E 's#^[^:]+://[^/]+/##; s#^[^@]+@[^:]+:##; s#\.git$##')"
+
 if [ -n "${1:-}" ]; then
   run_id="$1"
 else
   # 自动查找最新失败的 run
   echo "▶ 查找最新失败的 CI run..."
-  run_id=$(gh run list --workflow=CI --limit=10 --json databaseId,conclusion \
+  run_id=$(gh run list -R "$REPO" --workflow=CI --limit=10 --json databaseId,conclusion \
     --jq '[.[] | select(.conclusion == "failure")][0].databaseId // empty')
 
   if [ -z "$run_id" ]; then
@@ -31,7 +35,7 @@ fi
 output="${SCRIPT_DIR}/.ci-failure-${run_id}.log"
 
 echo "▶ 导出失败日志到 ${output}..."
-gh run view "$run_id" --log-failed > "$output" 2>/dev/null || {
+gh run view "$run_id" -R "$REPO" --log-failed > "$output" 2>/dev/null || {
   echo "✖ 无失败日志可导出（run #${run_id} 可能全部通过或 run 不存在）"
   rm -f "$output"
   exit 1
