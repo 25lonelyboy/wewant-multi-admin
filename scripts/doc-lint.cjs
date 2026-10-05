@@ -24,10 +24,12 @@
  *   ④ covers 漂移：covers 覆盖代码的最后提交晚于文档最后提交 → 疑似陈旧（需 git）；
  *      covers 路径不存在 → 报错
  *   ⑤ AGENTS.md 行数预算
- *   ⑥ 终态痕迹：事实源层不得出现修订史/自我更正/删除线/免责散文/待办占位
+ *   ⑥ 终态痕迹：事实源层不得出现修订史/自我更正/删除线/免责散文/待办占位/过程阶段引用
  *      （词表见 final-state-rules.json；行内代码内的词不算，供规则文本列举禁用词）
- *   ⑦ 悬空引用：反引号里的仓库路径必须真实存在；外部链接须标访问日期（后者仅 WARN）
- *   ⑧ tasks 索引一致性：热/冷索引与 docs/tasks/ 实际目录一一对应
+ *   ⑦ 引用与定位符：反引号里的仓库路径必须真实存在；不得引用代码行号（L123）；
+ *      外部链接须标访问日期（后两者仅 WARN/FAIL 视类型，见实现）
+ *   ⑧ 索引一致性：① tasks 热/冷索引与 docs/tasks/ 实际目录一一对应；
+ *      ② README 索引行不得写精确计数（"已有 7 篇 ADR"）
  *   ⑨ 活文档体积基线：事实源层活文档超过 --max-doc-lines → WARN
  *
  * 退出码：0 = 全绿或 --version 查询成功；1 = 存在问题或目录不存在。
@@ -37,7 +39,7 @@
  */
 'use strict';
 
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 
 const fs = require('fs');
 const path = require('path');
@@ -601,6 +603,9 @@ const CODE_EXT =
 const URL_RE = /https?:\/\/[^\s)\]>`"']+/g;
 const ACCESS_RE = /(访问于|访问日期|accessed)[^\n]{0,24}\d{4}-\d{2}-\d{2}/i;
 const LOCAL_HOST_RE = /\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)/i;
+// 代码行号：任何一次无关编辑都会作废它，且不在 covers 的检测范围内，应改用符号名。
+// 在行内代码被清空的正文里扫，所以规则文本若用反引号写 `L123` 不会被误报。
+const LINE_REF_RE = /\bL\d{2,}\b/g;
 
 // 只检查以仓库顶层目录开头的路径。
 // 原因：monorepo 里文档常按应用相对路径书写（`src/generated/`、`prisma/seed.ts`），
@@ -643,6 +648,37 @@ function checkDanglingRefs(allDocs) {
       warnings.push(
         `⑦ ${rel(f)} 外部链接未标访问日期：${external[0].slice(0, 60)}`
       );
+    }
+    const body = extractMarkdownBody(content);
+    LINE_REF_RE.lastIndex = 0;
+    let lm;
+    while ((lm = LINE_REF_RE.exec(body)) !== null) {
+      issues.dangling.push(
+        `${rel(f)} 引用了代码行号：${lm[0]}（行号会被无关编辑作废，改用符号名）`
+      );
+      if (lm.index === LINE_REF_RE.lastIndex) LINE_REF_RE.lastIndex++;
+    }
+  }
+}
+
+// ---------- ⑧ 索引行精确计数 ----------
+// 新规则：索引行只写定性结论。数字必然腐烂（本仓 README 写"已有 7 篇 ADR"时实际已是 10）。
+// 口径收窄到"已有/共 + 数量 + 量词"，避免把"支持 3 个平台"这类真实事实误报。
+const INDEX_COUNT_RE = /(已有|共)\s*\d+\s*[篇个条项]/g;
+
+function checkIndexCounts(allDocs) {
+  const targets = allDocs.filter(
+    f => path.basename(f).toLowerCase() === 'readme.md'
+  );
+  for (const f of targets) {
+    const body = extractMarkdownBody(fs.readFileSync(f, 'utf8'));
+    INDEX_COUNT_RE.lastIndex = 0;
+    let m;
+    while ((m = INDEX_COUNT_RE.exec(body)) !== null) {
+      warnings.push(
+        `⑧ ${rel(f)} 索引行写了精确计数："${m[0].replace(/\s+/g, ' ')}"（数字会腐烂，只写定性结论）`
+      );
+      if (m.index === INDEX_COUNT_RE.lastIndex) INDEX_COUNT_RE.lastIndex++;
     }
   }
 }
@@ -764,6 +800,7 @@ checkAgentsBudget();
 checkFinalState(allDocs, loadFinalStateRules());
 checkDanglingRefs(allDocs);
 checkTasksIndex();
+checkIndexCounts(allDocs);
 checkVolume(allDocs);
 
 // ---------- 输出 ----------
@@ -774,8 +811,8 @@ const labels = {
   drift: '④ covers 漂移与路径',
   budget: '⑤ AGENTS.md 行数',
   finalstate: '⑥ 终态痕迹',
-  dangling: '⑦ 悬空引用',
-  tasks: '⑧ tasks 索引一致性'
+  dangling: '⑦ 引用与定位符',
+  tasks: '⑧ 索引一致性'
 };
 let total = 0;
 for (const key of Object.keys(labels)) {

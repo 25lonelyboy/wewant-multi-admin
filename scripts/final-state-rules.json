@@ -1,7 +1,8 @@
 {
-  "rules_version": "1.0.0",
+  "rules_version": "1.1.0",
   "description": "终态痕迹词表。单一事实源：doc-lint 的检查项⑥直接读本文件；项目级 hook 由安装脚本从本文件生成一份带同样 rules_version 的副本，放在 hook 同目录（hook 运行时无法跨仓库引用技能目录）。修改本文件后必须重新生成 hook 副本，doc-lint 会校验两者版本一致。",
   "scope_note": "应用于事实源层（architecture / engineering / product / operations / governance）与根入口文件。docs/tasks/ 与 docs/decisions/ 豁免：前者的『取代 D1』是合法历史，后者的『备选方案』按模板要求写明被放弃的方案。",
+  "false_positive_note": "误报最高的形态是『文档自定义的分类词表』。例如 frontend-testing-standard.md 的 T1–T5 是它自己定义的六层分类，不是过程引用。因此阶段标记只匹配 P+N（不匹配 T+N），设计文档引用要求带『设计』前缀。新增规则前必须先拿真实仓库测误报率。",
   "rules": [
     {
       "label": "自我更正痕迹",
@@ -56,6 +57,26 @@
     {
       "label": "待办占位",
       "pattern": "(待第\\s*\\d+\\s*讲|通道恢复后|待增量\\s*\\d+|待核实|核实后补)",
+      "flags": ""
+    },
+    {
+      "label": "过程阶段引用",
+      "pattern": "[（(]\\s*P\\d+\\s*[）)]",
+      "flags": ""
+    },
+    {
+      "label": "过程文档引用",
+      "pattern": "(分设计|总\\s*spec|总\\s*设计|设计\\s*[ADT]\\d+)",
+      "flags": ""
+    },
+    {
+      "label": "过程任务编号引用",
+      "pattern": "Task\\s*\\d+",
+      "flags": ""
+    },
+    {
+      "label": "事件式教训叙述",
+      "pattern": "教训[（(]\\d{4}-",
       "flags": ""
     }
   ]
