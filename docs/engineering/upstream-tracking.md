@@ -20,7 +20,7 @@ vue-pure-admin 为 template 衍生模式（无 fork 跟踪、无 merge 历史）
 
 | 项 | 值 |
 | --- | --- |
-| 上游仓库 | https://github.com/pure-admin/vue-pure-admin |
+| 上游仓库 | https://github.com/pure-admin/vue-pure-admin （访问日期 2026-10-05） |
 | 接入提交（本仓） | 94a2cf9（2026-08-10，template 衍生，无 merge 历史） |
 | 基线提交（上游） | e40eb37d606174099906aecfa891159b2d5b434e |
 | 基线参考版本 | v7.0.0（2026-04-07） |

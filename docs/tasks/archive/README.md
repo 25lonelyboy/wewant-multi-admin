@@ -2,7 +2,7 @@
 
 完成超 90 天或结论提升完毕的任务，过程文件原件存放于此。**只追加不改写**，需要恢复原始过程时按需读取；结论一律以 `docs/architecture/`、`docs/engineering/` 与 ADR 为准。
 
-## 2026-08-12-repo-foundation-and-desktop —— 仓库基架与桌面端阶段 1
+## [2026-08-12-repo-foundation-and-desktop](2026-08-12-repo-foundation-and-desktop/) —— 仓库基架与桌面端阶段 1
 
 | 文件 | 说明 |
 |---|---|
@@ -14,7 +14,7 @@
 
 归档日期：2026-08-16（结论提升完毕）。
 
-## 2026-08-16-nestjs-backend-foundation —— NestJS 后端基架补全（P1-P5）
+## [2026-08-16-nestjs-backend-foundation](2026-08-16-nestjs-backend-foundation/) —— NestJS 后端基架补全（P1-P5）
 
 | 文件 | 说明 |
 |---|---|
@@ -33,7 +33,7 @@
 
 归档日期：2026-08-22（P5 全部门禁通过，结论提升完毕）。
 
-## 2026-08-23-turbo-build-orchestration —— Turborepo 构建编排全量迁移
+## [2026-08-23-turbo-build-orchestration](2026-08-23-turbo-build-orchestration/) —— Turborepo 构建编排全量迁移
 
 | 文件 | 说明 |
 |---|---|
@@ -45,7 +45,7 @@
 
 归档日期：2026-08-24（结论提升完毕）。
 
-## 2026-08-23-github-cicd —— GitHub CI/CD 演进方案
+## [2026-08-23-github-cicd](2026-08-23-github-cicd/) —— GitHub CI/CD 演进方案
 
 | 文件 | 说明 |
 |---|---|
@@ -58,7 +58,7 @@
 
 归档日期：2026-08-26（结论提升完毕，CI 首跑通过 + DATABASE_URL 修复落地）。
 
-## 2026-08-25-ops-scripts —— ops 脚本自动化操作集
+## [2026-08-25-ops-scripts](2026-08-25-ops-scripts/) —— ops 脚本自动化操作集
 
 | 文件 | 说明 |
 |---|---|
@@ -70,7 +70,7 @@
 
 归档日期：2026-08-26（结论提升完毕）。
 
-## 2026-08-26-server-infra-quickwins —— Server 基建速赢（Tier 1）
+## [2026-08-26-server-infra-quickwins](2026-08-26-server-infra-quickwins/) —— Server 基建速赢（Tier 1）
 
 | 文件 | 说明 |
 |---|---|
@@ -81,7 +81,7 @@
 
 归档日期：2026-08-28（worktree 合并 master，结论提升完毕）。
 
-## 2026-08-27-login-account-lockout —— 登录限流账号维度与失败锁定（Tier 2）
+## [2026-08-27-login-account-lockout](2026-08-27-login-account-lockout/) —— 登录限流账号维度与失败锁定（Tier 2）
 
 | 文件 | 说明 |
 |---|---|
@@ -92,7 +92,7 @@
 
 归档日期：2026-08-28（worktree + Subagent-Driven 实施，6 提交合并 master，单测/e2e/覆盖率门禁复验全绿，结论提升完毕）。
 
-## 2026-08-27-server-security-baseline —— 生产安全基线（Tier 2 #6）
+## [2026-08-27-server-security-baseline](2026-08-27-server-security-baseline/) —— 生产安全基线（Tier 2 #6）
 
 | 文件 | 说明 |
 |---|---|
@@ -103,7 +103,7 @@
 
 归档日期：2026-08-29（worktree + Subagent-Driven 实施，7 提交合并 master，非 root 真实链路验收通过、pnpm check 全绿、最终审查 Ready to merge、结论提升完毕）。
 
-## 2026-08-28-server-image-smoke —— server 镜像启动冒烟（Tier 2）
+## [2026-08-28-server-image-smoke](2026-08-28-server-image-smoke/) —— server 镜像启动冒烟（Tier 2）
 
 | 文件 | 说明 |
 |---|---|
@@ -114,7 +114,7 @@
 
 归档日期：2026-08-29（worktree + Subagent-Driven 实施，3 提交合并 master，本地端到端 + CI 首跑双验证通过、最终审查 Ready to merge、结论提升完毕）。
 
-## 2026-08-29-pure-web-testing-foundation —— pure-web 测试基建与 strict 类型安全
+## [2026-08-29-pure-web-testing-foundation](2026-08-29-pure-web-testing-foundation/) —— pure-web 测试基建与 strict 类型安全
 
 | 文件 | 说明 |
 |---|---|
@@ -135,3 +135,27 @@
 结论去向：测试基建与 strict 单一配置 → [build-and-verify.md](../../engineering/build-and-verify.md)；上游基线长期维护 → [upstream-tracking.md](../../engineering/upstream-tracking.md)；已关闭 backlog 条目（测试基建 / E2E / 最终态收口 / print.ts / Canvas 豁免 / vitest 兼容）→ [backlog.md](../../governance/backlog.md)。
 
 归档日期：2026-09-02（B4 收口批次 13 任务全部完成，单测 / E2E 全绿，strict 全量迁入单一 tsconfig，结论提升完毕）。
+
+## [2026-09-04-generic-worktree-init](2026-09-04-generic-worktree-init/) —— 通用 worktree 初始化脚本
+
+| 文件 | 说明 |
+|---|---|
+| `README.md` | 任务入口、范围、状态 |
+| `2026-09-04-generic-worktree-init-design.md` | 设计文档（8 项锁定决策 + 五步链架构 + 验收用例） |
+| `2026-09-04-generic-worktree-init-plan.md` | 实施计划（6 任务，按函数分节增量构建 + 五组验收） |
+
+结论去向：ops 脚本速查与双场景用法 → [build-and-verify.md](../../engineering/build-and-verify.md)；脚本实现 → [scripts/ops/worktree-init.sh](../../../scripts/ops/worktree-init.sh)。
+
+归档日期：2026-10-05（worktree 检出与新克隆引导双场景实测全绿，旧 ps1 已删除，结论提升完毕）。
+
+## [2026-09-05-doc-lint-gate-integration](2026-09-05-doc-lint-gate-integration/) —— doc-lint 接入门禁链
+
+| 文件 | 说明 |
+|---|---|
+| `README.md` | 任务入口、目标、状态 |
+| `2026-09-05-doc-lint-gate-integration-design.md` | 设计文档（三问澄清锁定方向：阻断式为主 / 先清项再接入 / 独立 CI job） |
+| `2026-09-05-doc-lint-gate-integration-plan.md` | 实施计划（4 任务 / 3 提交漂移链推演） |
+
+结论去向：门禁与校验链速查 → [build-and-verify.md](../../engineering/build-and-verify.md)；pre-push 阻断入口 → [scripts/ops/pre-push.mjs](../../../scripts/ops/pre-push.mjs)；CI job → [.github/workflows/ci.yml](../../../.github/workflows/ci.yml)；命令登记 → [AGENTS.md](../../../AGENTS.md)。
+
+归档日期：2026-10-05（pre-push 阻断 + CI 报警 job + `doc:lint` 入口全部落地并合入 master，结论提升完毕）。

@@ -156,7 +156,7 @@
 ## 九、文档登记（与实施同提交，硬规则）
 
 - `scripts/ops/worktree-init.sh` 入库；
-- [build-and-verify.md](../../engineering/build-and-verify.md) ops 脚本表加行（标注双场景、零依赖、可复制到其他仓库、Windows 下经 WSL bash 执行）；
+- [build-and-verify.md](../../../engineering/build-and-verify.md) ops 脚本表加行（标注双场景、零依赖、可复制到其他仓库、Windows 下经 WSL bash 执行）；
 - 根 `package.json` 加 `"ops:worktree-init": "bash scripts/ops/worktree-init.sh"`（与现有 8 个 `ops:*` 同构）；
 - AGENTS.md 不动（命令表指向 build-and-verify.md 全量表）。
 
