@@ -14,23 +14,39 @@ test('直连真实后端登录→首页菜单→退出 @real-backend', async ({ 
   await expect(page.locator('.login-container')).toBeVisible();
 });
 
-// NOTE: 选择器（按钮文字、placeholder）为骨架值，Docker 可用后需根据真实 DOM 调整
-// FIXME: CRUD 删除步骤待补全（当前 visible→hidden 矛盾断言，需补删除操作或调整断言）
-test.fixme('用户管理 CRUD 全链路 @real-backend', async ({ page }) => {
+// NOTE: 选择器取自页面源码（新增入口 `新增用户`、必填项 `用户昵称/用户名称/用户密码`、
+// 行内删除走 el-popconfirm 默认确认按钮），尚未在运行实例上跑过——首次执行需核对实际 DOM。
+test('用户管理 CRUD 全链路 @real-backend', async ({ page }) => {
   await loginAsAdmin(page);
   await page.locator('.el-menu').first().getByText('系统管理').click();
   await page.locator('.el-menu').first().getByText('用户管理').click();
   await page.waitForLoadState('load');
 
-  // 增：打开新建对话框，填用户名，提交
   const name = `e2e_user_${rand()}`;
-  await page.getByRole('button', { name: '新增' }).click();
-  await page.getByPlaceholder('请输入用户名').fill(name);
-  await page.getByRole('button', { name: '确定', exact: true }).click();
+
+  // 增：打开新增对话框，填三项必填（昵称 / 名称 / 密码），提交
+  await page.getByRole('button', { name: '新增用户' }).click();
+  const dialog = page.locator('.el-dialog');
+  await expect(dialog).toBeVisible();
+  await dialog.getByPlaceholder('请输入用户昵称').fill(`昵称_${rand()}`);
+  await dialog.getByPlaceholder('请输入用户名称').fill(name);
+  await dialog.getByPlaceholder('请输入用户密码').fill('E2ePass2026');
+  await dialog.getByRole('button', { name: '确定', exact: true }).click();
+
   // 查：列表出现新用户
-  await expect(page.getByText(name).first()).toBeVisible({ timeout: 10_000 });
-  // 删：删除并断言消失
-  await expect(page.getByText(name).first()).toBeHidden({ timeout: 10_000 });
+  const row = page.locator('.el-table__row', { hasText: name }).first();
+  await expect(row).toBeVisible({ timeout: 10_000 });
+
+  // 删：行内删除 → popconfirm 确认 → 断言该行消失
+  await row.getByRole('button', { name: '删除' }).click();
+  await page
+    .locator('.el-popconfirm')
+    .getByRole('button', { name: '确定', exact: true })
+    .click();
+  await expect(page.locator('.el-table__row', { hasText: name })).toHaveCount(
+    0,
+    { timeout: 10_000 }
+  );
 });
 
 // NOTE: localStorage key 对应 src/utils/auth.ts 中导出的 userKey = 'user-info'
