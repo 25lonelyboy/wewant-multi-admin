@@ -15,6 +15,7 @@
 | [ADR-007-backend-evolution.md](ADR-007-backend-evolution.md) | 后端演进方向：长期模块化单体 + 终态微服务分段路线（D1-D4 与阶段 A 范围决策） | accepted |
 | [ADR-008-tiered-e2e-testing.md](ADR-008-tiered-e2e-testing.md) | 双层 E2E：前端集成（mock）+ 真实后端冒烟（落地 P5 直连决策的测试验证面） | accepted |
 | [ADR-009-iot-platform-p1-stack.md](ADR-009-iot-platform-p1-stack.md) | IoT 平台 P1 技术选型：EMQX（接入，BSL 单节点）+ TDengine（遥测存储，AGPL，双库分治） | accepted |
+| [ADR-010-ingest-buffer-bullmq.md](ADR-010-ingest-buffer-bullmq.md) | 接入层缓冲：BullMQ 作为平台消息缓冲（解耦/可靠消费/背压；队列 Redis 与限流缓存分实例） | accepted |
 
 ## 规则
 
