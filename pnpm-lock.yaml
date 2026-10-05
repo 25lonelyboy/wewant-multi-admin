@@ -408,7 +408,7 @@ importers:
         specifier: 26.15.7
         version: 26.15.7(electron-builder-squirrel-windows@26.15.7)(supports-color@10.2.2)
       esbuild:
-        specifier: ^0.28.0
+        specifier: 0.28.2
         version: 0.28.2
       typescript:
         specifier: 'catalog:'
