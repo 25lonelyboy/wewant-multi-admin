@@ -1,0 +1,29 @@
+{
+  "name": "@multi-admin/iot-simulator",
+  "version": "0.1.0",
+  "description": "IoT 平台设备模拟器：以 MQTT 上行虚拟设备遥测",
+  "author": "",
+  "private": true,
+  "type": "module",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --cache --max-warnings 0",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@multi-admin/contracts": "workspace:*",
+    "mqtt": "catalog:"
+  },
+  "devDependencies": {
+    "@multi-admin/eslint-config": "workspace:*",
+    "@multi-admin/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

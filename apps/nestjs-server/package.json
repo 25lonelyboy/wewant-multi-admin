@@ -40,6 +40,7 @@
     "express": "catalog:",
     "helmet": "catalog:",
     "ioredis": "catalog:",
+    "mqtt": "catalog:",
     "nestjs-pino": "catalog:",
     "passport": "catalog:",
     "passport-jwt": "catalog:",

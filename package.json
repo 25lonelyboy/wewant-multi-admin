@@ -9,6 +9,7 @@
     "dev:mobile": "turbo run dev --filter=@multi-admin/uni-mobile",
     "dev:web": "turbo run dev --filter=@multi-admin/pure-web",
     "dev:desktop": "turbo run dev --filter=@multi-admin/electron-desktop",
+    "dev:sim": "turbo run dev --filter=@multi-admin/iot-simulator",
     "build": "turbo run build",
     "build:desktop": "turbo run build --filter=@multi-admin/electron-desktop",
     "build:web": "turbo run build --filter=@multi-admin/pure-web",
