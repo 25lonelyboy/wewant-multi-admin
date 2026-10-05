@@ -1,4 +1,4 @@
-# 本机部署编排：web（nginx）+ server（NestJS）+ postgres + redis
+# 本机部署编排：web（nginx）+ server（NestJS）+ postgres + redis + emqx
 # 启动前复制根目录 .env.example 为 .env 并填写密码与 ADMIN_INIT_PASSWORD
 services:
   postgres:
@@ -31,6 +31,25 @@ services:
       timeout: 3s
       retries: 10
 
+  # 设备接入 Broker。只绑宿主回环：本地开发阶段全部组件同机，边界由 loopback 承担；
+  # 出现非本机客户端（真实硬件 / 组件移出本机）时才改绑私网，并同时上 TLS + 每设备凭据 + ACL。
+  emqx:
+    image: emqx/emqx:6.3.1@sha256:5ecbf93d04e34aaf4096af074e93b773d0838c8ea668cfabdec7976b272d9606 # pin: 2026-10-05 (pnpm ops:check-digests quarterly)
+    restart: unless-stopped
+    environment:
+      # 初始密码只在数据卷为空时生效；改此值需先 pnpm ops:env-down --clean 重建卷
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: ${EMQX_DASHBOARD_PASSWORD:?请在 .env 中设置 EMQX_DASHBOARD_PASSWORD}
+    ports:
+      - '127.0.0.1:1883:1883'
+      - '127.0.0.1:18083:18083'
+    volumes:
+      - emqx-data:/opt/emqx/data
+    healthcheck:
+      test: ['CMD', '/opt/emqx/bin/emqx', 'ctl', 'status']
+      interval: 5s
+      timeout: 25s
+      retries: 5
+
   server:
     build:
       context: .
@@ -43,6 +62,7 @@ services:
       PORT: 3000
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/multi_admin?schema=public}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      MQTT_URL: ${MQTT_URL:-mqtt://emqx:1883}
       ADMIN_INIT_PASSWORD: ${ADMIN_INIT_PASSWORD:?请在 .env 中设置 ADMIN_INIT_PASSWORD}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?请在 .env 中设置 JWT_ACCESS_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?请在 .env 中设置 JWT_REFRESH_SECRET}
@@ -75,3 +95,4 @@ services:
 volumes:
   postgres-data:
   redis-data:
+  emqx-data:

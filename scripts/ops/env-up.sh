@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 开发环境一键启动：postgres + redis → 健康等待 → prisma migrate → seed
+# 开发环境一键启动：postgres + redis + emqx → 健康等待 → prisma migrate → seed
 # 用法：bash scripts/ops/env-up.sh
 
-echo "▶ 启动 postgres + redis..."
-docker compose up -d postgres redis
+echo "▶ 启动 postgres + redis + emqx..."
+docker compose up -d postgres redis emqx
 
 echo "▶ 等待健康检查（最多 30s）..."
 elapsed=0
@@ -30,6 +30,20 @@ until docker compose exec -T redis redis-cli ping >/dev/null 2>&1; do
 done
 echo "  ✔ redis 就绪"
 
+# EMQX 冷启动比 postgres/redis 慢（Erlang 节点 + 应用加载），单独放宽预算。
+# 用 compose 的 health 状态判断，而非 exec 进容器执行命令：Git Bash 会把容器内绝对路径
+# 转换成 Windows 路径，`exec ... /opt/emqx/bin/emqx` 会以 no such file or directory 失败。
+elapsed=0
+until [ "$(docker compose ps --format '{{.Health}}' emqx 2>/dev/null)" = "healthy" ]; do
+  sleep 3
+  elapsed=$((elapsed + 3))
+  if [ "$elapsed" -ge 120 ]; then
+    echo "✖ emqx 120s 内未就绪"
+    exit 1
+  fi
+done
+echo "  ✔ emqx 就绪"
+
 echo "▶ 执行 prisma migrate deploy..."
 pnpm --filter @multi-admin/nestjs-server exec prisma migrate deploy
 
@@ -40,3 +54,4 @@ echo ""
 echo "✔ 开发环境就绪"
 echo "  postgres: localhost:5432 (multi_admin)"
 echo "  redis:    localhost:6379"
+echo "  emqx:     localhost:1883 (MQTT) / localhost:18083 (Dashboard)"
