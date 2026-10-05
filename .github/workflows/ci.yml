@@ -147,9 +147,22 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # 服务端 e2e 在本 job 内执行，iot 域的设备接入用真实 Broker 验证
+      emqx:
+        image: emqx/emqx:6.3.1@sha256:5ecbf93d04e34aaf4096af074e93b773d0838c8ea668cfabdec7976b272d9606 # pin: 2026-10-05 (pnpm ops:check-digests quarterly)
+        env:
+          EMQX_DASHBOARD__DEFAULT_PASSWORD: ci-dashboard-password
+        ports:
+          - 1883:1883
+        options: >-
+          --health-cmd "/opt/emqx/bin/emqx ctl status"
+          --health-interval 5s
+          --health-timeout 25s
+          --health-retries 5
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/multi_admin?schema=public
       REDIS_URL: redis://localhost:6379
+      MQTT_URL: mqtt://localhost:1883
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

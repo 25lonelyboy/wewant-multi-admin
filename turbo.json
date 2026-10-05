@@ -15,23 +15,23 @@
     "test": {
       "dependsOn": ["^build"],
       "cache": false,
-      "env": ["DATABASE_URL", "REDIS_URL"]
+      "env": ["DATABASE_URL", "REDIS_URL", "MQTT_URL"]
     },
     "test:e2e": {
       "dependsOn": ["^build"],
       "cache": false,
-      "env": ["DATABASE_URL", "REDIS_URL"]
+      "env": ["DATABASE_URL", "REDIS_URL", "MQTT_URL"]
     },
     "test:coverage": {
       "dependsOn": ["^build"],
       "cache": false,
-      "env": ["DATABASE_URL", "REDIS_URL"]
+      "env": ["DATABASE_URL", "REDIS_URL", "MQTT_URL"]
     },
     "dev": {
       "persistent": true,
       "cache": false,
       "dependsOn": ["^build"],
-      "env": ["DATABASE_URL", "REDIS_URL"]
+      "env": ["DATABASE_URL", "REDIS_URL", "MQTT_URL"]
     },
     "dev:mp-weixin": {
       "persistent": true,
@@ -42,7 +42,7 @@
       "persistent": true,
       "cache": false,
       "dependsOn": ["^build"],
-      "env": ["DATABASE_URL", "REDIS_URL"]
+      "env": ["DATABASE_URL", "REDIS_URL", "MQTT_URL"]
     },
     "//apps/nestjs-server#build": {
       "outputs": ["dist/**", "src/generated/**"]
