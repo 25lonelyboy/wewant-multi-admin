@@ -20,8 +20,9 @@ last_verified: 2026-10-05
 | `apps/nestjs-server`（`@multi-admin/nestjs-server`） | 后端服务 | 骨架与横切基建、Prisma + Redis、认证链（JWT 双令牌轮换 + RBAC 守卫链）、system 三域 CRUD（User / Role / Menu 软删除）与单测/e2e 合并覆盖率门禁齐备，前端直连已打通；jest 单测 + e2e 串行，应用级细节见 [apps/nestjs-server/AGENTS.md](../../apps/nestjs-server/AGENTS.md) |
 | `apps/uni-mobile`（`@multi-admin/uni-mobile`） | uni-app 多端 | Vue3；Vite 版本被 named catalog `uni-app` 隔离为 5.2.8（uni-app 编译链与主仓 Vite 8 不兼容） |
 | `apps/electron-desktop`（`@multi-admin/electron-desktop`） | 桌面端 | 无自身 UI，devDependencies 声明 `@multi-admin/pure-web: workspace:*`，打包时消费其 `dist` 产物；详见 [desktop-app.md](desktop-app.md) |
+| `apps/iot-simulator`（`@multi-admin/iot-simulator`） | 设备模拟器 | 设备侧唯一的进程：以 MQTT 上行虚拟设备遥测（缺省 100 台 1 Hz，规模与频率可调），用于打穿接入链路与后续规模压测；消费 `packages/contracts` 的 iot 段主题与载荷契约，见 [backend.md](backend.md) 设备接入链路 |
 | `packages/common`（`@multi-admin/common`） | 跨端共享 TS 代码 | tsdown 构建；暂无应用引用 |
-| `packages/contracts`（`@multi-admin/contracts`） | 前后端接口契约 | 纯类型 + BizCode/MenuType 常量；tsdown ESM+CJS 双格式 + 双 d.ts；nestjs-server 与 pure-web 以 `workspace:*` 消费；见 [contracts.md](contracts.md) |
+| `packages/contracts`（`@multi-admin/contracts`） | 接口与设备接入契约 | 纯类型 + BizCode/MenuType 常量 + iot 段（主题模板与上行载荷类型）；tsdown ESM+CJS 双格式 + 双 d.ts；nestjs-server、pure-web 与 iot-simulator 以 `workspace:*` 消费；见 [contracts.md](contracts.md) |
 | `internal/node-utils` | Node 侧进程工具 | 仅导出 `run` / `runSync`（`process.mjs`），供根 `scripts/check.mjs` 等使用 |
 | `internal/eslint-config` | ESLint 基线 | 导出 `base.mjs` / `node.mjs` / `vue.mjs` / `typescript.mjs` / `tailwind.mjs` 工厂，应用侧配置为薄壳 |
 | `internal/stylelint-config` | Stylelint 基线 | 导出 `base.mjs` |
@@ -42,12 +43,15 @@ flowchart LR
     desktop["electron-desktop"]
     server["nestjs-server"]
     mobile["uni-mobile"]
+    simulator["iot-simulator"]
     desktop -- "任务图 ^build 编排 pure-web 产物" --> web
     web -- "workspace:* 契约消费" --> contracts
     server -- "workspace:* 契约消费" --> contracts
+    simulator -- "workspace:* 契约消费" --> contracts
     web -.-> eslint & tsconfig
     desktop -.-> nodeutils & tsconfig & eslint
     server -.-> tsconfig & eslint
+    simulator -.-> tsconfig & eslint
     mobile -.-> eslint
     classDef unused stroke-dasharray: 5 5
 ```

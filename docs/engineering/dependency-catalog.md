@@ -3,7 +3,7 @@ status: living
 covers:
   - pnpm-workspace.yaml
   - .npmrc
-last_verified: 2026-09-03
+last_verified: 2026-10-05
 ---
 
 # 依赖治理：pnpm catalog 策略
@@ -22,7 +22,7 @@ last_verified: 2026-09-03
 
 | 类别 | 判定 | 动作 | 例子 |
 |---|---|---|---|
-| A | 框架核心 + 明确共享候选 | 立即入 catalog | vue-router、pinia、axios、dayjs |
+| A | 框架核心 + 明确共享候选 | 立即入 catalog | vue-router、pinia、axios、dayjs、`mqtt`（设备接入客户端：nestjs-server 订阅、iot-simulator 发布，两端消费） |
 | B | 与已有 catalog 项大版本强耦合 | 随工具链收敛入 catalog | @vitejs/plugin-vue 全家桶、tailwindcss 族 |
 | C | 需先收敛到共享包 | 先并入 internal 包再入 catalog | ESLint 插件并入 `internal/eslint-config` |
 | D | 单一消费者、跟随上游模板、pin 有局部上下文 | 留在应用本地 | pure-admin 模板的 UI 组件库 |

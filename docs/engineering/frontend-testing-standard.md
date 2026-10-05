@@ -62,6 +62,8 @@ last_verified: 2026-10-05
 
 ## 4. 双层 E2E 操作细则
 
+> 本文档只治理 pure-web 的两个 E2E job（`e2e-web` / `e2e-web-real`）。同一 workflow 里其余 job（gate / coverage / coverage-web / docker-build / audit / doc-lint）的口径见 [build-and-verify.md](build-and-verify.md)。
+
 ### Tier A（mock 模式）
 - `VITE_MOCK=true`，mock 后端
 - 标签：`@mock-only`

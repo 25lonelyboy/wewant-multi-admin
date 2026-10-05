@@ -5,7 +5,7 @@ covers:
   - apps/nestjs-server/src/
   - apps/pure-web/src/api/
   - apps/pure-web/mock/
-last_verified: 2026-09-03
+last_verified: 2026-10-05
 ---
 
 # contracts 契约包
@@ -16,6 +16,14 @@ last_verified: 2026-09-03
 - 只放**纯类型与常量值**（如 BizCode / MenuType 枚举对象）；不放运行期逻辑、校验规则（class-validator DTO 留 server 侧）与框架依赖。
 - 构建为 tsdown ESM+CJS 双格式 + 双 d.ts（`format: ['esm', 'cjs']`，`dts: true`），应对 Vite / Nest（`type: module`）/ jest（CJS）三种消费场景。
 - 消费方一律 `workspace:*` 引用；消费方的 typecheck / test / build 任务经 `turbo.json` 的 `^build` 先构建 contracts，防陈旧产物参检（决策见 ADR-005）。
+
+## 设备接入契约（iot 段）
+
+契约包除前后端 HTTP 接口外，还承载**设备侧契约**：主题模板 `wewant/devices/{deviceId}/telemetry`、订阅端通配过滤器，以及上行载荷类型（选型与边界见 [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md) D3）。
+
+- **与 HTTP 契约的区别**：不走向应信封与 BizCode 体系——设备不认 HTTP，也不消费错误码；两端只共享主题形状与 JSON 载荷。
+- **放这里的理由与 HTTP 契约一致**：发布方（设备/模拟器）与订阅方（平台）消费同一份定义，避免各自写常量后漂移。
+- **扩展方式**：event / service 通道随物模型增量在 iot 段内扩展；telemetry 通道本身不变。
 
 ## 契约扩展流程（contracts 先行）
 

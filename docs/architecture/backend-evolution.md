@@ -3,7 +3,7 @@ status: living
 covers:
   - apps/nestjs-server/
   - docs/decisions/ADR-007-backend-evolution.md
-last_verified: 2026-09-05
+last_verified: 2026-10-05
 ---
 
 # NestJS 后端演进路线图
@@ -31,7 +31,7 @@ last_verified: 2026-09-05
 | 交付自动化 | ★★★☆☆ | CI 异步安全网 + 镜像冒烟；无 PR 门禁/CD/registry |
 | 可观测性 | ★★★☆☆ | pino+requestId+慢查询；缺 metrics/tracing/日志采集 |
 | 可靠性韧性 | ★★★☆☆ | 健康探针、优雅停机半套；缺备份/幂等/drain 上限 |
-| 架构演化力 | ★★★★☆ | 分层清晰、域聚合约定、backlog 治理机制；待第二个域验证 |
+| 架构演化力 | ★★★★☆ | 分层清晰、域聚合约定、backlog 治理机制；第二个域（iot）已落地，域聚合约定经实证（2026-10-05） |
 
 ## 阶段路线
 
@@ -42,9 +42,20 @@ last_verified: 2026-09-05
 | **A 生产前必备包** | 启动 VM docker 部署试点（近期，D4） | JWT secret 轮换预案、优雅停机统一超时、数据库备份与恢复演练、供应链加固（Renovate 公有 App + Trivy 入 CI 报警式）、审计日志基础版（登录事件 + 管理员敏感操作）、管理员手动解锁端点、compose 部署版形态（logging 轮转、restart 策略、数据卷备份点） |
 | **B 观测闭环** | 首次真实生产流量 / 监控域立项 | 自建栈三件套一次落地：prom-client + Prometheus/Grafana、Loki 日志采集、OTel 追踪（抽取前必备）；监控域后端（SecurityLog + mine-logs）与审计日志深度；权限 Redis 缓存（若有性能信号） |
 | **C 规模化** | 压测热点 / 并发增长 / 多实例部署 | 权限 Redis 缓存（若 B 未触发）、写端点幂等键、优雅停机强化、e2e 数据清理加固、子资源并发窗口加固（行锁/版本号） |
-| **D 第二域扩展** | dept / 监控域（第二限界上下文）立项 | system 域只读查询门面（未来内部 API 雏形）、e2e 分层、schema.prisma 多文件拆分、module 域聚合落地、（若已有第二个外部适配器）common/infra 二分 |
+| **D 第二域扩展** | 第二限界上下文立项（dept / 监控域，或 iot 域——**已于 2026-10-05 由 iot 域命中**） | system 域只读查询门面（未来内部 API 雏形）、e2e 分层、schema.prisma 多文件拆分、module 域聚合落地、（若已有第二个外部适配器）common/infra 二分 |
 | **E 协作与 CD** | 第二协作者加入 或 CD 立项 | PR 门禁与分支保护、CD 制品策略落地（版本 tag + 自建 Harbor 推送 + VM compose 部署版；K8s 化延后）、server 冒烟生产级演进（registry push 后拆独立 job） |
 | **F 服务抽取期** | 抽取触发信号（见下） | 按域抽取：查询门面升格为内部 API、DB 按服务切分、BullMQ 事件化 |
+
+### 阶段 D 触发记录（2026-10-05）
+
+iot 域作为第二个业务域落地（见 [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md)），「第二限界上下文」条件命中。各预埋项**按各自触发条件**处置，不因阶段被触发而一并启动：
+
+| 预埋项 | 状态 | 依据 |
+| --- | --- | --- |
+| e2e 分层（域 spec 下沉） | 已命中 | backlog 条目「新增第一个非 auth/system 域 e2e」，本次 iot e2e 已落地 |
+| system 域只读查询门面 | 未命中 | 原触发条件为「第二个需用户/角色信息的域」，iot 域不做 RBAC 查询 |
+| schema.prisma 多文件拆分 | 未命中 | 原触发条件为模型规模（> ~25 模型或 > ~600 行），iot 域未新增模型 |
+| common/ 与 infra/ 二分 | 未命中 | 原触发条件为第二个外部中间件适配器（BullMQ，属增量 2） |
 
 ### 阶段 A 已确认的范围决策（ADR-007）
 
