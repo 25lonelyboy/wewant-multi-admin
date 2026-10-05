@@ -10,6 +10,7 @@ import { RedisModule } from './common/redis/redis.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { SystemModule } from './modules/system/system.module.js';
+import { IotModule } from './modules/iot/iot.module.js';
 import { RedisThrottlerGuard } from './common/throttler/redis-throttler.guard.js';
 import { RedisThrottlerModule } from './common/throttler/redis-throttler.module.js';
 import { RedisThrottlerStorage } from './common/throttler/redis-throttler.storage.js';
@@ -32,7 +33,8 @@ import { PermissionsGuard } from './common/guards/permissions.guard.js';
     }),
     HealthModule,
     AuthModule,
-    SystemModule
+    SystemModule,
+    IotModule
   ],
   providers: [
     { provide: APP_GUARD, useClass: RedisThrottlerGuard },

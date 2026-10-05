@@ -34,6 +34,10 @@ export class AppConfigService {
     return this.config.get('REDIS_URL', { infer: true });
   }
 
+  get mqttUrl(): Env['MQTT_URL'] {
+    return this.config.get('MQTT_URL', { infer: true });
+  }
+
   get jwtAccessSecret(): Env['JWT_ACCESS_SECRET'] {
     return this.config.get('JWT_ACCESS_SECRET', { infer: true });
   }

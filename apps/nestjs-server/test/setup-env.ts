@@ -14,6 +14,7 @@ setIfAbsent(
   'postgresql://postgres:postgres@localhost:5432/multi_admin_test?schema=public'
 );
 setIfAbsent('REDIS_URL', 'redis://localhost:6379');
+setIfAbsent('MQTT_URL', 'mqtt://127.0.0.1:1883');
 setIfAbsent('ADMIN_INIT_PASSWORD', 'e2e-admin-password');
 setIfAbsent('JWT_ACCESS_SECRET', 'e2e-access-secret-minimum-32-char!');
 setIfAbsent('JWT_REFRESH_SECRET', 'e2e-refresh-secret-minimum-32-char!');
