@@ -27,7 +27,12 @@
       "cache": false,
       "env": ["DATABASE_URL", "REDIS_URL"]
     },
-    "dev": { "persistent": true, "cache": false, "dependsOn": ["^build"] },
+    "dev": {
+      "persistent": true,
+      "cache": false,
+      "dependsOn": ["^build"],
+      "env": ["DATABASE_URL", "REDIS_URL"]
+    },
     "dev:mp-weixin": {
       "persistent": true,
       "cache": false,
@@ -36,7 +41,8 @@
     "test:watch": {
       "persistent": true,
       "cache": false,
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "env": ["DATABASE_URL", "REDIS_URL"]
     },
     "//apps/nestjs-server#build": {
       "outputs": ["dist/**", "src/generated/**"]

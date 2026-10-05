@@ -159,6 +159,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec turbo run test:coverage --filter=@multi-admin/nestjs-server
+        # 报警式（ADR-006）：覆盖率不达标只报警不拦截
+        continue-on-error: true
 
   coverage-web:
     name: coverage-web（pure-web 报警式）
@@ -173,6 +175,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec turbo run test:coverage --filter=@multi-admin/pure-web
+        # 报警式（ADR-006）：覆盖率不达标只报警不拦截
+        continue-on-error: true
 
   e2e-web:
     name: e2e-web（Playwright E2E 冒烟）

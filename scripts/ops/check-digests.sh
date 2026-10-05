@@ -13,9 +13,13 @@ FILES=(
   .github/workflows/ci.yml
 )
 
+# pin 数量下限：低于此值说明有 pin 被误删。新增 pin（service / 镜像）不需要改这里，
+# 只有"确认某处 pin 已永久移除"时才下调。
+MIN_PINS=10
+
 PINS=$(grep -HnE '(^FROM[[:space:]]+|image:[[:space:]]*)[^#[:space:]]+@sha256:[0-9a-f]{64}' "${FILES[@]}" || true)
 if [[ -z "$PINS" ]]; then
-  echo "[check-digests] 未发现任何 digest pin（预期 10 处）" >&2
+  echo "[check-digests] 未发现任何 digest pin（预期至少 ${MIN_PINS} 处）" >&2
   exit 1
 fi
 
@@ -59,8 +63,8 @@ while IFS= read -r PIN_LINE; do
   fi
 done <<<"$PINS"
 
-if [[ "$COUNT" -ne 10 ]]; then
-  echo "[check-digests] pin 数量异常：预期 10，实际 ${COUNT}（可能有 pin 被移除）" >&2
+if [[ "$COUNT" -lt "$MIN_PINS" ]]; then
+  echo "[check-digests] pin 数量异常：少于下限 ${MIN_PINS} 处，实际 ${COUNT}（可能有 pin 被移除）" >&2
   exit 1
 fi
 
