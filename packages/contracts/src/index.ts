@@ -4,3 +4,4 @@ export * from './common/pagination.js';
 export * from './common/conventions.js';
 export * from './auth/index.js';
 export * from './system/index.js';
+export * from './iot/index.js';
