@@ -22,12 +22,12 @@ vue-pure-admin 为 template 衍生模式（无 fork 跟踪、无 merge 历史）
 | --- | --- |
 | 上游仓库 | https://github.com/pure-admin/vue-pure-admin （访问日期 2026-10-05） |
 | 接入提交（本仓） | 94a2cf9（2026-08-10，template 衍生，无 merge 历史） |
-| 基线提交（上游） | e40eb37d606174099906aecfa891159b2d5b434e |
-| 基线参考版本 | v7.0.0（2026-04-07） |
+| 基线提交（上游） | e40eb37d606174099906aecfa891159b2d5b434e（2026-07-24，pinia 升级至 v4） |
+| 基线相对版本 | v7.0.0 之后 15 个提交（`git describe` = `v7.0.0-15-ge40eb37d6`；v7.0.0 自身是 b8177a20 / 2026-04-07） |
 | 定位日期 | 2026-08-29 |
 
 ## 基线推进历史
 
 | 日期 | 基线推进至 | 说明 |
 | --- | --- | --- |
-| 2026-08-29 | e40eb37（≈v7.0.0） | 首次定位（任务过程记录见 [archive 任务目录](../tasks/archive/2026-08-29-pure-web-testing-foundation/)，仅作追溯线索） |
+| 2026-08-29 | e40eb37（v7.0.0 + 15 提交） | 首次定位（任务过程记录见 [archive 任务目录](../tasks/archive/2026-08-29-pure-web-testing-foundation/)，仅作追溯线索） |

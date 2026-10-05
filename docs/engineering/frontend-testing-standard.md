@@ -33,18 +33,22 @@ last_verified: 2026-09-08
 
 ## 2. 阈值终态
 
-- 全局聚合 lines/branches ≥80
-- crown-jewel 6 键 ≥90（auth / user store / http / guards / tree / permission）
-- 数学保证：非排除文件 per-file ≥80 ⇒ 聚合 ≥80
+三层，全部落在 `apps/pure-web/vitest.config.ts`：
 
-### crown-jewel 降级阈值（2 处，有代码证据）
+- **全局聚合兜底**：lines / branches ≥80，作用于未单列的文件。
+- **crown-jewel ≥90**（6 键）：auth / user store / http / guards / tree / permission。
+- **T1/T2 文件级 ≥80/80**（3 键）：`ReCol` / `ReFlicker` / `ReText`，按 §5 随组件测试落地时登记。
+
+这三层是**执行策略，不是数学保证**：全局阈值只看聚合值，未单列的文件不做 per-file 校验。"非排除文件逐个达 80"是目标态，靠 §5 的登记流程维持，不靠配置自动强制。
+
+### crown-jewel 降级阈值（2 处）
 
 | 文件 | 阈值 | 降级理由 |
 |------|------|----------|
-| `src/utils/http/index.ts` | branches=88 | `initConfig` 为 `private static = {}` 且全仓无赋值点，L100/L167 分支不可达；请求拦截器 error handler（fulfilled 永不抛）为防御性代码 |
-| `src/router/guards.ts` | branches=85 | `whiteList` 仅含 `'/login'`，L109 已排除 `'/login'`，L110-111 为不可达死代码 |
+| `src/utils/http/index.ts` | branches=88 | `PureHttp.initConfig` 是 private static 且全仓无赋值点，请求/响应拦截器里读它的两个回调分支恒不成立；请求拦截器的 error handler 属防御性代码（fulfilled 分支永不抛） |
+| `src/router/guards.ts` | branches=85 | `whiteList` 仅含 `'/login'`，而进入白名单判定前已确认 `to.path !== '/login'` —— 判定恒假，其 `return true` 分支不可达 |
 
-降级论证详见 `vitest.config.ts` 内联注释。
+论证与阈值同处维护（`vitest.config.ts` 的内联注释），避免两处漂移。
 
 ## 3. exclude 治理
 
@@ -54,7 +58,7 @@ last_verified: 2026-09-08
 
 ### exclude 主表
 
-见 [exclude-registry.md](../tasks/2026-09-06-frontend-testing-standard/exclude-registry.md)
+见 [pure-web-exclude-registry.md](pure-web-exclude-registry.md)（与本文同属 engineering 事实源层）。
 
 ## 4. 双层 E2E 操作细则
 

@@ -39,7 +39,7 @@ last_verified: 2026-09-03
 | REFRESH_TOKEN_INVALID | 40103 | refresh 失效（登出 / 已轮换） |
 | FORBIDDEN | 40301 | 权限不足 |
 | NOT_FOUND | 40404 | 资源不存在或已软删 |
-| CONFLICT | 40900 | 唯一约束冲突 |
+| CONFLICT | 40900 | 资源冲突（唯一约束、禁用超管或自身、父子循环引用等） |
 | LOGIN_ACCOUNT_LOCKED | 42301 | 登录账号已锁定（等待自动解锁） |
 | RATE_LIMITED | 42901 | 触发限流 |
 | INTERNAL_ERROR | 50000 | 内部错误 |

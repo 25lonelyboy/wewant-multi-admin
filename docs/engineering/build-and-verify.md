@@ -29,15 +29,15 @@ last_verified: 2026-09-08
 2. **异步兜底（入库后，push master + nightly）**：`.github/workflows/ci.yml` 八 job 并行——`gate`（frozen-lockfile 安装 + `pnpm check` 服务端重验）、`docker-build`（双镜像构建验证 + web/server 双启动冒烟：web curl 200、server /health+entrypoint 三段断言，server 冒烟依赖 job services postgres/redis；不 push）、`coverage`（services 上 `test:coverage` ≥80% 报警式硬门槛）、`coverage-web`（pure-web vitest 覆盖率报警式，全局聚合 ≥80% + crown-jewel 6 键 ≥90%）、`e2e-web`（Playwright Tier A mock 冒烟，grep `@mock-only`）、`e2e-web-real`（Tier B 真实后端冒烟，grep `@real-backend`，报警式 + nightly，双层 E2E 见 [ADR-008](../decisions/ADR-008-tiered-e2e-testing.md)）、`audit`（`pnpm audit --audit-level=high` 报警式）、`doc-lint`（文档一致性与新鲜度校验报警式）。定位与取舍见 `docs/decisions/ADR-006-github-ci.md`。
 3. **纪律条款**：报警式不拦截的代价是红了必须有人看——**CI 红 → 下一项工作先修 CI**；感知窗口为根 README badge 与 GitHub watch 通知。
 
-历史教训（pre hook 时代）：生命周期钩子按**精确脚本名**匹配变体（`prebuild` 与 `prebuild:dir` 需各自声明）；迁移到任务图后，变体（`build:dir` / `build:staging` / `build:mp-weixin`）在 `turbo.json` 显式声明，新增变体必须同步入图。
+构建变体（`build:dir` / `build:staging` / `build:mp-weixin`）必须在 `turbo.json` 显式声明——新增变体不同步入图即不会被编排。
 
-turbo env 透传约束：Turborepo 不透传自定义 env vars 到 task 子进程——涉及 `prisma generate` 的任务必须在 `turbo.json` 声明 `env: ["DATABASE_URL"]`，测试任务追加 `REDIS_URL`（2026-08-26 教训：缺声明导致 CI 上 prisma generate 拿不到连接串）。
+turbo env 透传约束：`envMode` 为 strict，只有声明过的环境变量才会传给 task 子进程——涉及 `prisma generate` 的任务必须在 `turbo.json` 声明 `env: ["DATABASE_URL"]`，测试任务追加 `REDIS_URL`；漏声明则该任务取不到连接串。
 
 ## 各端构建链
 
 | 端 | 构建 | 说明 |
 |---|---|---|
-| pure-web | `vite build`（NODE_OPTIONS 加大内存） | 产物 `dist/` + `version.json`；staging 模式 `build:staging`；测试 `vitest run`（独立配置，不加载构建期插件）；覆盖率 `test:coverage`（v8 glob 键门槛） |
+| pure-web | `vite build`（NODE_OPTIONS 加大内存） | 产物 `dist/` + `version.json`；staging 模式 `build:staging`；测试 `vitest run`（独立配置，不加载构建期插件）；覆盖率 `test:coverage`（全局聚合 + 文件级键，口径见 [frontend-testing-standard.md](frontend-testing-standard.md)） |
 | nestjs-server | `prisma generate && nest build` | 产物 `dist/`（Prisma Client 由 generate 先行产出） |
 | uni-mobile | `uni build`（按平台加 `-p`） | H5 / 小程序多目标 |
 | electron-desktop | turbo 图 `^build`（上游 pure-web）→ esbuild → electron-builder | 链路细节见 `docs/architecture/desktop-app.md` |
@@ -83,11 +83,11 @@ turbo env 透传约束：Turborepo 不透传自定义 env vars 到 task 子进�
 
 前置依赖：gh CLI（ci-status / ci-logs，需首次 `gh auth login`）、Docker Desktop（env-up / smoke / coverage / check-digests）、Git Bash 或 WSL bash（shell 脚本执行；仓库 `.sh` 统一 LF 行尾，见根 `.gitattributes`）、可联网环境（upstream-diff，需 fetch github）。
 
-check-digests 远端比对依赖可联网环境：本机无 Registry 直连时按设计输出「远端 digest 获取失败」exit 1（本地同 tag 一致性检查仍有效）；CI 目前无该巡检 step（设计 D5 不新增 CI 验证逻辑），首次在线巡检需在可联网环境手动执行一次。
+check-digests 远端比对依赖可联网环境：本机无 Registry 直连时按设计输出「远端 digest 获取失败」exit 1（本地同 tag 一致性检查仍有效）；CI 无该巡检 step（不在 CI 内新增验证逻辑），首次在线巡检需在可联网环境手动执行一次。
 
-教训（2026-08-29，`server-smoke.sh` 实施期实测）：`set -o pipefail` 下 `docker logs X | grep -qF` 断言必假——grep -q 命中即退出使 docker logs 收到 SIGPIPE（exit 141），管道整体非零、`if` 恒假；写法必须是先捕获变量（`LOGS="$(docker logs X 2>&1 || true)"`）再 `echo "${LOGS}" | grep -qF` 断言。
+`set -o pipefail` 下 `docker logs X | grep -qF` 断言必假：grep -q 命中即退出使 docker logs 收到 SIGPIPE（exit 141），管道整体非零、`if` 恒假。写法必须是先捕获变量（`LOGS="$(docker logs X 2>&1 || true)"`）再 `echo "${LOGS}" | grep -qF` 断言。
 
-教训（2026-08-29，CI coverage 红）：jest 默认多 worker 并行跑 e2e spec，各套件共享同一 Redis 且限流按客户端 IP 计数时，A 套件的刻意限流用例会耗尽 B 套件登录所需配额（表现为登录必成断言随机 429，同代码可绿可红）；共享全局状态（数据库/Redis/限流计数）的集成测试必须串行执行，或在用例边界重置共享键。
+共享全局状态（数据库 / Redis / 限流计数）的集成测试必须串行执行，或在用例边界重置共享键：jest 默认多 worker 并行时，A 套件的刻意限流用例会耗尽 B 套件登录所需配额，表现为登录必成断言随机 429、同代码可绿可红。
 
 ## 已知环境事实
 
@@ -102,7 +102,7 @@ check-digests 远端比对依赖可联网环境：本机无 Registry 直连时�
 
 ## nestjs-server e2e 测试
 
-- e2e 配置 `test/jest-e2e.cjs`（与单测 `jest.config.cjs` 共享 `test/jest.base.cjs` 基座，Task 4 P3 抽公共配置）；`maxWorkers: 1` 串行执行——所有 spec 共享同一测试库与同一 Redis，并行会让 IP 维度限流计数、flushdb、令牌吊销键跨套件互踩。
+- e2e 配置 `test/jest-e2e.cjs`（与单测 `jest.config.cjs` 共享 `test/jest.base.cjs` 基座）；`maxWorkers: 1` 串行执行——所有 spec 共享同一测试库与同一 Redis，并行会让 IP 维度限流计数、flushdb、令牌吊销键跨套件互踩。
 - 限流与用例的协作约束：限流按客户端 IP 计数（supertest 全为 127.0.0.1），必须成功的登录所在套件在用例前 `flushdb` 重置计数（如 `system.e2e-spec.ts` 的 `beforeEach`）；`auth.e2e-spec.ts` 的 429/锁定用例依赖计数累积，靠自身 `beforeEach flushdb` 隔离。新增会触发登录的 e2e 用例时遵循同一模式，不要突破登录限流 5 次/分（不放宽生产限额）。
 - 前置：`docker compose up -d postgres redis`，再跑 `turbo run test:e2e --filter=@multi-admin/nestjs-server`。
 - 全局 setup（`test/global-setup.ts` → `test/e2e-env.ts`）幂等建库 `multi_admin_test` + migrate deploy + seed；全局 teardown（`test/global-teardown.ts` → `test/helpers/cleanup.ts`）全表 truncate + FLUSHDB。

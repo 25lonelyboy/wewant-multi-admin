@@ -1,4 +1,13 @@
-# pure-web coverage exclude 豁免主表（Phase 1b 起；living 提升后迁 frontend-testing-standard.md）
+---
+status: living
+covers:
+  - apps/pure-web/vitest.config.ts
+last_verified: 2026-10-05
+---
+
+# pure-web coverage exclude 豁免注册表
+
+被排除出覆盖率统计的文件的唯一登记处。六层判定框架见 [frontend-testing-standard.md](frontend-testing-standard.md)；`vitest.config.ts` 内的内联理由与本文同源，改动需两处同步。
 
 治理铁律：每条 exclude 必须映射 T3/T4/T5 + 理由，禁止「测不到就排除」。
 
