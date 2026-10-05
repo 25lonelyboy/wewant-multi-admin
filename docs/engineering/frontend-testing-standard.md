@@ -62,7 +62,9 @@ last_verified: 2026-10-05
 
 ## 4. 双层 E2E 操作细则
 
-> 本文档只治理 pure-web 的两个 E2E job（`e2e-web` / `e2e-web-real`）。同一 workflow 里其余 job（gate / coverage / coverage-web / docker-build / audit / doc-lint）的口径见 [build-and-verify.md](build-and-verify.md)。
+> 本文档只治理 pure-web 的两个 E2E job（`e2e-web` / `e2e-web-real`）：其名称、触发方式与报警语义。同一 workflow 里其余 job（gate / coverage / coverage-web / docker-build / audit / doc-lint）的口径见 [build-and-verify.md](build-and-verify.md)。
+>
+> `ci.yml` 是共享文件，其余 job 的任何改动都会触发本文档的 covers 复核——复核范围即：上述两个 job 是否受影响。
 
 ### Tier A（mock 模式）
 - `VITE_MOCK=true`，mock 后端

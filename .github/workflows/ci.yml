@@ -115,8 +115,9 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
+          # 本 job 不 install（只解析 lockfile），没有 pnpm store 可缓存；
+          # 配 cache 会让 setup-node 的 post 步骤因缓存路径不存在而报错，把 job 打成失败
           node-version: 24
-          cache: pnpm
       - name: pnpm audit（只解析 lockfile，免 install）
         # npmmirror 不支持 audit 端点，强制走官方 registry
         run: pnpm audit --audit-level=high --registry=https://registry.npmjs.org
