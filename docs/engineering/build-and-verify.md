@@ -10,7 +10,7 @@ covers:
   - docker-compose.yml
   - packages/contracts/
   - turbo.json
-last_verified: 2026-09-08
+last_verified: 2026-10-05
 ---
 
 # 构建与验证
@@ -25,7 +25,7 @@ last_verified: 2026-09-08
    - **`pnpm check`**（`scripts/check.mjs`）：按序执行 Prettier 全量检查 → `turbo run typecheck / lint / stylelint` → `turbo run test` → test 覆盖显式枚举，任一失败立即非零退出。纯校验不改文件。提交前必跑。
    - **husky 钩子**：`pre-commit` 跑 lint-staged（配置在 `.lintstagedrc.json`，只处理暂存文件）；`commit-msg` 跑 commitlint（scope 强制 + 白名单，见 `commitlint.config.mjs`）。
    - **`pnpm ops:pre-push`**（`scripts/ops/pre-push.mjs`）：push 前 CI 同构校验，顺序执行 frozen-lockfile → `pnpm check` → `pnpm doc:lint` → audit（报警式）。
-   - **`pnpm doc:lint`**（`scripts/doc-lint.cjs`，零依赖纯 node）：文档一致性与新鲜度校验（可达性 / 死链 / frontmatter / covers 漂移 / 入口文件行数预算 / 终态痕迹 / 悬空引用 / tasks 索引一致性 / 活文档体积基线），pre-push 与 CI doc-lint job 均挂载；检查项以脚本头部注释为准，终态痕迹词表在同目录 `final-state-rules.json`。副本与技能母版以 `--version` 比对，随治理任务同步。
+   - **`pnpm doc:lint`**（`scripts/doc-lint.cjs`，零依赖纯 node）：文档一致性与新鲜度校验（可达性 / 死链 / frontmatter / covers 漂移 / 入口文件行数预算 / 终态痕迹 / 引用与定位符（含代码行号） / 索引一致性（含索引行精确计数） / 活文档体积基线），pre-push 与 CI doc-lint job 均挂载；检查项以脚本头部注释为准，终态痕迹词表在同目录 `final-state-rules.json`。副本与技能母版以 `--version` 比对，随治理任务同步。
 2. **异步兜底（入库后，push master + nightly）**：`.github/workflows/ci.yml` 八 job 并行——`gate`（frozen-lockfile 安装 + `pnpm check` 服务端重验）、`docker-build`（双镜像构建验证 + web/server 双启动冒烟：web curl 200、server /health+entrypoint 三段断言，server 冒烟依赖 job services postgres/redis；不 push）、`coverage`（services 上 `test:coverage` ≥80% 报警式硬门槛）、`coverage-web`（pure-web vitest 覆盖率报警式，全局聚合 ≥80% + crown-jewel 6 键 ≥90%）、`e2e-web`（Playwright Tier A mock 冒烟，grep `@mock-only`）、`e2e-web-real`（Tier B 真实后端冒烟，grep `@real-backend`，报警式 + nightly，双层 E2E 见 [ADR-008](../decisions/ADR-008-tiered-e2e-testing.md)）、`audit`（`pnpm audit --audit-level=high` 报警式）、`doc-lint`（文档一致性与新鲜度校验报警式）。定位与取舍见 `docs/decisions/ADR-006-github-ci.md`。
 3. **纪律条款**：报警式不拦截的代价是红了必须有人看——**CI 红 → 下一项工作先修 CI**；感知窗口为根 README badge 与 GitHub watch 通知。
 

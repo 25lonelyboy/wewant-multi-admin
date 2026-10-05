@@ -2,7 +2,7 @@
 status: living
 covers:
   - apps/electron-desktop/
-last_verified: 2026-08-23
+last_verified: 2026-10-05
 ---
 
 # Electron 桌面端架构
