@@ -7,13 +7,15 @@ import { nodeConfig } from '@multi-admin/eslint-config/node';
  */
 export default [
   // 不参与 lint 的文件：构建产物、Prisma 生成物、测试覆盖率报告（coverage/coverage-e2e/coverage-merged）、本配置文件自身；
-  // *.cjs 为 jest CJS 基建（ts-jest 链式包装 / 覆盖率合并脚本），不在 tsconfig 项目内
+  // *.cjs 为 jest CJS 基建（ts-jest 链式包装 / 覆盖率合并脚本），不在 tsconfig 项目内；
+  // scripts/ 为探针脚本（与根 scripts/、iot-simulator 同约定）
   {
     ignores: [
       'dist/**',
       'coverage/**',
       'coverage-e2e/**',
       'coverage-merged/**',
+      'scripts/**',
       'src/generated/**',
       'eslint.config.mjs',
       'test/strip-import-meta.cjs',

@@ -41,20 +41,26 @@ else
   docker rm -f "$NAME" >/dev/null 2>&1
   log "▶ 选择镜像（自 3.3.7.0 起社区版镜像名由 tdengine/tdengine 改为 tdengine/tsdb）"
   PICKED=""
+  # 先在本地已有的镜像里挑一遍——否则会为了一个本地就有的版本去拉前一个候选，白等几分钟
   for img in "${IMAGE_CANDIDATES[@]}"; do
     if docker image inspect "$img" >/dev/null 2>&1; then
       PICKED="$img"
       log "  ✔ 本地已有：$img"
       break
     fi
-    log "  … 拉取 $img"
-    if docker pull "$img" >/dev/null 2>&1; then
-      PICKED="$img"
-      log "  ✔ 拉取成功：$img"
-      break
-    fi
-    log "  ✖ 不可用：$img"
   done
+  # 本地一个都没有，才按顺序拉
+  if [ -z "$PICKED" ]; then
+    for img in "${IMAGE_CANDIDATES[@]}"; do
+      log "  … 拉取 $img"
+      if docker pull "$img" >/dev/null 2>&1; then
+        PICKED="$img"
+        log "  ✔ 拉取成功：$img"
+        break
+      fi
+      log "  ✖ 不可用：$img"
+    done
+  fi
   [ -n "$PICKED" ] || die "四个候选镜像都拿不到，请检查网络/镜像源或手动 docker pull"
 
   log "▶ 启动容器 $NAME（$PICKED，6041 → 127.0.0.1:$PORT）"
