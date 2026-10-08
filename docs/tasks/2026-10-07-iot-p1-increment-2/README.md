@@ -1,6 +1,6 @@
 # IoT 平台 P1 · 增量 2「数据链路：缓冲 + 存储」
 
-- **状态**：进行中（决策卡材料已备，候选方案待填写）
+- **状态**：进行中（**决策卡 4 项全部定稿**）
 - **目标**：遥测可靠落库
 - **交付判据**：**落库可见**（能在 TDengine 里查到数据）——M1 的 ① 项
 - **规划上下文**：知识库《wewant 个人项目（AI 编程探索）》的「P1 增量计划（1-7）」节
@@ -13,10 +13,14 @@
 | [2026-10-07-decisions.md](2026-10-07-decisions.md) | 决策卡：背景 / 前置 / 约束 / 项级背景 / 待决策 4 项 |
 | [2026-10-07-decision-1-schema.md](2026-10-07-decision-1-schema.md) | **第 1 项（schema）· 已定稿**：七轴结论 + AI 补全与纠偏 + 时变主数据 + **生产前提复核（§5）** + **外部参照（§5.5，AWS IoT Lens）** + 结论四件（§6.4） |
 | [2026-10-07-decision-2-write-path.md](2026-10-07-decision-2-write-path.md) | **第 2 项（写入方式）· 已定稿**：项级背景 + **10 条决策轴全部作答** + 13 项待实测 + 结论四件（§9） |
-| [2026-10-08-decision-4-lifecycle.md](2026-10-08-decision-4-lifecycle.md) | **第 4 项（数据生命周期）· 材料已备**：`KEEP`/`DURATION`/`TTL` 关系 + **降采样三条路（流实测可用 / TSMA / 应用层）** + 删除四手段 + 容量量级 + 备份缺口 + **10 条决策轴**（候选方案待填） |
+| [2026-10-08-decision-4-lifecycle.md](2026-10-08-decision-4-lifecycle.md) | **第 4 项（数据生命周期）· 已定稿**：`KEEP`/`DURATION`/`TTL` 关系 + 降采样路径（**流计算，须写 `FROM <源表>`**；`TSMA` 是查询加速、不是本项工具）+ 删除四手段 + **两轮 32 项本机实测** + 逐轴补全与纠偏 + 四项补充探索 + **结论四件（§11）** |
+| [2026-10-08-decision-3-protocol-version.md](2026-10-08-decision-3-protocol-version.md) | **第 3 项（`mqtt.js` 协议版本）· 已定稿**：现状（**两端都跑在 3.1.1，且都没人选过**）+ **25 项本机实测**（EMQX 零配置、**跨版本矩阵载荷无损**、可混用、User Properties 只在双 5.0 时透传、**3.1.1 下 `properties` 被静默忽略**；凭据 10 用例两版行为一致）+ **5.0 七项特性逐个对照** + **会话语义** + **trace 的业界定位**（OTel 未覆盖 MQTT）+ 逐轴补全与纠偏 + **结论四件（§8）** |
 | [2026-10-08-internal-scenario-review.md](2026-10-08-internal-scenario-review.md) | **前提复议 · 作为 P2 启动输入（不在 P1 内实施，见 §5）**：以"工厂内部效率自用"为条件复核前两项决策——3 个前提级发现 + 逐项复核 + A/B/C/D 四类遗漏 + 三档结论 + **P2 启动读取顺序（第 0 步＝先采效率基线）** |
-| [scripts/probe/tdengine-semantics.mjs](../../../scripts/probe/tdengine-semantics.mjs) | TDengine 语义探针（零依赖，走 taosAdapter REST）：省略列语义 / `ALTER STABLE` 代价 / 虚拟表能力边界 / 跨超表查询约束。**决策卡 §4.5 的四条实测结论由它产出** |
+| [scripts/probe/tdengine-semantics.mjs](../../../scripts/probe/tdengine-semantics.mjs) | TDengine 语义探针（零依赖，走 taosAdapter REST）：省略列语义 / `ALTER STABLE` 代价 / 虚拟表能力边界 / 跨超表查询约束 |
+| [scripts/probe/tdengine-lifecycle.mjs](../../../scripts/probe/tdengine-lifecycle.mjs) | TDengine 生命周期探针（零依赖）：社区版审计能力 / `ALTER DATABASE` 能力边界 / 跨库查询 / 三级链式降采样 / `avg of avg` 偏差 / 窗口 offset 与时区 |
 | [scripts/probe/tdengine-container.sh](../../../scripts/probe/tdengine-container.sh) | 起临时容器 → 等 taosAdapter 就绪 → 跑探针；`--down` 停掉 |
+| [apps/iot-simulator/scripts/mqtt-protocol-probe.mjs](../../../apps/iot-simulator/scripts/mqtt-protocol-probe.mjs) | MQTT 协议版本探针（用 `mqtt@5.16.0` 真实建连，**不改 EMQX 配置**）：3.1.1 / 5.0 混用、**跨版本矩阵（载荷无损）**、User Properties 透传、`properties` 在 3.1.1 下被静默忽略。⚠️ **它在模拟器目录下**——`mqtt` 依赖按 catalog 规则只属于模拟器，仓库根没有 |
+| [apps/iot-simulator/scripts/mqtt-credential-probe.mjs](../../../apps/iot-simulator/scripts/mqtt-credential-probe.mjs) | MQTT 凭据探针（需一个**配了认证器**的独立 Broker）：3.1.1 × 5.0 × {无凭据 / 正确 / 错误密码 / 不存在用户 / 二进制密码 / 增强认证属性}，对比失败原因码。⚠️ **默认无认证的 1883 不适用** |
 
 ## 范围边界
 

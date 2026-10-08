@@ -10,7 +10,7 @@ covers:
   - docker-compose.yml
   - packages/contracts/
   - turbo.json
-last_verified: 2026-10-05
+last_verified: 2026-10-08
 ---
 
 # 构建与验证
@@ -91,6 +91,18 @@ check-digests 远端比对依赖可联网环境：本机无 Registry 直连时�
 `set -o pipefail` 下 `docker logs X | grep -qF` 断言必假：grep -q 命中即退出使 docker logs 收到 SIGPIPE（exit 141），管道整体非零、`if` 恒假。写法必须是先捕获变量（`LOGS="$(docker logs X 2>&1 || true)"`）再 `echo "${LOGS}" | grep -qF` 断言。
 
 共享全局状态（数据库 / Redis / 限流计数）的集成测试必须串行执行，或在用例边界重置共享键：jest 默认多 worker 并行时，A 套件的刻意限流用例会耗尽 B 套件登录所需配额，表现为登录必成断言随机 429、同代码可绿可红。
+
+## 验证探针（scripts/probe/）
+
+把官方文档说不清、又与决策相关的**服务端行为**跑成可复现的证据。约定：**零依赖**（只用 Node 内建 `fetch` 或仓库已有依赖）、走服务端自有接口、结论落进 `docs/tasks/` 并把查证状态登记到知识库的查证台账。
+
+| 脚本 | 职责 |
+|---|---|
+| `tdengine-semantics.mjs` | TDengine 语义：省略列 / `NONE` 与 `NULL`、`ALTER STABLE` 代价、虚拟表能力边界、跨超表查询约束（走 taosAdapter REST） |
+| `tdengine-lifecycle.mjs` | TDengine 生命周期：社区版审计能力、`ALTER DATABASE` 能力边界（`KEEP` 可改 / `DURATION` 不可改）、跨库查询、三级链式降采样、`avg of avg` 偏差、窗口 offset 与时区 |
+| `tdengine-container.sh` | 起临时容器 → 等 taosAdapter 就绪 → 跑探针；`--down` 停掉 |
+
+⚠️ **MQTT 探针在 `apps/iot-simulator/scripts/` 下**（`mqtt-protocol-probe.mjs` / `mqtt-credential-probe.mjs`），不在此目录：它们需要 `mqtt` 依赖，而按 catalog 判据该依赖只属于模拟器，仓库根没有——Node 从脚本所在目录向上解析依赖。凭据探针还需一个**配了认证器的独立 Broker**（开发环境那台默认无认证，不适用）。
 
 ## 已知环境事实
 
