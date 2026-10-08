@@ -33,6 +33,7 @@
     "@nestjs/throttler": "catalog:",
     "@prisma/adapter-pg": "catalog:",
     "@prisma/client": "catalog:",
+    "@tdengine/websocket": "3.5.0",
     "argon2": "catalog:",
     "class-transformer": "catalog:",
     "class-validator": "catalog:",

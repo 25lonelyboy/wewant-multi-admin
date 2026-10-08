@@ -9,6 +9,7 @@ allowBuilds:
   '@prisma/engines': true
   '@scarf/scarf': true
   argon2: true
+  bufferutil: false
   core-js: true
   core-js-pure: true
   electron: true
@@ -18,6 +19,7 @@ allowBuilds:
   prisma: true
   typeit: true
   unrs-resolver: true
+  utf-8-validate: false
   vue-demi: true
 catalog:
   '@commitlint/cli': '^21.2.1'
