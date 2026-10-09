@@ -33,7 +33,7 @@
 | 客户端库 | `mqtt.js`（`mqtt@5.16.0`） | 同上 |
 | 主题结构 | `wewant/devices/{deviceId}/{channel}`（含 `telemetry` 通道） | `packages/contracts/src/iot/telemetry.ts`，增量 1 冻结 |
 | 载荷格式 | `{ deviceId, ts(epoch ms), metrics: [{key, value, unit}] }` | 同上 |
-| QoS | **0** | 增量 1 / 增量 2 §4 |
+| QoS | **0 → 1**（2026-10-09 改，见 §9） | 增量 1；**§9** |
 | clientId 约定 | 设备侧用 `deviceId`（与生产「clientId 绑定设备身份」同形） | `apps/iot-simulator/src/device.ts` |
 
 ⚠️ 主题结构与载荷是**已进契约的应用层约定**——本项**不改它们**。
@@ -138,10 +138,10 @@
 | ⭐ **User Properties** | ✅ **用得上** | trace 上下文传播——增量 1 验收时讨论过；P3 实测可用 |
 | ✅ **Reason Code** | ✅ **用得上** | 诊断粒度；与增量 2「写入失败分三类」是同一诉求的两端 |
 | ⚠️ **Will Delay Interval** | ⚠️ **增量 4 可能用** | 设备在线视图里抑制网络抖动造成的误告警 |
-| **Session Expiry Interval** | ❌ 价值低 | **我们不依赖 Broker 攒消息**——数据靠 BullMQ 缓冲，且用 QoS 0 |
+| **Session Expiry Interval** | ⚠️ **变得相关** | ⛔ 原记"价值低"的理由是"用 QoS 0、不依赖 Broker 攒消息"——**2026-10-09 起订阅端用持久会话（§9）**，它正是 BullMQ 挂掉时的第二道兜底 |
 | **Topic Alias** | ❌ 价值低 | 内网带宽不是瓶颈（前提复议 §3 E3 已把"极致带宽优化"降级） |
-| **Message Expiry Interval** | ❌ 用不上 | QoS 0 直通，无排队消息 |
-| **流控（Receive Maximum）** | ❌ 用不上 | 用 QoS 0，不涉及在途确认窗口 |
+| **Message Expiry Interval** | ⚠️ **变得相关** | ⛔ 原记「无排队消息」——持久会话下会有积压消息（§9） |
+| **流控（Receive Maximum）** | ⚠️ **变得相关** | ⛔ 原记「用 QoS 0，不涉及在途确认窗口」——订阅端成了 QoS 1 的接收者（§9），在途确认窗口存在 |
 | **Subscription Identifier** | ❌ 暂用不上 | 当前只有一个通配订阅 |
 | ⚠️ **共享订阅** | ❌ **不是 5.0 独有** | EMQX 对 3.1.1 也支持（§4.4） |
 | **增强认证（SCRAM）** | ⚠️ 将来 | ⭐ **community 版实测可用**（§4.11(c)）——此前据文档目录位置推断的"属企业版"不成立 |
@@ -172,7 +172,7 @@ EMQX 官方把 5.0 的新特性归纳为七项。逐条对照本项目：
 | # | 特性 | 它解决什么问题（官方表述） | 本项目 |
 | --- | --- | --- | --- |
 | 1 | **Reason Code** | *"can provide a reason code for **every acknowledgement packet**, giving us a better understanding of why a disconnection or failure occurred"*——诊断与精确错误处理 | ✅ **用得上** |
-| 2 | **Session Expiry Interval** | 指定"断开后会话保留多久"。此前版本"会话要么立即结束、要么无限期" | ❌ 价值低（见 §4.9） |
+| 2 | **Session Expiry Interval** | 指定"断开后会话保留多久"。此前版本"会话要么立即结束、要么无限期" | ⚠️ **变得相关**（§9）：**持久会话正是 BullMQ 挂掉时的第二道兜底** |
 | 3 | **Topic Alias** | 用短数字别名替代完整主题名，"significantly reducing the size of the MQTT header and **conserving network bandwidth**" | ❌ 价值低（内网带宽不是瓶颈） |
 | 4 | **User Properties** | 在报文头里放自定义元数据——官方举例"the message's timestamp, device location, or other application-specific data" | ⚠️ **用途未确认**（见 §4.10） |
 | 5 | **Subscription Options** | 每个订阅单独控制：是否收 retained、是否收自己发的（No Local）等 | ⚠️ 暂用不上（当前只有一个通配订阅） |
@@ -206,9 +206,9 @@ EMQX 官方把 5.0 的新特性归纳为七项。逐条对照本项目：
 > **Clean Start controls the beginning of the connecting session and the end of the previous session.**
 > **Session Expiry Interval controls the end of the connecting session.**
 
-⭐ **对本项目的实际含义**：当前代码写的是 `clean: true`。**切到 5.0 之后它仍然表达 `Clean Start = 1`，而 `Session Expiry` 默认 0** ⇒ **行为与现在完全一致**。⇒ **迁移不会改变会话语义**——除非我们主动去用 `Session Expiry`。
+⭐ **对本项目的实际含义**：当前代码写的是 `clean: true`。**切到 5.0 之后它仍然表达 `Clean Start = 1`，而 `Session Expiry` 默认 0** ⇒ **行为与现在完全一致**。⇒ **迁移本身不改变会话语义**。⛔ **但 2026-10-09 起我们主动去用它了**（§9）。
 
-⭐ **而我们用不上它**：数据靠 **BullMQ 缓冲**、且用 **QoS 0**——**不依赖 Broker 攒消息**，所以"会话能保留多久"对本项目没有价值。
+⛔ **本节原结论已由 §9 改写**：原先记的是「用不上会话保留」，理由是「数据靠 BullMQ 缓冲、且用 QoS 0」。**2026-10-09 起订阅端改用持久会话**——它正是 **BullMQ 挂掉时的第二道兜底**。
 
 ### 4.10 trace 关联：业界是什么状况
 
@@ -391,7 +391,7 @@ EMQX 官方把 5.0 的新特性归纳为七项。逐条对照本项目：
 
 ✅ **已解释**（§4.9）：会话＝Broker 为该 `clientId` 保存的状态（订阅列表 + 未确认的 QoS>0 消息 + 待投递消息）。3.1.1 用二值的 `Clean Session`；5.0 拆成 **`Clean Start`（管连接**开始**时怎么对待旧会话）** 与 **`Session Expiry Interval`（管连接**结束**后会话留存多久，默认 0）**。
 
-⭐ **对本项目的实际含义**：当前 `clean: true` **切到 5.0 后行为不变**（Session Expiry 默认 0）；而**我们根本用不上会话保留**——数据靠 BullMQ 缓冲、且用 QoS 0，**不依赖 Broker 攒消息**。
+⭐ **对本项目的实际含义**：当前 `clean: true` **切到 5.0 后行为不变**（Session Expiry 默认 0）。⛔ **但这条已由 §9 改写**——改用**持久会话**（`clean: false` + Session Expiry > 0），因为它是 **BullMQ 挂掉时的第二道兜底**。
 
 ### 轴 6 · trace ID 是否有意义；两种情形
 
@@ -502,8 +502,9 @@ EMQX 官方把 5.0 的新特性归纳为七项。逐条对照本项目：
                               —— MQTT 上分布式追踪**没有公认标准绑定**（§4.10）；
                                  且 User Properties 只在两端都是 5.0 时存在，与"允许混用"冲突
 
-会话                          **`clean: true` 保持不变**。切 5.0 后语义不变（Session Expiry 默认 0）
-                              且本项目**用不上会话保留**（数据走 BullMQ + QoS 0）
+会话                          **`clean: false` + `properties.sessionExpiryInterval > 0`**（持久会话）
+                              ⛔ 原定「`clean: true` 保持不变」已由 §9 改写——会话保留是
+                                 BullMQ 挂掉时的第二道兜底；另：订阅请求 `{ qos: 1 }`，`clientId` 固定
 
 测试                          **两个版本都覆盖**；且至少要覆盖 **「3.1.1 发布 → 5.0 订阅」** 这一跨版本组合
                               —— 那正是现场的实际形态
@@ -556,6 +557,78 @@ EMQX 官方把 5.0 的新特性归纳为七项。逐条对照本项目：
 | **增量 3（物模型 / 设备注册）** | 设备档案里加**协议版本**字段 |
 | **有人改动 `clean`** | 注意两个版本语义同名不同源 |
 | **EMQX 升级或换部署形态** | 重核**授权类型**（别信 `edition` 字段）与 5.0 能力面 |
+
+---
+
+## 9. 订阅端的 QoS 与会话：能力最大化（2026-10-09 定）
+
+> 起因：定"队列 Redis 挂掉时数据去哪"（增量 2 的队列层）时，追到了"**设备 → Broker 这一段有没有保证**"——而那是**增量 1 移交、增量 2 一直没接的那笔**（增量 1 原文："投递保证（QoS 0/1/2、持久会话、重复与幂等）**整体归增量 2**"；增量 2 只接了"幂等"那一半）。
+> **本节改写 §2 的前置（QoS）、§4.6 的两条、§4.9 的结论、§11 选定里的 `clean`。**
+
+### 9.1 边界：我们只能控制订阅端
+
+⭐ QoS 的**两端不对称**（EMQX 官方原文）：
+
+> "**When a subscriber specifies a maximum QoS level lower than the publisher's, the broker will downgrade the message QoS to match the subscriber's requested level.**"
+
+```text
+订阅端设的 QoS = "我最多能接受多少"（上限，只能降级）
+设备设的 QoS   = "我提供多少保证"（真正决定保证在哪一段）
+投递 = min(两者)
+```
+
+⇒ **订阅端能力最大化的上限 ＝ 设备已经发出来的东西**：能拿到设备愿意给的上限，**不能把设备发的 QoS 0 变得有保证**。
+
+### 9.2 选定
+
+| # | 项 | 值 |
+| --- | --- | --- |
+| 1 | **订阅请求** | **`{ qos: 1 }`** |
+| 2 | **会话** | **`clean: false` + `properties.sessionExpiryInterval > 0`**（持久会话） |
+| 3 | ⭐ **`clientId` 固定** | 现状是 `nestjs-server-${pid}` ⇒ **每次重启换一个会话**，前两条全白搭 |
+| 4 | **幂等消费** | ✅ 已有（`(子表, ts)`，第 1 项 §3 轴 5） |
+
+**为什么是 1、不是 2** ⭐：
+
+| 设备发 | 请求 1 ⇒ 得到 | 请求 2 能不能更好 |
+| --- | --- | --- |
+| 0 | 0 | ⛔ 改不了 |
+| 1 | 1 | ⛔ **QoS 不能升级** |
+| 2 | 1（降级） | ⚠️ 能拿到 2，代价是 **4 次握手 + 吞吐约减半 + 订阅端维护状态**——**而重复对我们无害（幂等已就位），换不到我们还需要的东西** |
+
+⇒ ⭐ **"订阅端能力最大化" ≠ "请求最高 QoS"，而是「请求 1」**——它同时对三种设备都取得"最佳可得"。
+
+### 9.3 两条连带
+
+**① `clientId` 固定 ⇒ 多实例会互踢**
+
+MQTT 要求 `clientId` 唯一，同 clientId 的两条连接会互相踢——当初带 `${pid}` 正是为了多实例安全。
+
+⇒ **固定之后，横向扩要用共享订阅** `$share/<group>/wewant/devices/+/telemetry`。
+✅ EMQX 对 3.1.1 也支持 `$share/`（§4.4 实测过）⇒ 路通。**P1 单实例用不上，但要记下。**
+
+**② 持久会话重连会灌一波积压**
+
+订阅端离线一段时间后重连，Broker 把攒住的 QoS 1 消息一次投来 → 一波突发。
+⭐ **而 BullMQ 队列正好吸收它**——队列把突发摊平。**两件事天然配合，不用额外做。**
+
+### 9.4 设备混用 QoS 会影响容量
+
+设备侧用 0 / 1 / 2 都可能（我们控制不了）。⚠️ **QoS 2 拉低 Broker 总吞吐**——同一实例的官方基准：**QoS 0 → 60K TPS，QoS 1 → 40K TPS，QoS 2 → 20K TPS**。
+⇒ **挂容量触发点**（增量 6 压测时按真实的混用比例重算）。
+
+### 9.5 本节改写的四处
+
+它们原先都以"**用 QoS 0、不依赖 Broker 攒消息**"为前提：
+
+| 原结论 | 改写后 |
+| --- | --- |
+| §4.6「**流控（Receive Maximum）** ❌ 用不上 \| 用 QoS 0，不涉及在途确认窗口」 | ⚠️ **变得相关**——订阅端成了 QoS 1 的接收者，在途确认窗口存在 |
+| §4.6「**Message Expiry Interval** ❌ 用不上 \| QoS 0 直通，无排队消息」 | ⚠️ **变得相关**——持久会话下会有积压消息 |
+| §4.9「**我们根本用不上会话保留**——数据靠 BullMQ 缓冲、且用 QoS 0」 | ⛔ **反了**——会话保留正是**第二道兜底**（BullMQ 挂掉时） |
+| §11 选定「`clean: true` **保持不变**」 | ⛔ **改为 `clean: false` + Session Expiry > 0** |
+
+⚠️ **代码改动不在本轮**——随增量 2 的实施计划一起做（订阅端三处：`subscribe` 的 `qos`、`connect` 的 `clean` 与 properties、`clientId`）。
 
 ---
 
