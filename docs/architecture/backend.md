@@ -2,7 +2,7 @@
 status: living
 covers:
   - apps/nestjs-server/
-last_verified: 2026-10-05
+last_verified: 2026-10-09
 ---
 
 # NestJS 后端架构

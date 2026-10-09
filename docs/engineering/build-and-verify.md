@@ -10,7 +10,7 @@ covers:
   - docker-compose.yml
   - packages/contracts/
   - turbo.json
-last_verified: 2026-10-08
+last_verified: 2026-10-09
 ---
 
 # 构建与验证
@@ -101,8 +101,12 @@ check-digests 远端比对依赖可联网环境：本机无 Registry 直连时�
 | `tdengine-semantics.mjs` | TDengine 语义：省略列 / `NONE` 与 `NULL`、`ALTER STABLE` 代价、虚拟表能力边界、跨超表查询约束（走 taosAdapter REST） |
 | `tdengine-lifecycle.mjs` | TDengine 生命周期：社区版审计能力、`ALTER DATABASE` 能力边界（`KEEP` 可改 / `DURATION` 不可改）、跨库查询、三级链式降采样、`avg of avg` 偏差、窗口 offset 与时区 |
 | `tdengine-container.sh` | 起临时容器 → 等 taosAdapter 就绪 → 跑探针；`--down` 停掉 |
+| `taosdump-roundtrip.sh` | `taosdump` 备份 / 恢复往返（内容全部在容器内执行）：`-M all` 往返、`-S`/`-E` 时间范围归档、`-M ext-meta` 备份流定义、`-W` 改名恢复、**`-M` 两侧不一致时的静默失效**。⚠️ 与 `tdengine-container.sh` 共用同一个容器 |
 
-⚠️ **MQTT 探针在 `apps/iot-simulator/scripts/` 下**（`mqtt-protocol-probe.mjs` / `mqtt-credential-probe.mjs`），不在此目录：它们需要 `mqtt` 依赖，而按 catalog 判据该依赖只属于模拟器，仓库根没有——Node 从脚本所在目录向上解析依赖。凭据探针还需一个**配了认证器的独立 Broker**（开发环境那台默认无认证，不适用）。
+⚠️ **另有三个探针在应用目录下**，不在此目录——它们需要某个**按 catalog 判据只属于该应用**的依赖，仓库根没有，Node 从脚本所在目录向上解析依赖：
+
+- `apps/iot-simulator/scripts/`：`mqtt-protocol-probe.mjs` / `mqtt-credential-probe.mjs`（需要 `mqtt`）。凭据探针还需一个**配了认证器的独立 Broker**（开发环境那台默认无认证，不适用）
+- `apps/nestjs-server/scripts/tdengine-stmt-probe.mjs`（需要 `@tdengine/websocket`）：TDengine STMT 写入形态——一次 exec 跨多子表、两种跨子表写法、`USING` 语法自动建表、单次 bind/exec 的行数上限。⚠️ 它建自己的库 `probe_stmt` 并反复重建超表，**不要指向有数据的实例**
 
 ## 已知环境事实
 
