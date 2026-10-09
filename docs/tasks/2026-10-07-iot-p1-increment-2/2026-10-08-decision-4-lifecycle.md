@@ -885,6 +885,80 @@ SECURE_DELETE  不用
 
 ---
 
+## 14. 降采样库 schema（2026-10-09 定）
+
+> §11 定了"另建库 + 三级 + 第一级存可再聚合量"，但没有说这三张表长什么样。本节给出。
+
+### 14.1 三级同形，只有窗口不同
+
+```sql
+CREATE DATABASE <降采样库> PRECISION 'ms' KEEP 3650 DURATION 10;
+
+CREATE STABLE telemetry_1m (
+    ts                 TIMESTAMP,
+    sum_temperature    DOUBLE,  count_temperature  BIGINT,
+    min_temperature    FLOAT,   max_temperature    FLOAT,
+    sum_vibration      DOUBLE,  count_vibration    BIGINT,
+    min_vibration      FLOAT,   max_vibration      FLOAT,
+    sum_current        DOUBLE,  count_current      BIGINT,
+    min_current        FLOAT,   max_current        FLOAT
+) TAGS (deviceId VARCHAR(16));
+
+-- telemetry_1h / telemetry_1d 与上表同形（列集合一致是链式与再聚合的前提）
+
+ALTER STABLE telemetry_1m KEEP 1095;   -- ⭐ 分钟级超表级 KEEP（3 年）
+```
+
+| # | 项 | 值 | 依据 |
+| --- | --- | --- | --- |
+| **3a** | **表名** | `telemetry_1m` / `telemetry_1h` / `telemetry_1d` | TDengine 官方示例就是这个范式（`INTO meters_1d`：**超表名 + 窗口**）。**表名不可改**，所以"一眼看出窗口"优先于"语义好听" |
+| **3b** | **列** | `ts` + 每测点 4 个量 = **13 列** | 见 14.2 |
+| **3b** | **列名风格** | **聚合前缀**（`sum_temperature`） | 与官方示例一致（`sum_power`） |
+| **3c** | **标签** | `deviceId VARCHAR(16)` | 降采样子表**同样按设备 + 采集点分**（`PARTITION BY tbname` 是定死的）⇒ "按设备筛"是同样需求、同样机制（标签裁一批子表）。与原始库保持一致 |
+
+### 14.2 四个聚合量的类型与理由
+
+| 量 | 类型 | 理由 |
+| --- | --- | --- |
+| `sum_*` | **`DOUBLE`** | ⭐ 正是 §6.3 的分档规则——原始是 `FLOAT`（6-7 位有效数字），**累加后会变大，低位精度会丢** ⇒ "累计量用 `DOUBLE`" |
+| `count_*` | **`BIGINT`** | 与 `COUNT()` 的返回类型一致，省掉一次隐式转换 |
+| `min_*` / `max_*` | **`FLOAT`** | 与测点同类型，再聚合（`MIN` of `MIN`）仍是 `FLOAT` |
+
+**为什么一次全上**：⭐ **加列补不出历史**——将来发现某个量没存，新加的列**对历史行是空的**。而 4 个量已是**最小完备集**，13 列也不多。
+
+⚠️ **一条实现细节**：`count_<metric>` 要数的是**该测点有值的行数**（`COUNT(temperature)`），**不是总行数**（`COUNT(*)`）——否则窗口内某测点缺值时，`sum/count` 算出来的均值是错的。
+
+### 14.3 三条流的形态
+
+```sql
+-- 分钟级
+CREATE STREAM <降采样库>.s_1m PERIOD(1m) FROM <原始库>.telemetry PARTITION BY tbname
+  INTO <降采样库>.telemetry_1m
+  TAGS (deviceId VARCHAR(16) AS deviceId)
+  AS SELECT _wstart AS ts,
+            SUM(temperature) AS sum_temperature, COUNT(temperature) AS count_temperature,
+            MIN(temperature) AS min_temperature, MAX(temperature) AS max_temperature,
+            …（其余两个测点同形）
+       FROM <原始库>.telemetry
+     INTERVAL(1m);
+
+-- 小时级 / 天级：同形，只是 PERIOD 与 INTERVAL 换值
+--   s_1h  PERIOD(1h)          INTERVAL(1h)
+--   s_1d  PERIOD(1d, 8h)      INTERVAL(1d, 8h)   ← 业务日从早 8 点（§11 已定）
+```
+
+⭐ **三个流平级、都读原始超表**——不是"在上一级输出表上再建流"，理由见 **§13**。
+
+### 14.4 本节未实测、留到写建流脚本时验的三条
+
+| 项 | 说明 |
+| --- | --- |
+| **`PERIOD(1d, 8h)` 的 offset 语法** | 官方示例有 `PERIOD(1n, 14d)`（"On the 15th of each month"）⇒ 类比成立，但**未实测** |
+| **不指定 `OUTPUT_SUBTABLE` 时，输出子表名的默认值** | 显式指定可控（官方文档确认）；**默认形态未实测**（3d） |
+| **`TAGS (… AS …)` 标签继承的实际行为** | 官方示例有该形态，**未实测** |
+
+---
+
 ## 附录：出处
 
 | # | 内容 | 来源 |
