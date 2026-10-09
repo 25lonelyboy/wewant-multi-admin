@@ -506,6 +506,49 @@ SELECT tbname, ts, v FROM pt WHERE ts = 1759747300000;   -- → 两行都在
 
 ⚠️ **这里与 §4.3 的判据撞上了**：如果单位会被用来**校验或重算**时序，它就**参与**了时序语义 → 按判据，时序库里必须有一份参照物。所以"单位进主数据"**不是无条件正确的**，取决于**要不要能校验与重算**。
 
+### 4.6 单位的最终模型：归档层自描述，换算在其上（2026-10-09 定）
+
+> §4.5 把问题收敛成"写时做还是读时做"，并指出它与 §4.3 的判据撞上了。本节给出行业的答案并定案。
+
+**行业参照：PI System 的两级单位**
+
+| 层 | 单位 | 行为 |
+| --- | --- | --- |
+| **PI Data Archive（归档层）** | **`EngUnits`** | ⭐ **纯描述标签**——*"The PI Data Archive itself **does not interpret this string, perform automatic unit conversions, or validate unit compatibility**. It's purely a label for the user."* |
+| **PI Asset Framework（上下文层）** | **`UOM` + 换算因子** | ⭐ **自动换算**（*"AF can then perform automatic unit conversions"*），原文称这是现代部署的 **recommended approach** |
+
+⭐ **它对"改了会怎样"说得极直白**：
+
+> *"**if a PI Point stores values in Celsius and its EngUnits is set to "°F", the system will display "°F" next to the numeric values, but the numbers themselves will still be in Celsius.**"*
+> *"changing EngUnits **only updates the label**. The numeric values stored in the archive **remain unchanged**. Ensure your **data source** is providing values in the unit that matches the new EngUnits."*
+
+⇒ ⭐⭐ **PI 把"改单位"的责任推回给数据源**——归档层不换算、不校验；它只负责回答"**这些数字是什么单位**"，而**这个回答随数据冻结**。
+
+**由此定案：三个目标各归其位**
+
+| 目标 | 放在哪 |
+| --- | --- |
+| **数据自描述**（这些数字是什么单位） | ⭐ **归档层**——`unit` 进时序库，**随数据冻结** |
+| **标准化 / 统一口径** | **物模型 / 主数据层**——**换算在那里做**，可随时改 |
+| **可重算** | ✅ 自动满足——归档层存的是**原始值**，标准化只是它之上的一次计算 |
+
+⭐ **这一条同时解掉了 §4.5 的"三条路"**：**"读时做"是对的**，但**前提是归档层自描述**——否则（单位只挂在主数据上）**主数据一变，历史就被追溯改写**（§4.3 的 Type 1 问题，换了个入口而已）。
+
+**四条落地**
+
+| # | 结论 | 依据 |
+| --- | --- | --- |
+| 1 | ⭐ **`unit` 进时序库**（**列级、冻结**） | 正是 §4.3 那条判据："**参与时序语义 ⇒ 时序库里要有参照物**" |
+| 2 | **标准单位与换算在物模型层**（增量 3） | 取数时换算、**不碰归档** ⇒ 标准单位**可随时改** |
+| 3 | ⛔ **不需要 `_raw` 列** | PI **没有存两份**——归档存的就是原始值。**再存一份标准化值，等于把"标准单位"固化进归档 ⇒ 它就不能变了** |
+| 4 | ⚠️ **归档层的单位不做就地修改** | 数据源真的换了单位（换传感器 / 重配）⇒ 那是**测点重定义** ⇒ 按 §6.5 的规律：**加新列，不改编旧列** |
+
+⚠️ **两处 DDL 因此要带 `unit`**（每个测点一列，粒度是**列级**——单位不是采集点级，所以**不能进标签**，见 §4.2）：原始库的 `telemetry`（§9）与降采样库的三张表（第 4 项 §14）。
+
+**留下来的代价**：每次查询要换算（或在物模型层预计算）⇒ ⚠️ **这条进增量 6 的量级核实**。
+
+**来源等级**：PI 的行为描述出自 [PiSharp](https://www.pisharp.com/article/9/managing-units-in-pi-system-engunits-vs-af-units-of-measure)（PI 领域咨询方，**顾问级**，非 AVEVA 官方文档）。⚠️ "PI 各版本实现是否完全一致"**未另行核实**。
+
 ---
 
 ## 5. 生产前提复核：本项决策的最终论据
@@ -675,8 +718,8 @@ SELECT tbname, ts, v FROM pt WHERE ts = 1759747300000;   -- → 两行都在
 
 | # | 项 | 为什么能后补 | 归属 / 触发点 |
 | --- | --- | --- | --- |
-| 4 | **`unit` 是否进时序库**（§4.2） | 若选"进主数据"则**不改列集合**；将来要进列，`ADD COLUMN` 实测是元数据操作 | 触发点＝出现"按单位筛 / 校验"的需求 |
-| 5 | **归一化转换在写时还是读时**（§4.5） | 属**消费链路**，不改 schema | **增量 2 第 2 项（写入方式）** |
+| ~~4~~ | ~~**`unit` 是否进时序库**~~ | ✅ **已定：进**（§4.6）——**列级、随数据冻结**；标准单位与换算放物模型层 | —— |
+| ~~5~~ | ~~**归一化转换在写时还是读时**~~ | ✅ **已定：读时做**（§4.6）——前提是**归档层自描述**；否则主数据一变，历史就被追溯改写 | —— |
 | 6 | **未知测点上送的处理策略**（§5.3 A1） | 默认"丢弃 + 计数"不改 schema；只有"自动加列"才改 | **增量 2 第 2 项（失败处理）** |
 | 7 | **B10 设备活性判定**（§5.5） | 契约的通道段是**枚举**——加一个新通道是**纯加法**，不动主题层级、不改设备侧既有约定 | **增量 6（可观测性）** |
 
@@ -1010,10 +1053,10 @@ SELECT tbname, ts, v FROM pt WHERE ts = 1759747300000;   -- → 两行都在
 ```sql
 CREATE DATABASE <原始库> PRECISION 'ms' KEEP 1095 DURATION 10;
 CREATE STABLE telemetry (
-    ts          TIMESTAMP,
-    temperature FLOAT,
-    vibration   FLOAT,
-    current     FLOAT
+    ts                 TIMESTAMP,
+    temperature        FLOAT,   temperature_unit VARCHAR(16),
+    vibration          FLOAT,   vibration_unit   VARCHAR(16),
+    current            FLOAT,   current_unit     VARCHAR(16)
 ) TAGS (deviceId VARCHAR(16));
 
 CREATE TABLE <deviceId>_<pointKey> USING telemetry TAGS ('<deviceId>');
@@ -1023,7 +1066,7 @@ CREATE TABLE <deviceId>_<pointKey> USING telemetry TAGS ('<deviceId>');
 | --- | --- | --- |
 | **张数** | **1** | P1 只有一类设备（轴 1 的"按功能类别分"在 P1 退化为单一类别） |
 | **表名** | **`telemetry`** | 取**泛化名**。它把"P1 这一类设备"占住了——**引入第二类设备时，这张表的定位要重新交代**（表名改不了） |
-| **列集合** | `ts` + `temperature` / `vibration` / `current`，**全 `FLOAT`** | 三个都是瞬时量（§6.3 的分档规则）；列名即载荷的 `metrics[].key` |
+| **列集合** | `ts` + 每测点 **`<metric>` 与 `<metric>_unit`** 两列——测点全 `FLOAT`、单位 `VARCHAR(16)` | 三个都是瞬时量（§6.3）；列名即载荷的 `metrics[].key`；⭐ **单位列是 §4.6 定的「归档层自描述」** |
 | **标签** | **只 `deviceId`，`VARCHAR(16)`** | §8.7（P1 版） |
 
 ### 9.1 实跑复核（3.4.2.8.community，2026-10-09）
@@ -1035,6 +1078,8 @@ CREATE TABLE <deviceId>_<pointKey> USING telemetry TAGS ('<deviceId>');
 | **V3** | ⭐ **标识符大小写** | **不敏感**：`CREATE TABLE p1.TEST_X` 之后再建 `p1.test_x` 报 **`1539 Table already exists`**；`tbname` 读回来是 **`test_x`**（折成小写） | 见下 |
 | **V4** | 标签**值**的大小写 | ✅ **保留**（`'AWEAWQ05E8PF53WH'` 原样返回） | 与标识符的行为不同 |
 | **V5** | ⚠️ **无数据的子表** | **不出现在超表的 `SELECT` 里**——建了 `test_x` 但没写数据，超表查询结果里没有它（`SHOW TABLES` 里有） | 建表脚本跑完后，**要列子表得用 `SHOW TABLES` / `ins_tables`**，不能靠超表查询 |
+
+⚠️ **一处标注**：`_unit` 两列是 §4.6 之后加进 DDL 的，**未单独实跑过**——它们与其余列同形（`VARCHAR`），风险低，但按本项目的口径不算"已实测"。
 
 **V3 的两个含义**：
 

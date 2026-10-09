@@ -901,7 +901,8 @@ CREATE STABLE telemetry_1m (
     sum_vibration      DOUBLE,  count_vibration    BIGINT,
     min_vibration      FLOAT,   max_vibration      FLOAT,
     sum_current        DOUBLE,  count_current      BIGINT,
-    min_current        FLOAT,   max_current        FLOAT
+    min_current        FLOAT,   max_current        FLOAT,
+    temperature_unit   VARCHAR(16), vibration_unit VARCHAR(16), current_unit VARCHAR(16)
 ) TAGS (deviceId VARCHAR(16));
 
 -- telemetry_1h / telemetry_1d 与上表同形（列集合一致是链式与再聚合的前提）
@@ -912,7 +913,7 @@ ALTER STABLE telemetry_1m KEEP 1095;   -- ⭐ 分钟级超表级 KEEP（3 年）
 | # | 项 | 值 | 依据 |
 | --- | --- | --- | --- |
 | **3a** | **表名** | `telemetry_1m` / `telemetry_1h` / `telemetry_1d` | TDengine 官方示例就是这个范式（`INTO meters_1d`：**超表名 + 窗口**）。**表名不可改**，所以"一眼看出窗口"优先于"语义好听" |
-| **3b** | **列** | `ts` + 每测点 4 个量 = **13 列** | 见 14.2 |
+| **3b** | **列** | `ts` + 每测点 4 个量 + 每测点一个 `_unit` = **16 列** | 见 14.2；⭐ 单位列是**归档层自描述**（第 1 项 §4.6）——降采样值同样是「原始值」，单位也要随数据冻结 |
 | **3b** | **列名风格** | **聚合前缀**（`sum_temperature`） | 与官方示例一致（`sum_power`） |
 | **3c** | **标签** | `deviceId VARCHAR(16)` | 降采样子表**同样按设备 + 采集点分**（`PARTITION BY tbname` 是定死的）⇒ "按设备筛"是同样需求、同样机制（标签裁一批子表）。与原始库保持一致 |
 
