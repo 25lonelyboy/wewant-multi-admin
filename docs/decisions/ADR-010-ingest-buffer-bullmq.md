@@ -45,7 +45,17 @@ date: 2026-10-05
 
 e2e 套件会用 `flushdb` 重置限流计数（见 `apps/nestjs-server/AGENTS.md` 的 e2e 隔离规范）。若队列与限流缓存落在同一 Redis 实例的同一 DB，`flushdb` 会把队列状态一并清掉，造成测试间的隐藏耦合。
 
-**方向**：P1 为队列起**独立 Redis 实例**（compose 新增一个服务），或至少独立 DB index；**倾向独立实例**——BullMQ 不推荐依赖 DB index 做隔离，且与限流缓存分实例后语义更干净。最终形态在增量 2 落地时确认，此处只锁方向。
+**结论（2026-10-09 确认）**：P1 为队列起**独立 Redis 实例**（compose 新增一个服务）。
+
+**理由比"连接语义"更硬**——BullMQ 官方要求 **`maxmemory-policy = noeviction`**，并明说这是 *"the only setting that guarantees the correct behavior of the queues"*（若 Redis 随意淘汰键，队列会工作不正常）；而**限流缓存恰好希望有淘汰策略**。⚠️ **`maxmemory-policy` 是「实例级」配置，不是 DB index 级** ⇒ **"独立 DB index"根本解决不了这个问题** ⇒ 只能独立实例。
+
+**落地时一并处理的三条**：
+
+- **开 AOF 持久化**——官方：*"persistence needs to be configured **manually**… We recommend enabling **AOF**"*；不开的话 Redis 重启即丢队列
+- **两类连接的配置不同**：**Queue（生产者）**断线要**快速失败**、`enableOfflineQueue` 关；**Worker（消费者）**要**无限等待**、`maxRetriesPerRequest: null`（否则会破坏 worker 功能）
+- compose 加服务 ⇒ `ops/check-digests.sh` 的预期 pin 数 **10 → 11**
+
+（队列命名、消息信封、worker 部署形态、保留策略等实施细节，按本 ADR 末节的分工写入增量 2 的任务目录。）
 
 ### D5 依赖落位
 
