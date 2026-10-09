@@ -264,7 +264,7 @@ CREATE DATABASE power PRECISION 'ms' KEEP 3650 DURATION 10 BUFFER 16;
                 攒批 500 条 或 2 s；每批多子表；BullMQ 指数退避+抖动；入库成功再 Ack；连接 2~4 条
 #3 协议版本     订阅端 protocolVersion=5；模拟器两版并存；对现场设备允许混用；契约不动
 #4 生命周期     原始库 KEEP 3 年 / DURATION 10 天；降采样另建库（分钟 3 年、小时·天 10 年）；
-                流计算且计算子句写 FROM <源表>；三级链式；第一级存 SUM/COUNT；
+                流计算且计算子句写 FROM <源表>；三级平级（三条流各自读原始超表）；第一级存 SUM/COUNT；
                 靠 KEEP 自动删；每月滚动归档（两库都备、-M 两侧一致）；权限收敛替代审计
 ```
 

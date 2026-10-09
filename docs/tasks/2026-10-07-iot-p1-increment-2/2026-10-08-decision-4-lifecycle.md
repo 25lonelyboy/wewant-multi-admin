@@ -322,9 +322,9 @@ CREATE STREAM <db>.s_downsample
 ⚠️ **本轮实测验证了这个坑真实存在**：见 §7 的 `avg of avg` 实测，偏差达 **14%**。
 
 ⚠️ **补全：三级之间是"链式"还是"各自从原始算"？**（本轮实测：**链式可行**——在输出表上再建流成功）
-- **链式**（分钟→小时→天）：省资源，但受"可再聚合性"约束（第一级存什么决定第二级能算什么）
-- **各自从原始算**：三条流都读原始表，灵活但每条都扫全量
-- 【AI 判断】按"存中间量"的规则，**链式可行且更省**；代价是**延迟逐级累积**（每级都有部署 + 触发周期）
+- **链式**（分钟→小时→天）：省资源（上层重扫的是小表），但受"可再聚合性"约束（第一级存什么决定第二级能算什么），且**下游依赖上游已算完**
+- **平级**：三条流都读原始超表，每条都扫全量，但**三条互不依赖**
+- ✅ **已定：平级**（2026-10-09，见 §14.3）。取舍——换来"**任一条流的产出不取决于另一条是否算完**"；代价是**小时级 / 天级每次触发都重扫原始表**，§13.4 那条"用细粒度表给小表重扫"的压成本手段在这一形态下用不上 ⇒ 各级 `PERIOD` 挂增量 6 压测核实
 
 ⚠️ **补全：窗口对齐必须显式设时区**（本轮实测，见 §10 Q2）：
 - 实测容器 `timezone = Etc/UTC`，`INTERVAL(1d)` 的窗口起点落在 **UTC 00:00**，`INTERVAL(1h)` 落在整点
@@ -492,7 +492,7 @@ CREATE STREAM <db>.s_downsample
 | **M8** | **跨库 JOIN** | ✅ **可用**（`FROM db_a.t1 a, db_b.t1 b WHERE a.ts = b.ts`） | 同上 |
 | **M9** | **一级流产出** | ✅ 产出 **121 行**（含全部历史回填） | 轴 3/4 成立 |
 | **M10** | ⚠️ **输出表懒创建** | 流 `Running` 但源表无新写入时，**输出表不存在**（`9731`）；一次新写入后即创建并回填 | ⚠️ **验收判据必须是"输出表有数据"** |
-| **M11** | **二级链式流（在输出表上再建流）** | ✅ 产出 3 行小时聚合 | 轴 4 的"链式"可行 |
+| **M11** | **二级链式流（在输出表上再建流）** | ✅ 产出 3 行小时聚合 | 链式在本版本上可行（**最终未采用**，见 §14.3） |
 | **M12** | ⭐ **`avg of avg` 偏差** | 朴素平均 **23.44** vs 加权平均 **20.51** ⇒ **偏差 14%** | 轴 4 **必须存中间量** |
 | **M13** | 容器时区 | `Etc/UTC (UTC, +0000)` | 轴 4 |
 | **M14** | `INTERVAL(1d)` 窗口起点 | **`2026-10-08T00:00:00.000Z`**（UTC 0 点对齐） | ⚠️ **生产要设 `Asia/Shanghai`** |
@@ -734,7 +734,7 @@ CREATE STREAM <db>.s_downsample
                  · ⚠️ 位置固定：紧跟 FROM 之后、INTERVAL 之前（放 INTERVAL 后面报 9728 语法错）
                  · 一条流覆盖全部设备——万级设备不需要万条流
                  · 且只有带分组才产出超表 —— 分钟级超表级 KEEP 的前提
-  粒度          分钟 → 小时 → 天（三级链式；在上一级输出表上再建流）
+  粒度          分钟 / 小时 / 天（三级**平级**：三条流各自读原始超表，见 §14.3）
   聚合列        第一级存 SUM / COUNT（并 MIN / MAX）—— 不只存 AVG（§7 M12 实测偏差 14%）
   窗口          INTERVAL(<n>, <offset>)；offset 用于对齐业务日（如 1d, 8h ⇒ 早 8 点）
 
@@ -892,7 +892,7 @@ SECURE_DELETE  不用
 ### 14.1 三级同形，只有窗口不同
 
 ```sql
-CREATE DATABASE <降采样库> PRECISION 'ms' KEEP 3650 DURATION 10;
+CREATE DATABASE wewant_iot_ds PRECISION 'ms' KEEP 3650 DURATION 10;
 
 CREATE STABLE telemetry_1m (
     ts                 TIMESTAMP,
@@ -905,7 +905,7 @@ CREATE STABLE telemetry_1m (
     temperature_unit   VARCHAR(16), vibration_unit VARCHAR(16), current_unit VARCHAR(16)
 ) TAGS (deviceId VARCHAR(16));
 
--- telemetry_1h / telemetry_1d 与上表同形（列集合一致是链式与再聚合的前提）
+-- telemetry_1h / telemetry_1d 与上表同形（三级同形：列集合一致，跨级查询与再聚合才成立）
 
 ALTER STABLE telemetry_1m KEEP 1095;   -- ⭐ 分钟级超表级 KEEP（3 年）
 ```
@@ -933,14 +933,14 @@ ALTER STABLE telemetry_1m KEEP 1095;   -- ⭐ 分钟级超表级 KEEP（3 年）
 
 ```sql
 -- 分钟级
-CREATE STREAM <降采样库>.s_1m PERIOD(1m) FROM <原始库>.telemetry PARTITION BY tbname
-  INTO <降采样库>.telemetry_1m
+CREATE STREAM wewant_iot_ds.s_1m PERIOD(1m) FROM wewant_iot.telemetry PARTITION BY tbname
+  INTO wewant_iot_ds.telemetry_1m
   TAGS (deviceId VARCHAR(16) AS deviceId)
   AS SELECT _wstart AS ts,
             SUM(temperature) AS sum_temperature, COUNT(temperature) AS count_temperature,
             MIN(temperature) AS min_temperature, MAX(temperature) AS max_temperature,
             …（其余两个测点同形）
-       FROM <原始库>.telemetry
+       FROM wewant_iot.telemetry
      INTERVAL(1m);
 
 -- 小时级 / 天级：同形，只是 PERIOD 与 INTERVAL 换值

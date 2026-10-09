@@ -1058,7 +1058,7 @@ SELECT tbname, ts, v FROM pt WHERE ts = 1759747300000;   -- → 两行都在
 ## 9. P1 超表清单（2026-10-09 定；DDL 已实跑复核）
 
 ```sql
-CREATE DATABASE <原始库> PRECISION 'ms' KEEP 1095 DURATION 10;
+CREATE DATABASE wewant_iot PRECISION 'ms' KEEP 1095 DURATION 10;
 CREATE STABLE telemetry (
     ts                 TIMESTAMP,
     temperature        FLOAT,   temperature_unit VARCHAR(16),

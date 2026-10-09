@@ -1,6 +1,6 @@
 # IoT 平台 P1 · 增量 2「数据链路：缓冲 + 存储」
 
-- **状态**：进行中（**决策卡 4 项全部定稿**）
+- **状态**：进行中（**决策卡 4 项全部定稿** + **开工前提 9 条已清** + **实施计划已落**；开工前余 2 处待定，见计划文末）
 - **目标**：遥测可靠落库
 - **交付判据**：**落库可见**（能在 TDengine 里查到数据）——M1 的 ① 项
 - **规划上下文**：知识库《wewant 个人项目（AI 编程探索）》的「P1 增量计划（1-7）」节
@@ -17,6 +17,7 @@
 | [2026-10-08-decision-3-protocol-version.md](2026-10-08-decision-3-protocol-version.md) | **第 3 项（`mqtt.js` 协议版本）· 已定稿**：现状（**两端都跑在 3.1.1，且都没人选过**）+ **25 项本机实测**（EMQX 零配置、**跨版本矩阵载荷无损**、可混用、User Properties 只在双 5.0 时透传、**3.1.1 下 `properties` 被静默忽略**；凭据 10 用例两版行为一致）+ **5.0 七项特性逐个对照** + **会话语义** + **trace 的业界定位**（OTel 未覆盖 MQTT）+ 逐轴补全与纠偏 + **结论四件（§8）** + **混用可观测性实测（§4.12）** + **订阅端 QoS 与会话（§9）** |
 | [2026-10-08-internal-scenario-review.md](2026-10-08-internal-scenario-review.md) | **前提复议 · 作为 P2 启动输入（不在 P1 内实施，见 §5）**：以"工厂内部效率自用"为条件复核前两项决策——3 个前提级发现 + 逐项复核 + A/B/C/D 四类遗漏 + 三档结论 + **P2 启动读取顺序（第 0 步＝先采效率基线）** |
 | [2026-10-09-buffer-layer.md](2026-10-09-buffer-layer.md) | **缓冲层：Redis 形态与队列形态——五项全部定稿**：Redis **独立实例**（理由见 ADR-010 D4）/ 队列命名 / **worker 独立入口** / 保留策略 / **消息信封＝原始报文** / **Redis 挂时订阅端落本地** |
+| [2026-10-09-plan.md](2026-10-09-plan.md) | **实施计划**：依赖顺序 T0–T10 + 贯穿约束 C1–C6 + 逐任务验收；**交付判据三条**（落库可见 / 降采样在跑 / 重投不产重复）；库名 `wewant_iot` / `wewant_iot_ds` |
 | [scripts/probe/tdengine-semantics.mjs](../../../scripts/probe/tdengine-semantics.mjs) | TDengine 语义探针（零依赖，走 taosAdapter REST）：省略列语义 / `ALTER STABLE` 代价 / 虚拟表能力边界 / 跨超表查询约束 |
 | [scripts/probe/tdengine-lifecycle.mjs](../../../scripts/probe/tdengine-lifecycle.mjs) | TDengine 生命周期探针（零依赖）：社区版审计能力 / `ALTER DATABASE` 能力边界 / 跨库查询 / 三级链式降采样 / `avg of avg` 偏差 / 窗口 offset 与时区 |
 | [scripts/probe/tdengine-container.sh](../../../scripts/probe/tdengine-container.sh) | 起临时容器 → 等 taosAdapter 就绪 → 跑探针；`--down` 停掉 |
