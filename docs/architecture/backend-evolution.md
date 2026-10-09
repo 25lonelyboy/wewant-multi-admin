@@ -55,7 +55,7 @@ iot 域作为第二个业务域落地（见 [ADR-009](../decisions/ADR-009-iot-p
 | e2e 分层（域 spec 下沉） | 已命中 | backlog 条目「新增第一个非 auth/system 域 e2e」，本次 iot e2e 已落地 |
 | system 域只读查询门面 | 未命中 | 原触发条件为「第二个需用户/角色信息的域」，iot 域不做 RBAC 查询 |
 | schema.prisma 多文件拆分 | 未命中 | 原触发条件为模型规模（> ~25 模型或 > ~600 行），iot 域未新增模型 |
-| common/ 与 infra/ 二分 | 未命中 | 原触发条件为第二个外部中间件适配器（BullMQ，属增量 2） |
+| common/ 与 infra/ 二分 | **已命中（2026-10-09 判定，待实施）** | 触发条件＝第二个外部中间件适配器；增量 2 引入 TDengine 客户端（`@tdengine/websocket`）与 BullMQ **两个**，条件成立。处置：把 `common/` 下的 `redis/`、`logging/`、`throttler/` 上提 `src/infra/`，形成「infra = 外部薄壳、common = 框架约定」——**排在增量 2 加适配器之前** |
 
 ### 阶段 A 已确认的范围决策（ADR-007）
 
