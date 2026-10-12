@@ -4,7 +4,7 @@ covers:
   - apps/nestjs-server/
   - docker-compose.yml
   - .github/workflows/
-last_verified: 2026-10-09
+last_verified: 2026-10-10
 ---
 
 # 全局 backlog
@@ -43,7 +43,7 @@ last_verified: 2026-10-09
 | schema.prisma 多文件拆分 | 当前单文件 99 行 / 5 模型健康；业务域扩展（监控 / dept / 文件存储）后单文件将膨胀。Prisma 7 的 `prisma.config.ts` schema 字段支持目录/文件数组（multi-file），全库仅一个 datasource + generator 为硬约束；拆分需一次改齐 prisma.config.ts、prisma 脚本与 Dockerfile COPY 路径（以 7.9.x 官方文档确认目录/数组写法）；现阶段维持单文件并确立「按域分节」书写约定 | 模型数 > ~25 或行数 > ~600 或第二限界上下文立项 | 2026-08-26 |
 | test/ e2e 分层 | 当前 test/ 根混放 7 个基建/引导文件（jest 配置、global-setup/teardown、e2e-env、strip-import-meta 等）与域 spec，`helpers/`、`fixtures/` 已分出；dept/monitor e2e 已立项，届时根目录将再堆多个 `*.e2e-spec.ts`（system.e2e-spec 已 20KB）。方案：域 spec 下沉 `test/e2e/<domain>.e2e-spec.ts`，基建留根或收敛 `test/support/`，同步调整 `jest-e2e.cjs` 的 roots/testMatch 与 helpers 相对导入 | 新增第一个非 auth/system 域 e2e（2026-10-05 已命中：iot 域 e2e 落地，暂随现有平铺路径以保持单一结构、不引入双路径并存） | 2026-08-26 |
 | module 注册域聚合约定 | `app.module.ts` 8 import 尚健康；防膨胀策略延续 `SystemModule` 聚合模式（域聚合模块包 leaf，app.module 只 import 聚合）；明确拒绝反射/目录扫描式自动注册（破坏 DI 可发现性，与薄壳显式哲学相悖）；全局 `APP_GUARD/APP_FILTER` provider 留组合根 | 域聚合 > ~5 或 app.module import > ~15（可引入 `src/domains/` 物理聚拢） | 2026-08-26 |
-| common/ 外部中间件适配器上提 | `common/` 现混放框架约定（guards/filters/decorators/errors 等，纯 NestJS）与外部适配薄壳（redis/logging/throttler）；Prisma 适配器已独立 `database/`，概念缝隙已隐式存在；方案：`redis/`、`logging/`、`throttler/` 随下一个外部适配器一起上提 `src/infra/`，形成「infra = 外部薄壳、common = 框架约定」二分 | **已命中（2026-10-09）**：增量 2 引入 TDengine 客户端与 BullMQ，第二个外部中间件适配器条件成立；**待实施**——排在增量 2 加适配器之前 | 2026-08-26 |
+| common/ 外部中间件适配器上提 | `common/` 现混放框架约定（guards/filters/decorators/errors 等，纯 NestJS）与外部适配薄壳（redis/logging/throttler）；Prisma 适配器已独立 `database/`，概念缝隙已隐式存在；方案：`redis/`、`logging/`、`throttler/` 随下一个外部适配器一起上提 `src/infra/`，形成「infra = 外部薄壳、common = 框架约定」二分 | **延后**：原判据「本增量要加两个外部适配器」随消费者独立成 `apps/iot-worker` 而失效——server 侧只剩一个薄的 BullMQ 生产者，TDengine 客户端在 worker 侧、不进 server。待 server 侧再落第二个外部适配器时重启评估 | 2026-08-26 |
 | CI PR 门禁与分支保护 | CI 现仅入库后验（push master，报警式，ADR-006 刻意决策），团队扩张或 agent 自动提交增多时 master 存在红构建无人拦截；迁移成本低：gate job 增 `pull_request` 触发器 + 开分支保护 | 阶段 E（第二协作者加入或开始接受外部 PR） | 2026-08-26 |
 | server 冒烟生产级演进 | 现有形态适配「无 registry / 单 job」现状；演进信号：① 镜像开始 push registry（CD 制品策略落地）→ 冒烟拆独立 job、按 digest 拉取同源产物；② 出现事务性冒烟需求（seed 凭据登录 + 业务读写闭环）→ 探测升级；③ 第二运行时依赖（BullMQ）→ 迁移 compose/Testcontainers | 任一信号出现时立项 | 2026-08-29 |
 | 供应链加固 | ① 无 Dependabot/Renovate，依赖更新仅靠 `pnpm audit` 事后报警；② 无镜像内容扫描（Trivy/Grype），基础镜像与 OS 层漏洞无感知；③ GitHub Actions 版本钉 major（`checkout@v4`），企业实践钉 commit SHA——**2026-10-05 实例佐证其必要性**：action 自身的运行时与缓存行为会静默把 job 打红（`setup-node` 的缓存 post 步骤路径校验失败，使 `audit` 报警式 job 失败、整轮 CI 变红，见 [build-and-verify.md](../engineering/build-and-verify.md)）。方案已定（ADR-007）：Renovate 公有 GitHub App（`.renovaterc.json`，需确认 pnpm manager 同管 catalog 与 lockfile）；Trivy 入 CI 报警式（docker-build 加一步 + 漏洞库缓存）；check-digests 季度刷新在 Renovate 落地后退役 | 阶段 A（生产部署试点） | 2026-08-26 |
@@ -53,6 +53,10 @@ last_verified: 2026-10-09
 | pure-web 上游同步周期评估 | vue-pure-admin template 衍生（接入 2026-08-10），无 fork 跟踪机制；方案：基线 SHA 记录 + ops/upstream-diff.sh 差异报告 + 选择性吸收（吸收项走 strict 迁入 + 测试验收） | 上游大版本发布或季度触发 | 2026-08-29 |
 | EMQX 集群的商业授权路径评估 | P1 用 EMQX 6.3.x LTS **单节点**（BSL 1.1 免费额度覆盖）；付费触发点为多节点集群 / 对外托管 / 嵌入转售（记录见 [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md)）。替代路径未评估：商业订阅形态（年度订阅 + License Key，限额为并发会话数）vs 改用 Apache-2.0 且原生集群的 VerneMQ | 需要多节点集群或高可用时 | 2026-10-02 |
 | TDengine 的 AGPL 义务重估 | 时序库选 TDengine 社区版（AGPL-3.0，见 [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md)）。§13 义务要件为"修改源码 + 对外网络交互"；P1 与内部自用不触发，但**对外提供服务或嵌入转售时须重估**（走商业授权，或按 AGPL 义务设计）。客户端 `@tdengine/websocket` 为 MIT、通信在进程边界外，应用侧不构成衍生 | 产品形态转为对外服务或嵌入转售时 | 2026-10-02 |
+| 本地落盘缓冲目录的容量与运维 | 队列不可达时 server 落本地 `IOT_SPILL_DIR`（compose 挂 `server-spill` 卷），但目录无容量上限告警 / 轮转 / 清理策略；缓冲超 `IOT_SPILL_MAX_BYTES` 即**停订阅**（不自动恢复，需人工处置），处置流程与容量观测缺位 | 队列 Redis 出现较长时间不可达，或落盘目录接近上限 | 2026-10-10 |
+| 遥测写入的规模上限（每子表一条语句） | worker 写入层对每个子表逐条 STMT 语句，P1 规模为 100 设备 × 单测点；子表数随设备 / 测点增长时单批语句数与连接压力未压测，规模拐点未知 | 规模压测（设备 / 测点数量上调）或写入延迟出现抖动 | 2026-10-10 |
+| TDengine 真实压缩比与存储容量估算 | 容量按 TDengine 标称压缩比估算，未经真实数据实测；KEEP / DURATION 与降采样保留期（原始 3 年、分钟级 3 年、库级 10 年）同磁盘需求的对照关系未验证 | 增量 6（存储与归档方向）以真实数据实测，或磁盘容量规划前 | 2026-10-10 |
+| 设备档案数据源过渡 | `packages/device-registry` 目前是 P1 静态数据（100 台单点设备硬编码），对外接口 `hasDevice` / `resolve` / `allSubtables` 已稳定；PG 真档案表、档案变更后的缓存失效与下发同步未实现 | 增量 3（设备注册）立项时实现 PG 档案，消费方接口不动 | 2026-10-10 |
 
 ## 已关闭
 

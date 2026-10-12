@@ -1,29 +1,17 @@
-import type { TelemetryMetric, TelemetryPayload } from '@multi-admin/contracts';
-
-/** 解析后的上行样本 */
-export interface TelemetrySample {
-  deviceId: string;
-  ts: number;
-  metrics: TelemetryMetric[];
-}
-
-function isMetric(value: unknown): value is TelemetryMetric {
-  if (typeof value !== 'object' || value === null) return false;
-  const metric = value as Partial<TelemetryMetric>;
-  return (
-    typeof metric.key === 'string' &&
-    metric.key !== '' &&
-    typeof metric.value === 'number' &&
-    Number.isFinite(metric.value) &&
-    typeof metric.unit === 'string'
-  );
-}
+import {
+  localDeviceIdFromTopic,
+  normalizeLocalId
+} from '@multi-admin/contracts';
 
 /**
- * 解析设备上行报文。结构不符返回 null 而非抛错：设备数据是系统边界上的输入，
- * 单条坏报文不应中断整条订阅链路（调用方只做计数与 debug 记录）。
+ * 只取 `localDeviceId` 的**轻量解析**。
+ *
+ * 订阅端不做完整校验——那件事归消费者（缓冲层 §3.1「入队在解析之前」）。这里解析只有一个
+ * 目的：拿到与主题段比对的设备编号、并给设备在线视图喂数据。
+ *
+ * ⚠️ 它**不判好坏**：解析不出来就返回 `null`，报文照样入队，由消费者计数与丢弃。
  */
-export function parseTelemetry(raw: string): TelemetrySample | null {
+export function readLocalDeviceId(raw: string): string | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -32,15 +20,47 @@ export function parseTelemetry(raw: string): TelemetrySample | null {
   }
   if (typeof parsed !== 'object' || parsed === null) return null;
 
-  const payload = parsed as Partial<TelemetryPayload>;
-  if (typeof payload.deviceId !== 'string' || payload.deviceId === '')
-    return null;
-  if (typeof payload.ts !== 'number' || !Number.isFinite(payload.ts))
-    return null;
-  if (!Array.isArray(payload.metrics)) return null;
+  const value = (parsed as { localDeviceId?: unknown }).localDeviceId;
+  return typeof value === 'string' && value !== '' ? value : null;
+}
 
-  const metrics = payload.metrics.filter(isMetric);
-  if (metrics.length === 0) return null;
+export type MessageOutcome =
+  /** 主题与载荷一致：入队，并记进设备在线视图（编号已规范化） */
+  | { kind: 'accept'; localDeviceId: string }
+  /** 载荷里读不出设备编号：**原样入队**，由消费者计数与丢弃 */
+  | { kind: 'accept-opaque' }
+  /** 身份不一致：**拦下**，不入队 */
+  | {
+      kind: 'reject-identity';
+      topicDeviceId: string;
+      payloadDeviceId: string;
+    };
 
-  return { deviceId: payload.deviceId, ts: payload.ts, metrics };
+/**
+ * 一条报文的去向判定。
+ *
+ * ⚠️ **"丢弃"分两类、归属不同**：`JSON.parse` 失败归**消费者**（原样入队）；
+ * **身份不一致归订阅端**（不入队）——主题是 ACL 的授权单位，身份却以载荷为准，
+ * 不拦的话，一个已授权设备可以在自己的主题上发别人的编号，数据落进别人的子表。
+ *
+ * 比对前两侧都过规范化：同一台设备前后大小写/空白不一致不算换了一台。
+ */
+export function classifyMessage(topic: string, raw: string): MessageOutcome {
+  const payloadDeviceId = readLocalDeviceId(raw);
+  if (payloadDeviceId === null) return { kind: 'accept-opaque' };
+
+  const normalized = normalizeLocalId(payloadDeviceId);
+  const topicDeviceId = localDeviceIdFromTopic(topic);
+  if (
+    topicDeviceId === null ||
+    normalizeLocalId(topicDeviceId) !== normalized
+  ) {
+    return {
+      kind: 'reject-identity',
+      topicDeviceId: topicDeviceId ?? topic,
+      payloadDeviceId
+    };
+  }
+
+  return { kind: 'accept', localDeviceId: normalized };
 }

@@ -2,7 +2,8 @@
 status: living
 covers:
   - apps/nestjs-server/
-last_verified: 2026-10-09
+  - apps/iot-worker/
+last_verified: 2026-10-10
 ---
 
 # NestJS 后端架构
@@ -30,7 +31,7 @@ src/
 ├── modules/
 │   ├── auth/        # 认证域：LocalStrategy + JwtStrategy + TokenService（双令牌轮换）
 │   ├── system/      # RBAC 三域 CRUD：user / role / menu（软删除，两张关联表物理维护）
-│   ├── iot/         # 设备接入域：MQTT 订阅设备上行（只做订阅 + 可见性日志）
+│   ├── iot/         # 设备接入域：MQTT 订阅 + 轻量解析 + 投队列（消费者在 apps/iot-worker，见下）
 │   └── health/      # /health 探针（DB + Redis），不受全局前缀约束
 └── generated/       # prisma generate 产物（git-ignored）
 ```
@@ -43,17 +44,33 @@ src/
 
 ## 设备接入链路（iot 域）
 
-HTTP 之外的第二条入口，不经全局前缀与守卫链：
+HTTP 之外的第二条入口，不经全局前缀与守卫链；整条链路跨两个应用：
 
 ```text
-设备 → TCP 1883 → EMQX → TelemetrySubscriberService（订阅 wewant/devices/+/telemetry）→ 每秒聚合日志
+设备/模拟器 → TCP 1883 → EMQX
+    → TelemetrySubscriberService（订阅 wewant/devices/+/telemetry，轻量解析 + 投队列）
+    → BullMQ（redis-queue 实例）→ apps/iot-worker 消费者 → TDengine（库 wewant_iot）
 ```
 
-- 主题与载荷契约定义在 `packages/contracts` 的 iot 段（`telemetryTopic` / `TELEMETRY_TOPIC_FILTER` / `TelemetryPayload`），模拟器与后端消费同一份，不在应用内各自写常量。
-- 连接串为 `MQTT_URL`（默认 `mqtt://127.0.0.1:1883`，容器内为 `mqtt://emqx:1883`）。
+### 订阅端（`apps/nestjs-server` 的 iot 域）
+
+- 职责是**订阅 + 轻量解析 + 投队列**：解析只取 `localDeviceId`（喂设备在线视图、拦身份不一致），随后把**原始载荷**投进队列——**入队在解析之前**，重投即原样重投；完整解析 / 校验 / 计数在消费者。生产者构造不 ping、不 await 下游。
+- 主题与载荷契约定义在 `packages/contracts` 的 iot 段（`telemetryTopic` / `TELEMETRY_TOPIC_FILTER` / `TelemetryPayload`），模拟器、订阅端与消费者消费同一份，不在应用内各自写常量。
+- 连接串为 `MQTT_URL`（默认 `mqtt://127.0.0.1:1883`，容器内为 `mqtt://emqx:1883`）；QoS 1、`clean:false` + `sessionExpiryInterval`（`MQTT_SESSION_EXPIRY_SECONDS`），`clientId` 固定（`MQTT_CLIENT_ID`）——固定才能用上持久会话。
+- **身份校验**：主题段与载荷 `localDeviceId` 不一致 ⇒ **丢弃 + 计数 + 告警**（主题是将来 ACL 的授权单位，身份却以载荷为准；不拦的话，一个已授权设备可在自己的主题上发别人的编号，数据落进别人的子表）；`JSON.parse` 失败 ⇒ **原样入队**，由消费者计数。
+- **队列不可达不阻断启动**：生产者以 `enableOfflineQueue:false` 快速失败，入队失败即**落本地磁盘缓冲**（`IOT_SPILL_DIR`，FIFO、投成功才删）；缓冲体积超 `IOT_SPILL_MAX_BYTES` ⇒ **停订阅 + 告警**（不自动恢复，需人工处置）。队列 Redis 是独立实例（`QUEUE_REDIS_URL`）——BullMQ 要求 `noeviction`，而该策略是实例级的，业务缓存恰好希望有淘汰。
 - **Broker 不可达不阻断启动**：连接失败只记 warn 并交 mqtt.js 自动重连。server 镜像冒烟与 CI 的 `docker-build` / `e2e-web-real` 两条 job 都在没有 EMQX 的情况下启动本应用。
-- 日志分两层：`debug` 逐条报文，`info` 每秒一行聚合（条数 / 测点数 / 设备数）——聚合行即接入链路的观测证据，逐条打印在百级设备下不可读。
-- 本阶段只做订阅与可见性日志：不进队列、不落库（缓冲层与存储属数据链路增量，见 [ADR-010](../decisions/ADR-010-ingest-buffer-bullmq.md)）；设备注册与物模型属物模型增量。
+- 日志每秒一行聚合（入队条数 / 设备数，命中不一致时附拦截数）——聚合行即接入链路的观测证据，逐条打印在百级设备下不可读。
+
+### 消费者（`apps/iot-worker`）
+
+- 独立运行时：**不用 Nest、不开 HTTP**，与 server 并列的第二个进程，可独立启停 / 多实例 / 扩缩；配置 `apps/iot-worker/src/config.ts`（zod）、结构化日志（pino）、优雅停机（SIGINT/SIGTERM → 先落库再 `worker.close()`）。它不碰 PG，容器无 migrate / seed。worker 的 env 为 `QUEUE_REDIS_URL` / `TDENGINE_URL` / `TDENGINE_TIMEZONE` / `INGEST_BATCH_SIZE` / `INGEST_FLUSH_INTERVAL_MS` / `INGEST_CONCURRENCY`。
+- 消费端**无限等待**（`maxRetriesPerRequest:null`，BullMQ 阻塞读命令不能因超时中断）；`INGEST_CONCURRENCY` 同时是"一批最多攒多少条"，攒够 `INGEST_BATCH_SIZE` 或到 `INGEST_FLUSH_INTERVAL_MS` 即 flush。
+- **入库成功才 ack**：一批的写入结果统一兑现那批 job 的 ack——写入失败即整批 reject、整批重投（BullMQ 的 `getLastAffected` 不给行级定位，做不到"丢失败那行、ack 其余"）。
+- 设备档案查表经 `packages/device-registry`；**未知测点只丢该测点**并计数 + 告警（不丢整条，避免把同一条里合法测点一起赔进去）。
+- 队列名 `iot-telemetry-ingest`、Redis 键前缀 `wewant` 由 contracts 的 iot 段一处定义——两端分属不同应用，名字必须同源。⚠️ BullMQ 用 `:` 作 Redis 键分隔符，队列名含冒号构造即抛，故分隔符用 `-`。
+
+TDengine 库表 / 降采样流与建库脚本见 [build-and-verify.md](../engineering/build-and-verify.md) 与 `apps/iot-worker/scripts/tdengine-init.ts`。选型与边界见 [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md)、[ADR-010](../decisions/ADR-010-ingest-buffer-bullmq.md)；设备注册与物模型属物模型增量。
 
 ## API 约定
 

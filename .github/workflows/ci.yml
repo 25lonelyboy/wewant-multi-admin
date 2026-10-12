@@ -84,6 +84,17 @@ jobs:
             PNPM_REGISTRY=https://registry.npmjs.org
             COREPACK_NPM_REGISTRY=https://registry.npmjs.org
             PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
+      - name: 构建 iot-worker 镜像
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/iot-worker/Dockerfile
+          push: false
+          load: true
+          tags: multi-admin-iot-worker:ci
+          build-args: |
+            PNPM_REGISTRY=https://registry.npmjs.org
+            COREPACK_NPM_REGISTRY=https://registry.npmjs.org
       - name: server 镜像启动冒烟（/health 探针 + entrypoint 三段断言）
         # 冒烟专用丢弃值（非生产秘密，内联安全）；Linux runner 走 --network host，容器内 localhost 即本 job services
         env:
@@ -160,10 +171,36 @@ jobs:
           --health-interval 5s
           --health-timeout 25s
           --health-retries 5
+      # 队列 Redis：与业务缓存分实例（BullMQ 要求 noeviction，那是实例级配置）
+      redis-queue:
+        image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf # pin: 2026-08-27 (pnpm ops:check-digests quarterly)
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      # 时序库：6041 = taosAdapter，REST 与 WebSocket 同端口。
+      # ⚠️ TZ 必须给——建库脚本会断言服务器时区；窗口对齐（业务日从早 8 点）靠它。
+      tdengine:
+        image: tdengine/tsdb:3.4.2.8@sha256:44f58e6f9b013bccb94c4a27dd0ec7bca2982474fd3b390cafb48f709db1f0b1 # pin: 2026-10-10 (pnpm ops:check-digests quarterly)
+        env:
+          TZ: Asia/Shanghai
+        ports:
+          - 6041:6041
+        options: >-
+          --health-cmd "taos -s 'SELECT SERVER_VERSION()'"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 12
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/multi_admin?schema=public
       REDIS_URL: redis://localhost:6379
       MQTT_URL: mqtt://localhost:1883
+      QUEUE_REDIS_URL: redis://localhost:6380
+      TDENGINE_URL: ws://root:taosdata@localhost:6041
+      IOT_SPILL_DIR: /tmp/wewant-iot-spill
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -172,7 +209,12 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: 初始化 TDengine（建库 / 建表 / 建流，幂等）
+        run: pnpm --filter @multi-admin/iot-worker run tdengine:init
       - run: pnpm exec turbo run test:coverage --filter=@multi-admin/nestjs-server
+        # 报警式（ADR-006）：覆盖率不达标只报警不拦截
+        continue-on-error: true
+      - run: pnpm --filter @multi-admin/iot-worker run test:coverage
         # 报警式（ADR-006）：覆盖率不达标只报警不拦截
         continue-on-error: true
 

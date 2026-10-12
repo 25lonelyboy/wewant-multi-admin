@@ -5,7 +5,7 @@ covers:
   - internal/
   - packages/
   - pnpm-workspace.yaml
-last_verified: 2026-10-09
+last_verified: 2026-10-10
 ---
 
 # Monorepo 结构与边界
@@ -21,8 +21,10 @@ last_verified: 2026-10-09
 | `apps/uni-mobile`（`@multi-admin/uni-mobile`） | uni-app 多端 | Vue3；Vite 版本被 named catalog `uni-app` 隔离为 5.2.8（uni-app 编译链与主仓 Vite 8 不兼容） |
 | `apps/electron-desktop`（`@multi-admin/electron-desktop`） | 桌面端 | 无自身 UI，devDependencies 声明 `@multi-admin/pure-web: workspace:*`，打包时消费其 `dist` 产物；详见 [desktop-app.md](desktop-app.md) |
 | `apps/iot-simulator`（`@multi-admin/iot-simulator`） | 设备模拟器 | 设备侧唯一的进程：以 MQTT 上行虚拟设备遥测（缺省 100 台 1 Hz，规模与频率可调），用于打穿接入链路与后续规模压测；消费 `packages/contracts` 的 iot 段主题与载荷契约，见 [backend.md](backend.md) 设备接入链路 |
+| `apps/iot-worker`（`@multi-admin/iot-worker`） | 遥测消费者 | 与 HTTP 服务并列的第二个运行时：**不用 Nest、不开 HTTP**，从 BullMQ 队列取原始报文，解析 / 检测 / 攒批后 STMT 写入 TDengine；可独立启停 / 多实例 / 扩缩，自备 Dockerfile（**不碰 PG，无 migrate / seed**）；消费 `packages/contracts` 与 `packages/device-registry` |
 | `packages/common`（`@multi-admin/common`） | 跨端共享 TS 代码 | tsdown 构建；暂无应用引用 |
-| `packages/contracts`（`@multi-admin/contracts`） | 接口与设备接入契约 | 纯类型 + BizCode/MenuType 常量 + iot 段（主题模板与上行载荷类型）；tsdown ESM+CJS 双格式 + 双 d.ts；nestjs-server、pure-web 与 iot-simulator 以 `workspace:*` 消费；见 [contracts.md](contracts.md) |
+| `packages/contracts`（`@multi-admin/contracts`） | 接口与设备接入契约 | 纯类型 + BizCode/MenuType 常量 + iot 段（主题模板、上行载荷类型、队列名与键前缀）；tsdown ESM+CJS 双格式 + 双 d.ts；nestjs-server、pure-web、iot-simulator 与 iot-worker 以 `workspace:*` 消费；见 [contracts.md](contracts.md) |
+| `packages/device-registry`（`@multi-admin/device-registry`） | 设备档案 | 两个映射：`localDeviceId → deviceId`、`(localDeviceId, localPointId) → pointKey`；对外只暴露接口（`hasDevice` / `resolve` / `allSubtables`），数据形态是实现细节。⚠️ **模拟器与 pure-web 都不依赖它**——"平台侧标识不下发"由**依赖边界**保证；依赖 `packages/contracts` |
 | `internal/node-utils` | Node 侧进程工具 | 仅导出 `run` / `runSync`（`process.mjs`），供根 `scripts/check.mjs` 等使用 |
 | `internal/eslint-config` | ESLint 基线 | 导出 `base.mjs` / `node.mjs` / `vue.mjs` / `typescript.mjs` / `tailwind.mjs` 工厂，应用侧配置为薄壳 |
 | `internal/stylelint-config` | Stylelint 基线 | 导出 `base.mjs` |
@@ -44,14 +46,20 @@ flowchart LR
     server["nestjs-server"]
     mobile["uni-mobile"]
     simulator["iot-simulator"]
+    worker["iot-worker"]
+    registry["packages/device-registry"]
     desktop -- "任务图 ^build 编排 pure-web 产物" --> web
     web -- "workspace:* 契约消费" --> contracts
     server -- "workspace:* 契约消费" --> contracts
     simulator -- "workspace:* 契约消费" --> contracts
+    worker -- "workspace:* 契约消费" --> contracts
+    worker -- "workspace:* 档案查询" --> registry
+    registry -- "workspace:* 契约消费" --> contracts
     web -.-> eslint & tsconfig
     desktop -.-> nodeutils & tsconfig & eslint
     server -.-> tsconfig & eslint
     simulator -.-> tsconfig & eslint
+    worker -.-> tsconfig & eslint
     mobile -.-> eslint
     classDef unused stroke-dasharray: 5 5
 ```
@@ -62,6 +70,8 @@ flowchart LR
 - pure-web 与 electron-desktop 是"产物消费"关系而非代码 import 关系：桌面端通过自定义协议托管 pure-web 的静态产物（见 [desktop-app.md](desktop-app.md)）。
 - `packages/common` 目前无消费方，新增共享代码时的放置判据见下。
 - `packages/contracts` 是首个被前后端双端消费的共享包；契约扩展流程与错误码表见 [contracts.md](contracts.md)。
+- `apps/iot-worker` 是与 HTTP 服务**并列的第二个运行时**（队列消费独立成进程，不占 server 进程）；`packages/device-registry` 是平台侧标识（`deviceId` / `pointKey`）的**唯一持有者**——模拟器与 pure-web 都不依赖它，"平台侧标识不下发"由依赖边界硬性保证，不靠约定。
+- `packages/contracts` 的 iot 段同时被发布方（iot-simulator）与消费方（iot-worker）消费，队列名与主题一并一处定义，避免两端漂移。
 
 ## 目录放置规则
 

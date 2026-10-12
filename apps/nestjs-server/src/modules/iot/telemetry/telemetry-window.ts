@@ -1,7 +1,6 @@
 /** 一个统计窗口的接收结果 */
 export interface TelemetryWindow {
   messages: number;
-  metrics: number;
   devices: number;
 }
 
@@ -11,24 +10,20 @@ export interface TelemetryWindow {
  */
 export class TelemetryWindowCounter {
   private messages = 0;
-  private metrics = 0;
   private devices = new Set<string>();
 
-  record(deviceId: string, metricCount: number): void {
+  record(localDeviceId: string): void {
     this.messages += 1;
-    this.metrics += metricCount;
-    this.devices.add(deviceId);
+    this.devices.add(localDeviceId);
   }
 
   /** 取出当前窗口并清零 */
   drain(): TelemetryWindow {
     const window: TelemetryWindow = {
       messages: this.messages,
-      metrics: this.metrics,
       devices: this.devices.size
     };
     this.messages = 0;
-    this.metrics = 0;
     this.devices = new Set<string>();
     return window;
   }

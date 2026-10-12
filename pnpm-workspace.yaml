@@ -16,6 +16,7 @@ allowBuilds:
   electron-winstaller: true
   es5-ext: true
   esbuild: true
+  msgpackr-extract: false
   prisma: true
   typeit: true
   unrs-resolver: true
@@ -62,6 +63,7 @@ catalog:
   '@prisma/adapter-pg': '7.9.1'
   '@prisma/client': '7.9.1'
   '@tailwindcss/vite': '^4.3.3'
+  '@tdengine/websocket': '3.5.0'
   '@types/express': '^5.0.0'
   '@types/jest': '^30.0.0'
   '@types/node': '^24.0.0'
@@ -74,6 +76,7 @@ catalog:
   '@vue/tsconfig': '^0.7.0'
   'argon2': '^0.45.0'
   'axios': '1.18.1'
+  'bullmq': '^6.3.12'
   'class-transformer': '^0.5.1'
   'class-validator': '^0.15.1'
   'dayjs': '^1.11.21'

@@ -22,9 +22,9 @@ export function buildMetrics(
 
 /** 生成一台设备的一次上行报文 */
 export function buildPayload(
-  deviceId: string,
+  localDeviceId: string,
   ts: number = Date.now(),
   random: () => number = Math.random
 ): TelemetryPayload {
-  return { deviceId, ts, metrics: buildMetrics(random) };
+  return { localDeviceId, ts, metrics: buildMetrics(random) };
 }

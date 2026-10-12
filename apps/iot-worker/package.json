@@ -1,0 +1,37 @@
+{
+  "name": "@multi-admin/iot-worker",
+  "version": "0.1.0",
+  "description": "IoT 平台遥测消费者：从 BullMQ 队列取原始报文，落 TDengine",
+  "author": "",
+  "private": true,
+  "type": "module",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --cache --max-warnings 0",
+    "test": "node --import tsx --test test/*.test.ts",
+    "test:e2e": "node --import tsx --test test/*.e2e.ts",
+    "test:coverage": "node scripts/coverage.mjs",
+    "tdengine:init": "tsx scripts/tdengine-init.ts"
+  },
+  "dependencies": {
+    "@multi-admin/contracts": "workspace:*",
+    "@multi-admin/device-registry": "workspace:*",
+    "@tdengine/websocket": "catalog:",
+    "bullmq": "catalog:",
+    "pino": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@multi-admin/eslint-config": "workspace:*",
+    "@multi-admin/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

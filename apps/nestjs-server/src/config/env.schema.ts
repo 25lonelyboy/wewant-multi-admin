@@ -12,6 +12,20 @@ export const envSchema = z.object({
   DATABASE_URL: z.url(),
   REDIS_URL: z.string().min(1),
   MQTT_URL: z.url().default('mqtt://127.0.0.1:1883'),
+  /** 订阅端 clientId：**固定**才能配合 `clean=false` 用上持久会话；每次重启换 id 会让会话白搭 */
+  MQTT_CLIENT_ID: z.string().min(1).default('wewant-iot-subscriber'),
+  /** 持久会话的过期秒数；0 表示连接断开即结束会话 */
+  MQTT_SESSION_EXPIRY_SECONDS: z.coerce
+    .number()
+    .int()
+    .nonnegative()
+    .default(86400),
+  /** 队列 Redis——与业务缓存 `REDIS_URL` 是**两个实例**（ADR-010 D4） */
+  QUEUE_REDIS_URL: z.string().min(1).default('redis://127.0.0.1:6380'),
+  /** 队列不可达时落本地的目录；不挂卷则容器一重建，缓冲就白做 */
+  IOT_SPILL_DIR: z.string().min(1).default('./.spill'),
+  /** 本地缓冲上限（字节）；超过即**停订阅 + 告警**，不静默丢数据 */
+  IOT_SPILL_MAX_BYTES: z.coerce.number().int().positive().default(268_435_456),
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
   JWT_ACCESS_TTL: z.string().default('15m'),

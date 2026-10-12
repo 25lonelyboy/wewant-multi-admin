@@ -1,4 +1,4 @@
-# 本机部署编排：web（nginx）+ server（NestJS）+ postgres + redis + emqx
+# 本机部署编排：web（nginx）+ server（NestJS）+ worker（遥测消费者）+ postgres + redis + redis-queue + emqx + tdengine
 # 启动前复制根目录 .env.example 为 .env 并填写密码与 ADMIN_INIT_PASSWORD
 services:
   postgres:
@@ -31,6 +31,30 @@ services:
       timeout: 3s
       retries: 10
 
+  # 队列专用 Redis。BullMQ 要求 maxmemory-policy=noeviction，而该配置是**实例级**，
+  # 业务缓存恰好希望有淘汰 ⇒ 只能分实例（ADR-010 D4）。驱逐会直接丢 job，不能与业务缓存合并。
+  # appendonly：BullMQ 官方要求持久化需自行开启。
+  redis-queue:
+    image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf # pin: 2026-08-27 (pnpm ops:check-digests quarterly)
+    restart: unless-stopped
+    command:
+      [
+        'redis-server',
+        '--maxmemory-policy',
+        'noeviction',
+        '--appendonly',
+        'yes'
+      ]
+    ports:
+      - '127.0.0.1:6380:6379'
+    volumes:
+      - redis-queue-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   # 设备接入 Broker。只绑宿主回环：本地开发阶段全部组件同机，边界由 loopback 承担；
   # 出现非本机客户端（真实硬件 / 组件移出本机）时才改绑私网，并同时上 TLS + 每设备凭据 + ACL。
   emqx:
@@ -50,6 +74,26 @@ services:
       timeout: 25s
       retries: 5
 
+  # 时序库。6041 = taosAdapter：REST 与 WebSocket 都走这里。只绑宿主回环，与 EMQX 同约定。
+  # ⚠️ taosd 依赖 hostname 可自解析——compose 默认把服务名设为容器 hostname，容器内可解析，故无需额外配置。
+  tdengine:
+    image: tdengine/tsdb:3.4.2.8@sha256:44f58e6f9b013bccb94c4a27dd0ec7bca2982474fd3b390cafb48f709db1f0b1 # pin: 2026-10-10 (pnpm ops:check-digests quarterly)
+    restart: unless-stopped
+    # 窗口对齐取服务器时区：`INTERVAL(1d)` 起于本地 0 点、`INTERVAL(1d, 8h)` 起于本地 8 点。
+    # 业务日从早 8 点起算，若要"自然日"就是本地 0 点——两者都必须是北京时区，故设在容器级。
+    environment:
+      TZ: Asia/Shanghai
+    ports:
+      - '127.0.0.1:6041:6041'
+    volumes:
+      - tdengine-data:/var/lib/taos
+    healthcheck:
+      test: ['CMD-SHELL', 'taos -s "SELECT SERVER_VERSION()" >/dev/null 2>&1']
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+
   server:
     build:
       context: .
@@ -63,11 +107,17 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/multi_admin?schema=public}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       MQTT_URL: ${MQTT_URL:-mqtt://emqx:1883}
+      # 队列 Redis：与业务缓存分开的实例。⚠️ 它**不可达不得阻断启动**——不可达时订阅端落本地缓冲。
+      QUEUE_REDIS_URL: ${QUEUE_REDIS_URL:-redis://redis-queue:6379}
+      # 队列不可达时的本地落盘目录。⚠️ 不挂卷 ⇒ 容器一重建，本地缓冲白做。
+      IOT_SPILL_DIR: /var/lib/wewant-spill
       ADMIN_INIT_PASSWORD: ${ADMIN_INIT_PASSWORD:?请在 .env 中设置 ADMIN_INIT_PASSWORD}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?请在 .env 中设置 JWT_ACCESS_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?请在 .env 中设置 JWT_REFRESH_SECRET}
     ports:
       - '3000:3000'
+    volumes:
+      - server-spill:/var/lib/wewant-spill
     depends_on:
       postgres:
         condition: service_healthy
@@ -84,6 +134,26 @@ services:
       retries: 12
       start_period: 30s
 
+  # 遥测消费者：与 server 并列的第二个运行时，可独立启停 / 多实例 / 扩缩。
+  # ⚠️ 无 migrate / seed（本进程不碰 PG）；队尾与库都健康才起——它是专职进程，
+  # 不适用 C1「不可达不得阻断启动」（那条约束只针对 API 与订阅端）。
+  worker:
+    build:
+      context: .
+      dockerfile: apps/iot-worker/Dockerfile
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      NODE_ENV: production
+      QUEUE_REDIS_URL: ${QUEUE_REDIS_URL:-redis://redis-queue:6379}
+      TDENGINE_URL: ${TDENGINE_URL:-ws://root:taosdata@tdengine:6041}
+    depends_on:
+      redis-queue:
+        condition: service_healthy
+      tdengine:
+        condition: service_healthy
+
   web:
     build:
       context: .
@@ -95,4 +165,7 @@ services:
 volumes:
   postgres-data:
   redis-data:
+  redis-queue-data:
   emqx-data:
+  tdengine-data:
+  server-spill:

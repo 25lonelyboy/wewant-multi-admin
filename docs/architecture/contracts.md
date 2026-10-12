@@ -5,7 +5,8 @@ covers:
   - apps/nestjs-server/src/
   - apps/pure-web/src/api/
   - apps/pure-web/mock/
-last_verified: 2026-10-05
+  - apps/iot-worker/src/
+last_verified: 2026-10-10
 ---
 
 # contracts 契约包
@@ -19,10 +20,14 @@ last_verified: 2026-10-05
 
 ## 设备接入契约（iot 段）
 
-契约包除前后端 HTTP 接口外，还承载**设备侧契约**：主题模板 `wewant/devices/{deviceId}/telemetry`、订阅端通配过滤器，以及上行载荷类型（选型与边界见 [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md) D3）。
+契约包除前后端 HTTP 接口外，还承载**设备侧契约**：主题模板 `wewant/devices/{localDeviceId}/telemetry`、订阅端通配过滤器、上行载荷类型，以及遥测入库队列的队列名与键前缀（选型与边界见 [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md) D3、[ADR-010](../decisions/ADR-010-ingest-buffer-bullmq.md)）。
 
-- **与 HTTP 契约的区别**：不走向应信封与 BizCode 体系——设备不认 HTTP，也不消费错误码；两端只共享主题形状与 JSON 载荷。
-- **放这里的理由与 HTTP 契约一致**：发布方（设备/模拟器）与订阅方（平台）消费同一份定义，避免各自写常量后漂移。
+- **与 HTTP 契约的区别**：不走向应信封与 BizCode 体系——设备不认 HTTP，也不消费错误码；设备与订阅端只共享主题形状与 JSON 载荷。
+- **放这里的理由与 HTTP 契约一致**：发布方（设备 / 模拟器）与订阅方（订阅端 / 消费者）消费同一份定义，避免各自写常量后漂移。
+- **主题段是路由地址、不是身份**：段里放设备自报的 `localDeviceId`（`telemetryTopic` 生成、`localDeviceIdFromTopic` 逆运算）；平台不以其判定身份——**身份以载荷为准**，订阅端只做一致性拦截（主题段与载荷不一致即丢弃 + 计数 + 告警）。
+- **载荷字段**：`localDeviceId`（设备自报编号，与主题段同值）、可选 `localPointId`（仅多点设备需要，是否允许缺省由档案登记决定）、`ts`（epoch 毫秒）、`metrics[]`。载荷字段与主题占位段统一用 `localDeviceId`（早期草案的 `deviceId` 已弃用），wire format 以本契约为准。
+- **设备侧编号约定**：`localDeviceIdForIndex` 生成 P1 编号（`sim-001`…），模拟器与设备档案共用同一函数，不靠事后断言对齐；`normalizeLocalId` 统一去首尾空白 + 小写（只处理同一台设备前后不一致，不跨设备去重）。
+- **队列常量**：`TELEMETRY_INGEST_QUEUE`（`iot-telemetry-ingest`）与 `TELEMETRY_QUEUE_PREFIX`（`wewant`）。生产者（订阅端）与消费者（`apps/iot-worker`）分属两个应用，队列名必须一处定义，否则两端会各自连到不同的队列而不报错。⚠️ 队列名**不能含 `:`**——BullMQ 用它作 Redis 键分隔符，含冒号构造即抛；故分隔符用 `-`，命名空间交给 `prefix`。
 - **扩展方式**：event / service 通道随物模型增量在 iot 段内扩展；telemetry 通道本身不变。
 
 ## 契约扩展流程（contracts 先行）

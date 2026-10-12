@@ -1,0 +1,24 @@
+/**
+ * 设备侧编号（`localDeviceId`）的 P1 约定。
+ *
+ * 平台签发的 `deviceId` **不下发设备**，设备只报一个自己稳定的本地编号。模拟器与设备档案
+ * （`device-registry` 包）**共用本函数**生成这个编号——一处定义，不靠事后断言对齐。
+ */
+
+/** 编号补零宽度：`sim-001` */
+export const LOCAL_DEVICE_ID_PAD = 3;
+
+/** 第 `index` 台模拟设备的本地编号（`index` 从 1 起）：`sim-001` … `sim-NNN` */
+export function localDeviceIdForIndex(index: number): string {
+  return `sim-${String(index).padStart(LOCAL_DEVICE_ID_PAD, '0')}`;
+}
+
+/**
+ * 本地编号的规范化：去首尾空白 + 统一小写。
+ *
+ * 只处理**同一台设备前后不一致**（决策 1 §8.3 规则 4）；设备之间编号不同不管——那正是
+ * "设备自报编号"这个模型要支持的。主题段与载荷值的比对、档案查表的键，都要先过这一步。
+ */
+export function normalizeLocalId(value: string): string {
+  return value.trim().toLowerCase();
+}

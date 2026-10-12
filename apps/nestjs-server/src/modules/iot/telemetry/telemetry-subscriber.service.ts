@@ -3,18 +3,22 @@ import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import mqtt, { type MqttClient } from 'mqtt';
 import { TELEMETRY_TOPIC_FILTER } from '@multi-admin/contracts';
 import { AppConfigService } from '../../../config/app-config.service.js';
-import { parseTelemetry } from './telemetry-message.js';
+import { classifyMessage } from './telemetry-message.js';
+import { TelemetryProducer } from './telemetry-producer.js';
 import { TelemetryWindowCounter } from './telemetry-window.js';
 
 /** 聚合日志窗口：逐条打印在 100 台设备下不可读 */
 const REPORT_INTERVAL_MS = 1000;
 
 /**
- * 设备上行订阅。本增量只做「订阅 + 可见性日志」：不进队列、不落库。
+ * 设备上行订阅：**只做两件事**——解析出设备编号（喂在线视图、拦身份不一致），
+ * 再把**原始载荷**投进队列。
  *
- * 连接失败**不得**阻断应用启动——MQTT 是接入子系统，Broker 不可达时 API 仍须可用，
- * 恢复交给 mqtt.js 的自动重连。仓库内三条链路在没有 EMQX 的情况下启动本应用
- * （server 镜像冒烟、CI docker-build 的 server 冒烟、CI e2e-web-real）。
+ * 完整解析 / 校验 / 计数全在消费者（缓冲层 §3.1「入队在解析之前」——重投即原样重投）。
+ *
+ * ⚠️ 连接与队列**失败都不得阻断应用启动**：MQTT 是接入子系统，Broker 或队列 Redis 不可达时
+ * API 仍须可用；队列不可达时由本地落盘缓冲兜底。仓库内三条链路在没有这些服务的情况下
+ * 都要能起（server 镜像冒烟、CI docker-build 的 server 冒烟、CI e2e-web-real）。
  */
 @Injectable()
 export class TelemetrySubscriberService
@@ -24,47 +28,75 @@ export class TelemetrySubscriberService
   private readonly counter = new TelemetryWindowCounter();
   /** 收到过报文的设备集合：增量 4 的设备在线视图与增量 6 的指标都以此为底 */
   private readonly seenDevices = new Set<string>();
+  private producer: TelemetryProducer | null = null;
   private client: MqttClient | null = null;
   private reportTimer: NodeJS.Timeout | null = null;
-  private received = 0;
-  private dropped = 0;
-  private reportedDropped = 0;
+  private enqueued = 0;
+  private identityRejected = 0;
+  private reportedRejected = 0;
   /** 一次断连周期只记一条告警，避免重连间隔刷屏 */
   private outageLogged = false;
+  /** 本地缓冲超限后停订阅；**不自动恢复**，需人工处置后重启 */
+  private subscriptionStopped = false;
 
   constructor(private readonly config: AppConfigService) {}
 
-  /** 自启动以来接收的报文总数 */
+  /** 自启动以来投进队列的报文总数 */
   get receivedTotal(): number {
-    return this.received;
+    return this.enqueued;
   }
 
-  /** 自启动以来被丢弃（结构不符）的报文总数 */
-  get droppedTotal(): number {
-    return this.dropped;
+  /** 自启动以来因"主题与载荷不一致"被拦下的报文总数 */
+  get identityRejectedTotal(): number {
+    return this.identityRejected;
   }
 
-  /** 是否收到过该设备的报文 */
-  hasSeenDevice(deviceId: string): boolean {
-    return this.seenDevices.has(deviceId);
+  /** 是否收到过该设备的报文（需要主题与载荷一致） */
+  hasSeenDevice(localDeviceId: string): boolean {
+    return this.seenDevices.has(localDeviceId);
   }
 
   onModuleInit(): void {
     const url = this.config.mqttUrl;
-    this.logger.log(`设备上行订阅目标：${url}，主题 ${TELEMETRY_TOPIC_FILTER}`);
+    this.logger.log(
+      `设备上行订阅目标：${url}，主题 ${TELEMETRY_TOPIC_FILTER}，clientId ${this.config.mqttClientId}`
+    );
+
+    // 队列生产者：构造即完成，不 ping、不 await 下游
+    this.producer = new TelemetryProducer({
+      queueRedisUrl: this.config.queueRedisUrl,
+      spillDir: this.config.iotSpillDir,
+      spillMaxBytes: this.config.iotSpillMaxBytes,
+      logger: {
+        info: message => this.logger.log(message),
+        warn: message => this.logger.warn(message),
+        error: message => this.logger.error(message)
+      },
+      onSpillOverflow: message => this.stopSubscribing(message),
+      onSpillFailure: message => this.logger.error(message)
+    });
+    void this.producer.start();
+
     try {
       const client = mqtt.connect(url, {
-        clientId: `nestjs-server-${process.pid}`
+        clientId: this.config.mqttClientId,
+        protocolVersion: 5,
+        // 会话跨重连保留：QoS 1 的未确认投递才可能在重连后补上
+        clean: false,
+        properties: {
+          sessionExpiryInterval: this.config.mqttSessionExpirySeconds
+        }
       });
       this.client = client;
 
       client.on('connect', () => {
         this.outageLogged = false;
-        client.subscribe(TELEMETRY_TOPIC_FILTER, { qos: 0 }, error => {
+        if (this.subscriptionStopped) return;
+        client.subscribe(TELEMETRY_TOPIC_FILTER, { qos: 1 }, error => {
           if (error) {
             this.logger.warn(`订阅失败：${error.message}`);
           } else {
-            this.logger.log(`已订阅 ${TELEMETRY_TOPIC_FILTER}`);
+            this.logger.log(`已订阅 ${TELEMETRY_TOPIC_FILTER}（QoS 1）`);
           }
         });
       });
@@ -84,41 +116,74 @@ export class TelemetrySubscriberService
     this.reportTimer = setInterval(() => this.report(), REPORT_INTERVAL_MS);
   }
 
-  onModuleDestroy(): void {
-    if (this.reportTimer) {
+  async onModuleDestroy(): Promise<void> {
+    if (this.reportTimer !== null) {
       clearInterval(this.reportTimer);
       this.reportTimer = null;
     }
     this.client?.end(true);
     this.client = null;
+    const producer = this.producer;
+    this.producer = null;
+    if (producer !== null) await producer.close();
   }
 
-  /** 单条报文处理：结构不符只计数并降级为 debug，不中断订阅链路 */
+  /**
+   * 单条报文处理。
+   *
+   * **"丢弃"分两类、归属不同**：
+   * - `JSON.parse` 失败 ⇒ **原样入队**，由消费者计数与丢弃
+   * - 主题段 ≠ 载荷 `localDeviceId` ⇒ 订阅端**拦下**（主题是 ACL 的授权单位，身份却以载荷为准
+   *   ⇒ 不拦的话，一个已授权设备可以在自己的主题上发别人的编号，数据落进别人的子表）
+   */
   handleMessage(topic: string, payload: Buffer): void {
-    const sample = parseTelemetry(payload.toString('utf8'));
-    if (!sample) {
-      this.dropped += 1;
-      this.logger.debug(`丢弃无法解析的报文：${topic}`);
+    const raw = payload.toString('utf8');
+    const outcome = classifyMessage(topic, raw);
+
+    if (outcome.kind === 'reject-identity') {
+      this.identityRejected += 1;
+      this.logger.warn(
+        `身份不一致，丢弃：主题段「${outcome.topicDeviceId}」载荷「${outcome.payloadDeviceId}」`
+      );
       return;
     }
-    this.received += 1;
-    this.seenDevices.add(sample.deviceId);
-    this.counter.record(sample.deviceId, sample.metrics.length);
-    this.logger.debug(
-      `收到 ${sample.deviceId} 的 ${sample.metrics.length} 个测点`
-    );
+
+    if (outcome.kind === 'accept') {
+      this.seenDevices.add(outcome.localDeviceId);
+      this.counter.record(outcome.localDeviceId);
+    }
+
+    void this.enqueue(raw);
+  }
+
+  private async enqueue(raw: string): Promise<void> {
+    const producer = this.producer;
+    if (producer === null) return;
+    await producer.send(raw);
+    this.enqueued += 1;
+  }
+
+  /** 本地缓冲超限：**停订阅 + 告警**。⚠️ 不自动恢复——需人工处置后重启 */
+  private stopSubscribing(reason: string): void {
+    this.subscriptionStopped = true;
+    this.logger.error(`停止订阅：${reason}。需人工处置后重启，期间完全断流`);
+    const client = this.client;
+    if (client === null) return;
+    client.unsubscribe(TELEMETRY_TOPIC_FILTER, error => {
+      if (error) this.logger.warn(`取消订阅失败：${error.message}`);
+    });
   }
 
   /** 每秒一行聚合，即验收证据：可 grep、可计数 */
   private report(): void {
     const window = this.counter.drain();
-    const dropped = this.dropped - this.reportedDropped;
-    this.reportedDropped = this.dropped;
-    if (window.messages === 0 && dropped === 0) return;
+    const rejected = this.identityRejected - this.reportedRejected;
+    this.reportedRejected = this.identityRejected;
+    if (window.messages === 0 && rejected === 0) return;
 
     this.logger.log(
-      `telemetry 每秒 ${window.messages} 条 / ${window.metrics} 测点 / ${window.devices} 台设备` +
-        (dropped > 0 ? `（丢弃 ${dropped} 条）` : '')
+      `telemetry 每秒入队 ${window.messages} 条 / ${window.devices} 台设备` +
+        (rejected > 0 ? `（身份不一致拦截 ${rejected} 条）` : '')
     );
   }
 

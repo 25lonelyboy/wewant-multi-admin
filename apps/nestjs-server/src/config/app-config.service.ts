@@ -38,6 +38,26 @@ export class AppConfigService {
     return this.config.get('MQTT_URL', { infer: true });
   }
 
+  get mqttClientId(): Env['MQTT_CLIENT_ID'] {
+    return this.config.get('MQTT_CLIENT_ID', { infer: true });
+  }
+
+  get mqttSessionExpirySeconds(): number {
+    return this.config.get('MQTT_SESSION_EXPIRY_SECONDS', { infer: true });
+  }
+
+  get queueRedisUrl(): Env['QUEUE_REDIS_URL'] {
+    return this.config.get('QUEUE_REDIS_URL', { infer: true });
+  }
+
+  get iotSpillDir(): Env['IOT_SPILL_DIR'] {
+    return this.config.get('IOT_SPILL_DIR', { infer: true });
+  }
+
+  get iotSpillMaxBytes(): number {
+    return this.config.get('IOT_SPILL_MAX_BYTES', { infer: true });
+  }
+
   get jwtAccessSecret(): Env['JWT_ACCESS_SECRET'] {
     return this.config.get('JWT_ACCESS_SECRET', { infer: true });
   }

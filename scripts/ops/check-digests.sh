@@ -8,6 +8,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
 FILES=(
   apps/nestjs-server/Dockerfile
+  apps/iot-worker/Dockerfile
   apps/pure-web/Dockerfile
   docker-compose.yml
   .github/workflows/ci.yml

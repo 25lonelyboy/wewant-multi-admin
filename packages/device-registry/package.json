@@ -1,0 +1,49 @@
+{
+  "name": "@multi-admin/device-registry",
+  "version": "0.1.0",
+  "private": true,
+  "description": "多端管理系统 - 设备档案：设备自报编号 ↔ 平台签发的设备标识与采集点",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsdown --watch",
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --cache --max-warnings 0",
+    "test": "node --import tsx --test src/*.spec.ts",
+    "format": "prettier --check ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@multi-admin/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@multi-admin/eslint-config": "workspace:*",
+    "@multi-admin/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "tsdown": "catalog:",
+    "tsx": "catalog:"
+  }
+}

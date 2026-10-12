@@ -37,9 +37,9 @@ void test('buildMetrics 输出契约规定的测点形状', () => {
   }
 });
 
-void test('buildPayload 携带 deviceId 与时间戳', () => {
+void test('buildPayload 携带 localDeviceId 与时间戳', () => {
   const payload = buildPayload('sim-007', 1759603200000, () => 0.5);
-  assert.equal(payload.deviceId, 'sim-007');
+  assert.equal(payload.localDeviceId, 'sim-007');
   assert.equal(payload.ts, 1759603200000);
   assert.equal(payload.metrics.length, 3);
 });

@@ -1,90 +1,76 @@
-import { parseTelemetry } from './telemetry-message.js';
+import { classifyMessage, readLocalDeviceId } from './telemetry-message.js';
 
-const validPayload = JSON.stringify({
-  deviceId: 'sim-001',
-  ts: 1759603200000,
-  metrics: [
-    { key: 'temperature', value: 62.4, unit: '°C' },
-    { key: 'current', value: 4.31, unit: 'A' }
-  ]
+const topic = 'wewant/devices/sim-001/telemetry';
+
+function raw(localDeviceId: string): string {
+  return JSON.stringify({
+    localDeviceId,
+    ts: 1759603200000,
+    metrics: [{ key: 'temperature', value: 62.4, unit: '°C' }]
+  });
+}
+
+describe('readLocalDeviceId', () => {
+  it('取到合法编号', () => {
+    expect(readLocalDeviceId(raw('sim-001'))).toBe('sim-001');
+  });
+
+  it('非 JSON / 非对象 / 缺字段 / 空串均返回 null', () => {
+    expect(readLocalDeviceId('not-json')).toBeNull();
+    expect(readLocalDeviceId('42')).toBeNull();
+    expect(readLocalDeviceId('null')).toBeNull();
+    expect(readLocalDeviceId('[]')).toBeNull();
+    expect(readLocalDeviceId(JSON.stringify({ ts: 1 }))).toBeNull();
+    expect(
+      readLocalDeviceId(JSON.stringify({ localDeviceId: '', ts: 1 }))
+    ).toBeNull();
+    expect(
+      readLocalDeviceId(JSON.stringify({ localDeviceId: 7, ts: 1 }))
+    ).toBeNull();
+  });
 });
 
-describe('parseTelemetry', () => {
-  it('解析合法报文', () => {
-    expect(parseTelemetry(validPayload)).toEqual({
-      deviceId: 'sim-001',
-      ts: 1759603200000,
-      metrics: [
-        { key: 'temperature', value: 62.4, unit: '°C' },
-        { key: 'current', value: 4.31, unit: 'A' }
-      ]
+describe('classifyMessage', () => {
+  it('主题与载荷一致 ⇒ accept', () => {
+    expect(classifyMessage(topic, raw('sim-001'))).toEqual({
+      kind: 'accept',
+      localDeviceId: 'sim-001'
     });
   });
 
-  it('非 JSON 文本返回 null', () => {
-    expect(parseTelemetry('not-json')).toBeNull();
+  it('大小写与首尾空白不一致不算换了一台，且按规范化后的编号记名', () => {
+    expect(classifyMessage(topic, raw(' SIM-001 '))).toEqual({
+      kind: 'accept',
+      localDeviceId: 'sim-001'
+    });
   });
 
-  it('顶层非对象返回 null', () => {
-    expect(parseTelemetry('42')).toBeNull();
-    expect(parseTelemetry('null')).toBeNull();
-    expect(parseTelemetry('[]')).toBeNull();
-  });
-
-  it('deviceId 缺失或为空返回 null', () => {
-    expect(parseTelemetry(JSON.stringify({ ts: 1, metrics: [] }))).toBeNull();
+  it('主题段与载荷不一致 ⇒ 拦下', () => {
     expect(
-      parseTelemetry(JSON.stringify({ deviceId: '', ts: 1, metrics: [] }))
-    ).toBeNull();
+      classifyMessage('wewant/devices/sim-002/telemetry', raw('sim-001'))
+    ).toEqual({
+      kind: 'reject-identity',
+      topicDeviceId: 'sim-002',
+      payloadDeviceId: 'sim-001'
+    });
   });
 
-  it('ts 非有限数字返回 null', () => {
+  it('主题不符合契约形态 ⇒ 拦下（等价于身份不可信）', () => {
     expect(
-      parseTelemetry(
-        JSON.stringify({ deviceId: 'sim-001', ts: 'now', metrics: [] })
-      )
-    ).toBeNull();
-    expect(
-      parseTelemetry(
-        JSON.stringify({ deviceId: 'sim-001', ts: null, metrics: [] })
-      )
-    ).toBeNull();
+      classifyMessage('wewant/devices/sim-001/other', raw('sim-001'))
+    ).toEqual({
+      kind: 'reject-identity',
+      topicDeviceId: 'wewant/devices/sim-001/other',
+      payloadDeviceId: 'sim-001'
+    });
   });
 
-  it('metrics 非数组返回 null', () => {
+  it('解析不出编号 ⇒ 原样入队，不拦', () => {
+    expect(classifyMessage(topic, 'not-json')).toEqual({
+      kind: 'accept-opaque'
+    });
     expect(
-      parseTelemetry(
-        JSON.stringify({ deviceId: 'sim-001', ts: 1, metrics: 'x' })
-      )
-    ).toBeNull();
-  });
-
-  it('测点全部非法时返回 null', () => {
-    expect(
-      parseTelemetry(
-        JSON.stringify({
-          deviceId: 'sim-001',
-          ts: 1,
-          metrics: [{ key: 'temperature', value: 'hot', unit: '°C' }]
-        })
-      )
-    ).toBeNull();
-  });
-
-  it('过滤非法测点并保留合法项', () => {
-    const sample = parseTelemetry(
-      JSON.stringify({
-        deviceId: 'sim-001',
-        ts: 1,
-        metrics: [
-          { key: '', value: 1, unit: 'A' },
-          { key: 'current', value: 4.31, unit: 'A' },
-          { key: 'broken', value: Number.NaN, unit: 'A' }
-        ]
-      })
-    );
-    expect(sample?.metrics).toEqual([
-      { key: 'current', value: 4.31, unit: 'A' }
-    ]);
+      classifyMessage(topic, JSON.stringify({ ts: 1, metrics: [] }))
+    ).toEqual({ kind: 'accept-opaque' });
   });
 });
