@@ -32,6 +32,16 @@ export function dsStableName(level: DsLevel): string {
   return `telemetry_${level}`;
 }
 
+/**
+ * 降采样子表名：`{name}_{level}`（`name` 即原始库的子表名，折小写）。
+ *
+ * ⚠️ **级别必须进名**：三张超表同库，而 TDengine 的子表名**库内唯一**——同名子表只能挂一张
+ * 超表，否则报 `Table already exists in other stables`。建表端与写入端复用本函数，命名只此一处。
+ */
+export function dsSubtableName(name: string, level: DsLevel): string {
+  return `${name}_${level}`;
+}
+
 /** 建库语句——两个库，幂等 */
 export function createDatabaseStatements(): string[] {
   return [
@@ -82,16 +92,13 @@ export function alterDsMinuteKeepStatement(): string {
 }
 
 /**
- * 降采样子表：每采集点每级一张，命名 `{deviceId}_{pointKey}_{level}`（折小写形态）。
- *
- * ⚠️ **级别必须进表名**：三张超表同库，而 TDengine 的子表名**库内唯一**——同名子表只能挂在
- * 一张超表下，否则第二张报 `Table already exists in other stables`。
+ * 降采样子表：每采集点每级一张，表名见 `dsSubtableName`。
  *
  * ⚠️ 表名与标签值的写法同 `createSubtableStatement`：表名折小写，**标签值保留原样**。
  */
 export function createDsSubtableStatements(subtable: SubtableRef): string[] {
   return DS_LEVELS.map(
     level =>
-      `CREATE TABLE IF NOT EXISTS ${DS_DATABASE}.${subtable.name}_${level} USING ${DS_DATABASE}.${dsStableName(level)} TAGS ('${subtable.deviceId}')`
+      `CREATE TABLE IF NOT EXISTS ${DS_DATABASE}.${dsSubtableName(subtable.name, level)} USING ${DS_DATABASE}.${dsStableName(level)} TAGS ('${subtable.deviceId}')`
   );
 }

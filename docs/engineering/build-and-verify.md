@@ -85,7 +85,7 @@ turbo env 透传约束：`envMode` 为 strict，只有声明过的环境变量�
 | `pnpm ops:upstream-diff` | `upstream-diff.sh` | pure-web 上游漂移报告（基线 SHA + target ref → 改动清单/变更地图/冲突面三件套；无基线参数降级仅本地侧） |
 | `pnpm ops:worktree-init` | `worktree-init.sh` | 通用仓库就绪：`.git` 类型自动判定双场景（worktree 检出后初始化：依赖安装 + 主仓库 env 类文件白名单同步 + 钩子兜底；新克隆引导：技术栈探测 + `.env.example` 生成）；零依赖单文件，可复制到其他仓库；engines 校验读目标仓库 `package.json`；Windows 下经 WSL bash 执行，调用方须自仓库根以相对路径调用 |
 
-⚠️ **降采样库一次性迁移**：降采样已改由 worker 侧定时重算，旧的流机制弃用。带旧开发卷的环境，`wewant_iot_ds` 内是流机制产出的**错误**聚合，须手动 `DROP DATABASE wewant_iot_ds` 后重跑 `ops:tdengine-init` 重建。该 DROP 是**一次性人工动作、不进脚本**——`ops:env-up` 每次启动都调脚本，DROP 进脚本会把归档连同一起清掉；`wewant_iot` 原始库不受影响。
+⚠️ **降采样库一次性迁移**：降采样由 worker 侧定时重算、不用流。带旧开发卷的环境，`wewant_iot_ds` 内的聚合产自流机制、**不可信**，须手动 `DROP DATABASE wewant_iot_ds` 后重跑 `ops:tdengine-init` 重建。该 DROP 是**一次性人工动作、不进脚本**——`ops:env-up` 每次启动都调脚本，DROP 进脚本会把归档一并清掉；`wewant_iot` 原始库不受影响。
 
 前置依赖：gh CLI（ci-status / ci-logs，需首次 `gh auth login`）、Docker Desktop（env-up / smoke / coverage / check-digests）、Git Bash 或 WSL bash（shell 脚本执行；仓库 `.sh` 统一 LF 行尾，见根 `.gitattributes`）、可联网环境（upstream-diff，需 fetch github）。
 

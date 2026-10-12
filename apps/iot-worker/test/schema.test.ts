@@ -12,7 +12,8 @@ import {
   createDsStableStatements,
   createDsSubtableStatements,
   createRawStableStatement,
-  createSubtableStatement
+  createSubtableStatement,
+  dsSubtableName
 } from '../src/schema.js';
 
 void test('建库语句带 KEEP 与 DURATION，且幂等', () => {
@@ -69,6 +70,17 @@ void test('降采样超表三级同形，共 16 列', () => {
     const columnCount = 1 + RAW_METRICS.length * 4 + RAW_METRICS.length;
     assert.equal(columnCount, 16);
   }
+});
+
+void test('降采样子表名：仅追加级别后缀，不改动原表名', () => {
+  assert.equal(
+    dsSubtableName('aweawq05e8pf53wh_001', '1m'),
+    'aweawq05e8pf53wh_001_1m'
+  );
+  assert.equal(
+    dsSubtableName('aweawq05e8pf53wh_001', '1d'),
+    'aweawq05e8pf53wh_001_1d'
+  );
 });
 
 void test('降采样子表：每采集点三级各一，名带级别后缀、标签值保留原样', () => {
