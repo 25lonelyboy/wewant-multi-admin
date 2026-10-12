@@ -29,7 +29,7 @@ last_verified: 2026-10-13
 - **设备侧编号约定**：`localDeviceIdForIndex` 生成 P1 编号（`sim-001`…），模拟器与设备档案共用同一函数，不靠事后断言对齐；`normalizeLocalId` 统一去首尾空白 + 小写（只处理同一台设备前后不一致，不跨设备去重）。
 - **队列常量**：`TELEMETRY_INGEST_QUEUE`（`iot-telemetry-ingest`）与 `TELEMETRY_QUEUE_PREFIX`（`wewant`）。生产者（订阅端）与消费者（`apps/iot-worker`）分属两个应用，队列名必须一处定义，否则两端会各自连到不同的队列而不报错。⚠️ 队列名**不能含 `:`**——BullMQ 用它作 Redis 键分隔符，含冒号构造即抛；故分隔符用 `-`，命名空间交给 `prefix`。
 - **扩展方式**：event / service 通道随物模型增量在 iot 段内扩展；telemetry 通道本身不变。
-- **契约边界**：主题、上行载荷与队列名属契约；写哪张表、DDL 形态**不属**契约——归 `apps/iot-worker` 内部（`src/schema.ts` 与建库脚本 `scripts/tdengine-init.ts`）。
+- **契约边界**：主题、上行载荷与队列名属契约；写哪张表、DDL 形态**不属**契约——归 `apps/iot-worker` 内部（schema 定义与建库脚本均在该应用内）。
 
 ## 契约扩展流程（contracts 先行）
 
