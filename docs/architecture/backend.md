@@ -3,7 +3,7 @@ status: living
 covers:
   - apps/nestjs-server/
   - apps/iot-worker/
-last_verified: 2026-10-10
+last_verified: 2026-10-12
 ---
 
 # NestJS 后端架构
@@ -66,7 +66,7 @@ HTTP 之外的第二条入口，不经全局前缀与守卫链；整条链路跨
 
 - 独立运行时：**不用 Nest、不开 HTTP**，与 server 并列的第二个进程，可独立启停 / 多实例 / 扩缩；配置 `apps/iot-worker/src/config.ts`（zod）、结构化日志（pino）、优雅停机（SIGINT/SIGTERM → 先落库再 `worker.close()`）。它不碰 PG，容器无 migrate / seed。worker 的 env 为 `QUEUE_REDIS_URL` / `TDENGINE_URL` / `TDENGINE_TIMEZONE` / `INGEST_BATCH_SIZE` / `INGEST_FLUSH_INTERVAL_MS` / `INGEST_CONCURRENCY`。
 - 消费端**无限等待**（`maxRetriesPerRequest:null`，BullMQ 阻塞读命令不能因超时中断）；`INGEST_CONCURRENCY` 同时是"一批最多攒多少条"，攒够 `INGEST_BATCH_SIZE` 或到 `INGEST_FLUSH_INTERVAL_MS` 即 flush。
-- **入库成功才 ack**：一批的写入结果统一兑现那批 job 的 ack——写入失败即整批 reject、整批重投（BullMQ 的 `getLastAffected` 不给行级定位，做不到"丢失败那行、ack 其余"）。
+- **入库成功才 ack**：一批的写入结果统一兑现那批 job 的 ack——**写入失败、或 `getLastAffected()` 合计少于提交行数（"部分成功"）都整批 reject、整批重投**（`getLastAffected` 不给行级定位，做不到"丢失败那行、ack 其余"；批内先按 `(子表, ts)` 去重，否则同 ts 覆盖会被误报成部分失败）。重投安全靠幂等——`(子表, ts)` 覆盖使已成功的行不会被重复写。
 - 设备档案查表经 `packages/device-registry`；**未知测点只丢该测点**并计数 + 告警（不丢整条，避免把同一条里合法测点一起赔进去）。
 - 队列名 `iot-telemetry-ingest`、Redis 键前缀 `wewant` 由 contracts 的 iot 段一处定义——两端分属不同应用，名字必须同源。⚠️ BullMQ 用 `:` 作 Redis 键分隔符，队列名含冒号构造即抛，故分隔符用 `-`。
 

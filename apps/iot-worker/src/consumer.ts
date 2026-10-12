@@ -19,11 +19,22 @@ interface Waiter {
 }
 
 /**
+ * 可注入依赖。
+ *
+ * ⚠️ 只为可测性：单测注入替身以隔离 BullMQ 与 TDengine；生产一律走默认值。
+ */
+export interface ConsumerDeps {
+  writer?: TdengineWriter;
+  worker?: Worker;
+}
+
+/**
  * 遥测消费者。
  *
  * ⭐ **入库成功才 ack**：`processor` 返回的 Promise 由本批的写入结果统一兑现——
- * 写入失败即整批 reject ⇒ BullMQ 整批重投（`getLastAffected` 不给行级定位，
- * "丢弃失败那行、ack 其余"技术上做不到）。⚠️ 写入层**不另造重试**，失败直接抛回队列。
+ * 写入失败**或写入行数少于提交数（部分成功）**即整批 reject ⇒ BullMQ 整批重投
+ * （`getLastAffected` 不给行级定位，"丢弃失败那行、ack 其余"技术上做不到）。
+ * ⚠️ 写入层**不另造重试**，失败直接抛回队列。
  */
 export class TelemetryConsumer {
   private readonly worker: Worker;
@@ -44,15 +55,15 @@ export class TelemetryConsumer {
 
   constructor(
     private readonly config: WorkerConfig,
-    private readonly logger: Logger
+    private readonly logger: Logger,
+    deps: ConsumerDeps = {}
   ) {
     this.cache = new ResolveCache(p1DeviceRegistry, CACHE_TTL_MS);
-    this.writer = new TdengineWriter(config.tdengineUrl);
+    this.writer = deps.writer ?? new TdengineWriter(config.tdengineUrl);
 
-    this.worker = new Worker(
-      TELEMETRY_INGEST_QUEUE,
-      (job: Job) => this.onJob(job),
-      {
+    this.worker =
+      deps.worker ??
+      new Worker(TELEMETRY_INGEST_QUEUE, (job: Job) => this.onJob(job), {
         prefix: TELEMETRY_QUEUE_PREFIX,
         connection: {
           url: config.queueRedisUrl,
@@ -61,8 +72,7 @@ export class TelemetryConsumer {
         },
         // 并发即"同时在手的最多条数"——攒批靠它，不靠逐条处理
         concurrency: config.ingestConcurrency
-      }
-    );
+      });
     this.worker.on('failed', (job, error) => {
       this.logger.error(
         { jobId: job?.id, attempts: job?.attemptsMade, err: String(error) },
@@ -195,14 +205,16 @@ export class TelemetryConsumer {
 
     try {
       const affected = await this.writer.write(deduped);
-      this.written += deduped.length;
-      // 核对：不去重会把"覆盖"误报成"部分失败"，所以先按 (子表, ts) 去重再比
+      // ⭐ C10：写入行数少于提交数 ⇒ 必有行没落库。`getLastAffected` 不给行级定位，
+      // "丢弃失败那行、ack 其余"技术上做不到 ⇒ 唯一可执行处置是**整批重投**。
+      // 重投安全：`(子表, ts)` 幂等覆盖下，重投仍计入 affected（本机实测），不会再触发本分支。
+      // 批内去重也正因如此才必须先做——不去重会把"覆盖"误报成"部分失败"。
       if (affected < deduped.length) {
-        this.logger.warn(
-          { affected, expected: deduped.length },
-          '写入行数少于提交行数，可能有覆盖或被拒的行'
+        throw new Error(
+          `写入行数少于提交行数：affected=${affected}，expected=${deduped.length}`
         );
       }
+      this.written += deduped.length;
       for (const waiter of waiters) waiter.resolve();
     } catch (error) {
       // ⚠️ 一次非法绑定会把连接拖废 ⇒ 作废重连；"这批失败"与"连接已废"是两件事
