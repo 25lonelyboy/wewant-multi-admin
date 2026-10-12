@@ -2,16 +2,16 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   DS_DATABASE,
+  DS_LEVELS,
   DS_MINUTE_KEEP_DAYS,
-  DS_STREAMS,
   DURATION_DAYS,
   RAW_DATABASE,
   RAW_KEEP_DAYS,
   RAW_METRICS,
   createDatabaseStatements,
   createDsStableStatements,
+  createDsSubtableStatements,
   createRawStableStatement,
-  createStreamStatement,
   createSubtableStatement
 } from '../src/schema.js';
 
@@ -71,27 +71,23 @@ void test('降采样超表三级同形，共 16 列', () => {
   }
 });
 
-void test('建流语句照抄四个实测结论：内外层都分区、FROM 源表、不带增量 WHERE', () => {
-  for (const spec of DS_STREAMS) {
-    const statement = createStreamStatement(spec);
+void test('降采样子表：每采集点三级各一，名带级别后缀、标签值保留原样', () => {
+  const subtable = {
+    name: 'aweawq05e8pf53wh_001',
+    deviceId: 'AWEAWQ05E8PF53WH',
+    pointKey: '001'
+  };
+  const statements = createDsSubtableStatements(subtable);
 
-    assert.match(statement, /^CREATE STREAM wewant_iot_ds\./);
-    // 流级分区：只写 tbname 时标签表达式无源可用（实测 16660）
-    assert.match(statement, /PARTITION BY tbname, deviceId/);
-    assert.match(statement, /TAGS \(deviceId VARCHAR\(16\) AS deviceId\)/);
-    // ⭐ 内层查询也必须分区，否则聚合会跨全部子表算（实测：每台设备拿到全表的 sum/count）
-    assert.match(
-      statement,
-      /FROM wewant_iot\.telemetry\n\s+PARTITION BY tbname\n\s+INTERVAL\(/
+  assert.equal(statements.length, DS_LEVELS.length);
+  for (const level of DS_LEVELS) {
+    assert.ok(
+      statements.includes(
+        `CREATE TABLE IF NOT EXISTS ${DS_DATABASE}.${subtable.name}_${level} USING ${DS_DATABASE}.telemetry_${level} TAGS ('${subtable.deviceId}')`
+      ),
+      `缺少 ${level} 的降采样子表建表语句`
     );
-    assert.doesNotMatch(statement, /%%trows/);
-    // 计算子句里不得出现时间范围过滤——那会把停机与补传的数据整段排除
-    assert.doesNotMatch(statement, /_tprev_localtime|_tlocaltime/);
-    assert.doesNotMatch(statement, /WHERE/);
   }
-
-  const daily = DS_STREAMS.find(spec => spec.level === '1d');
-  assert.equal(daily?.window, '1d, 8h');
 });
 
 void test('分钟级超表级 KEEP 小于降采样库级 KEEP', () => {

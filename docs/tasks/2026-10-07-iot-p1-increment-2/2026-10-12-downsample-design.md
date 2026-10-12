@@ -13,10 +13,10 @@
 | # | 实测 |
 | --- | --- |
 | 1 | 现形态（`PERIOD` + 流级 `PARTITION BY tbname, deviceId` + 内层 `PARTITION BY tbname INTERVAL`）**每个窗口只产 1 行**，值是**最后写入那个分区**的，且**被复制到全部输出子表**。100 台设备时表现为"每个窗口 100 行、值全同" |
-| 2 | 去掉内层 `PARTITION BY` ⇒ 变成**全表聚合**，同样复制给全部子表 |
+| 2 | 去掉内层 `PARTITION BY` ⇒ 变成**全表聚合**，同样复制给全部子表（本机实测：单台真值 202 行 / 值 ~12500，落库却是 20234 / 1254819） |
 | 3 | 官方文档要求的**窗口触发** `INTERVAL(1m)`（作触发类型）在 3.4.2.8 报 `9728 syntax error` |
 | 4 | 官方最佳实践的**内层子句顺序**（`INTERVAL(...)` 在前、`PARTITION BY` 在后）报 `9728` |
-| 5 | `OUTPUT_SUBTABLE(...)` 报 `9728`；无流级分区时 `TAGS` 报 `16661`；流级只有 `tbname` 时 `TAGS` 报 `16660` |
+| 5 | `OUTPUT_SUBTABLE(...)` 报 `9728`；无流级分区时 `TAGS` 报 `16661`；流级只有 `tbname` 时 `TAGS` 报 `16660`；完全不写 `TAGS` 报「tag name mismatch」 |
 | 6 | **同一条 `SELECT tbname, _wstart, SUM(...) FROM <超表> PARTITION BY tbname INTERVAL(...)` 单独跑完全正确**（按子表分组、各值不同）⇒ 问题在流，不在查询 |
 | 7 | 最新社区版镜像就是 **3.4.2.8**（`latest` 与它 digest 相同、`docker pull` 报 `Image is up to date`；`3.4.3.0` 报 `manifest unknown`；官方版本号规则里新功能走 `Feature` 位，当前 `Feature = 2`）⇒ **没有可升级的目标** |
 

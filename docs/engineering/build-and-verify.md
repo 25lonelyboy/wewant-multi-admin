@@ -11,7 +11,7 @@ covers:
   - docker-compose.yml
   - packages/contracts/
   - turbo.json
-last_verified: 2026-10-10
+last_verified: 2026-10-13
 ---
 
 # 构建与验证
@@ -27,7 +27,7 @@ last_verified: 2026-10-10
    - **husky 钩子**：`pre-commit` 跑 lint-staged（配置在 `.lintstagedrc.json`，只处理暂存文件）；`commit-msg` 跑 commitlint（scope 强制 + 白名单，见 `commitlint.config.mjs`）。
    - **`pnpm ops:pre-push`**（`scripts/ops/pre-push.mjs`）：push 前 CI 同构校验，顺序执行 frozen-lockfile → `pnpm check` → `pnpm doc:lint` → audit（报警式）。
    - **`pnpm doc:lint`**（`scripts/doc-lint.cjs`，零依赖纯 node）：文档一致性与新鲜度校验（可达性 / 死链 / frontmatter / covers 漂移 / 入口文件行数预算 / 终态痕迹 / 引用与定位符（含代码行号） / 索引一致性（含索引行精确计数） / 活文档体积基线），pre-push 与 CI doc-lint job 均挂载；检查项以脚本头部注释为准，终态痕迹词表在同目录 `final-state-rules.json`。副本与技能母版以 `--version` 比对，随治理任务同步。
-2. **异步兜底（入库后，push master + nightly）**：`.github/workflows/ci.yml` 八 job 并行——`gate`（frozen-lockfile 安装 + `pnpm check` 服务端重验）、`docker-build`（三镜像构建验证（web / server / iot-worker）+ web/server 双启动冒烟：web curl 200、server /health+entrypoint 三段断言，server 冒烟依赖 job services postgres/redis；不 push）、`coverage`（job services 含 postgres/redis/emqx/redis-queue/tdengine；先跑 `tdengine:init` 建库建流，再跑 server 合并覆盖率与 iot-worker 覆盖率两步，均 ≥80% 报警式硬门槛）、`coverage-web`（pure-web vitest 覆盖率报警式，全局聚合 ≥80% + crown-jewel 6 键 ≥90%）、`e2e-web`（Playwright Tier A mock 冒烟，grep `@mock-only`）、`e2e-web-real`（Tier B 真实后端冒烟，grep `@real-backend`，报警式 + nightly，双层 E2E 见 [ADR-008](../decisions/ADR-008-tiered-e2e-testing.md)）、`audit`（`pnpm audit --audit-level=high` 报警式）、`doc-lint`（文档一致性与新鲜度校验报警式）。定位与取舍见 `docs/decisions/ADR-006-github-ci.md`。
+2. **异步兜底（入库后，push master + nightly）**：`.github/workflows/ci.yml` 八 job 并行——`gate`（frozen-lockfile 安装 + `pnpm check` 服务端重验）、`docker-build`（三镜像构建验证（web / server / iot-worker）+ web/server 双启动冒烟：web curl 200、server /health+entrypoint 三段断言，server 冒烟依赖 job services postgres/redis；不 push）、`coverage`（job services 含 postgres/redis/emqx/redis-queue/tdengine；先跑 `tdengine:init` 建库建表，再跑 server 合并覆盖率与 iot-worker 覆盖率两步，均 ≥80% 报警式硬门槛）、`coverage-web`（pure-web vitest 覆盖率报警式，全局聚合 ≥80% + crown-jewel 6 键 ≥90%）、`e2e-web`（Playwright Tier A mock 冒烟，grep `@mock-only`）、`e2e-web-real`（Tier B 真实后端冒烟，grep `@real-backend`，报警式 + nightly，双层 E2E 见 [ADR-008](../decisions/ADR-008-tiered-e2e-testing.md)）、`audit`（`pnpm audit --audit-level=high` 报警式）、`doc-lint`（文档一致性与新鲜度校验报警式）。定位与取舍见 `docs/decisions/ADR-006-github-ci.md`。
 3. **纪律条款**：报警式不拦截的代价是红了必须有人看——**CI 红 → 下一项工作先修 CI**；感知窗口为根 README badge 与 GitHub watch 通知。
    - **报警式的实现前提**：`continue-on-error` 标在**步骤**上，拦的是那一步的退出码；同一 job 内**其他任何步骤失败仍会把 job 打成失败、整轮随之变红**——包括 action 自身的 post 步骤。因此报警式 job 不应引入与该 job 目标无关的步骤（2026-10-05 实例：`audit` job 的 `setup-node` 配了 `cache: pnpm`，而该 job 刻意不 install、无 pnpm store 可缓存，缓存 post 步骤路径校验失败 → 整轮 CI 变红）。
 
@@ -77,13 +77,15 @@ turbo env 透传约束：`envMode` 为 strict，只有声明过的环境变量�
 | `pnpm ops:ci-logs` | `ci-logs.sh` | CI 失败日志导出：`.ci-failure-<id>.log`（Agent 可读取分析） |
 | `pnpm ops:env-up` | `env-up.sh` | 开发环境启动：postgres + redis + redis-queue + emqx + tdengine + migrate + seed + tdengine:init |
 | `pnpm ops:env-down` | `env-down.sh` | 开发环境停止（`--clean` 清除数据卷） |
-| `pnpm ops:tdengine-init` | 转发 `@multi-admin/iot-worker` 的 `tdengine:init`（`apps/iot-worker/scripts/tdengine-init.ts`） | 建 TDengine 库 / 超表 / 子表 / 降采样流（幂等，可反复执行）；`ops:env-up` 已串 |
+| `pnpm ops:tdengine-init` | 转发 `@multi-admin/iot-worker` 的 `tdengine:init`（`apps/iot-worker/scripts/tdengine-init.ts`） | 建 TDengine 库 / 超表 / 子表 / 降采样子表，并清理遗留的降采样流（幂等，可反复执行；只建不删库）；`ops:env-up` 已串 |
 | `pnpm ops:smoke` | `docker-smoke.sh` | 本地 Docker 冒烟（`--server` 追加构建 + 运行态冒烟） |
 | `pnpm ops:server-smoke` | `server-smoke.sh` | server 镜像运行态冒烟（/health + entrypoint 三段断言；前置：镜像已构建 + ops:env-up） |
 | `pnpm ops:coverage` | `coverage.mjs` | 本地覆盖率一键跑（`--skip-env` 跳过环境启停） |
 | `pnpm ops:check-digests` | `check-digests.sh` | 镜像 digest pin 漂移巡检（季度，`docker buildx imagetools inspect` 比对） |
 | `pnpm ops:upstream-diff` | `upstream-diff.sh` | pure-web 上游漂移报告（基线 SHA + target ref → 改动清单/变更地图/冲突面三件套；无基线参数降级仅本地侧） |
 | `pnpm ops:worktree-init` | `worktree-init.sh` | 通用仓库就绪：`.git` 类型自动判定双场景（worktree 检出后初始化：依赖安装 + 主仓库 env 类文件白名单同步 + 钩子兜底；新克隆引导：技术栈探测 + `.env.example` 生成）；零依赖单文件，可复制到其他仓库；engines 校验读目标仓库 `package.json`；Windows 下经 WSL bash 执行，调用方须自仓库根以相对路径调用 |
+
+⚠️ **降采样库一次性迁移**：降采样已改由 worker 侧定时重算，旧的流机制弃用。带旧开发卷的环境，`wewant_iot_ds` 内是流机制产出的**错误**聚合，须手动 `DROP DATABASE wewant_iot_ds` 后重跑 `ops:tdengine-init` 重建。该 DROP 是**一次性人工动作、不进脚本**——`ops:env-up` 每次启动都调脚本，DROP 进脚本会把归档连同一起清掉；`wewant_iot` 原始库不受影响。
 
 前置依赖：gh CLI（ci-status / ci-logs，需首次 `gh auth login`）、Docker Desktop（env-up / smoke / coverage / check-digests）、Git Bash 或 WSL bash（shell 脚本执行；仓库 `.sh` 统一 LF 行尾，见根 `.gitattributes`）、可联网环境（upstream-diff，需 fetch github）。
 

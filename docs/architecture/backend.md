@@ -3,7 +3,7 @@ status: living
 covers:
   - apps/nestjs-server/
   - apps/iot-worker/
-last_verified: 2026-10-12
+last_verified: 2026-10-13
 ---
 
 # NestJS 后端架构
@@ -70,7 +70,7 @@ HTTP 之外的第二条入口，不经全局前缀与守卫链；整条链路跨
 - 设备档案查表经 `packages/device-registry`；**未知测点只丢该测点**并计数 + 告警（不丢整条，避免把同一条里合法测点一起赔进去）。
 - 队列名 `iot-telemetry-ingest`、Redis 键前缀 `wewant` 由 contracts 的 iot 段一处定义——两端分属不同应用，名字必须同源。⚠️ BullMQ 用 `:` 作 Redis 键分隔符，队列名含冒号构造即抛，故分隔符用 `-`。
 
-TDengine 库表 / 降采样流与建库脚本见 [build-and-verify.md](../engineering/build-and-verify.md) 与 `apps/iot-worker/scripts/tdengine-init.ts`。选型与边界见 [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md)、[ADR-010](../decisions/ADR-010-ingest-buffer-bullmq.md)；设备注册与物模型属物模型增量。
+TDengine 库表 / 降采样子表与建库脚本见 [build-and-verify.md](../engineering/build-and-verify.md) 与 `apps/iot-worker/scripts/tdengine-init.ts`。选型与边界见 [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md)、[ADR-010](../decisions/ADR-010-ingest-buffer-bullmq.md)；设备注册与物模型属物模型增量。
 
 ## API 约定
 
