@@ -4,7 +4,7 @@ covers:
   - apps/nestjs-server/
   - docker-compose.yml
   - .github/workflows/
-last_verified: 2026-10-10
+last_verified: 2026-10-13
 ---
 
 # 全局 backlog
