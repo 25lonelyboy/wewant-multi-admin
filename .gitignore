@@ -71,6 +71,9 @@ apps/nestjs-server/src/generated/
 # Git worktree 隔离工作区目录
 .worktrees
 
+# SDD 过程脚手架：进度台账 / 任务 brief / 子代理报告，均为一次性草稿，不入库
+.superpowers
+
 # Playwright E2E
 test-results/
 playwright-report/
