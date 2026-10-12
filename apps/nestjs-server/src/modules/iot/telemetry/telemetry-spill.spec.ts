@@ -58,6 +58,63 @@ describe('TelemetrySpill', () => {
     });
   });
 
+  it('drain 的 send 中途 append 的新行不被覆盖丢失（drain × append 竞态）', async () => {
+    await withSpill(1024, async (spill, dir) => {
+      await spill.init();
+      await spill.append('a');
+
+      const sent: string[] = [];
+      const count = await spill.drain(async raw => {
+        sent.push(raw);
+        // 在 drain 进行中（此刻 file 仍含旧快照）追加新行：
+        // 若 drain 事后按旧快照整文件重写，这行会被覆盖掉。
+        await spill.append('during-drain');
+      });
+
+      expect(count).toBe(1);
+      expect(sent).toEqual(['a']);
+      // 已确认投递的 'a' 与 drain 期间追加的行都必须还在
+      expect(await readFile(join(dir, FILE), 'utf8')).toBe('during-drain\n');
+      expect(spill.sizeBytes).toBe(Buffer.byteLength('during-drain\n'));
+    });
+  });
+
+  it('drain 中途失败中止时，期间追加的行与未投出的行都保留且体积准确', async () => {
+    await withSpill(1024, async (spill, dir) => {
+      await spill.init();
+      await spill.append('a');
+      await spill.append('b');
+      await spill.append('c');
+
+      const count = await spill.drain(async raw => {
+        if (raw === 'b') await spill.append('during-drain');
+        // 'c' 投递失败：'b' 之后的行一律保留
+        if (raw === 'c') throw new Error('队列又断了');
+      });
+
+      expect(count).toBe(2);
+      expect(await readFile(join(dir, FILE), 'utf8')).toBe('c\nduring-drain\n');
+      expect(spill.sizeBytes).toBe(Buffer.byteLength('c\nduring-drain\n'));
+    });
+  });
+
+  it('drain 中途追加后把缓冲推过上限，append 仍如实报告超限', async () => {
+    await withSpill('a\n'.length + 1, async (spill, dir) => {
+      await spill.init();
+      await spill.append('a');
+
+      const count = await spill.drain(async () => {
+        // 追加一行后，落盘体积超过上限 ⇒ overflowed 必须为真（不得超过却不报）
+        await spill.append('bb');
+      });
+
+      expect(count).toBe(1);
+      expect(spill.sizeBytes).toBe(Buffer.byteLength('bb\n'));
+      expect(spill.overflowed).toBe(true);
+      expect(await readFile(join(dir, FILE), 'utf8')).toBe('bb\n');
+    });
+  });
+
   it('超过上限时 append 返回 false', async () => {
     await withSpill(1, async spill => {
       await spill.init();
