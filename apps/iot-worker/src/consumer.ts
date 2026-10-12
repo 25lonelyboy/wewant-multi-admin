@@ -6,6 +6,11 @@ import {
 import { p1DeviceRegistry } from '@multi-admin/device-registry';
 import type { WorkerConfig } from './config.js';
 import { detect } from './detection.js';
+import {
+  classifyWriteError,
+  UnrecoverableWriteError,
+  type WriteFailure
+} from './failure.js';
 import type { Logger } from './logger.js';
 import { ResolveCache } from './registry-cache.js';
 import { TdengineWriter, type PendingRow } from './tdengine/writer.js';
@@ -34,7 +39,9 @@ export interface ConsumerDeps {
  * ⭐ **入库成功才 ack**：`processor` 返回的 Promise 由本批的写入结果统一兑现——
  * 写入失败**或写入行数少于提交数（部分成功）**即整批 reject ⇒ BullMQ 整批重投
  * （`getLastAffected` 不给行级定位，"丢弃失败那行、ack 其余"技术上做不到）。
- * ⚠️ 写入层**不另造重试**，失败直接抛回队列。
+ * ⚠️ 写入层**不另造重试**：A 类（连接 / 超时）原样抛回队列、交给 BullMQ 退避重试；
+ * B 类（格式 / 权限 / 表结构）抛 `UnrecoverableError` 直接进 failed 集合，不空耗重试
+ * ——分类见 `failure.ts`。
  */
 export class TelemetryConsumer {
   private readonly worker: Worker;
@@ -74,8 +81,16 @@ export class TelemetryConsumer {
         concurrency: config.ingestConcurrency
       });
     this.worker.on('failed', (job, error) => {
+      // 读错误码——failed 集合是"待人工看"的那一处，告警不带码人到了也不知道从哪查
+      const failure = classifyWriteError(error);
       this.logger.error(
-        { jobId: job?.id, attempts: job?.attemptsMade, err: String(error) },
+        {
+          jobId: job?.id,
+          attempts: job?.attemptsMade,
+          code: failure.code,
+          elevated: failure.elevated,
+          err: error instanceof Error ? error.message : String(error)
+        },
         'job 失败'
       );
     });
@@ -219,8 +234,43 @@ export class TelemetryConsumer {
     } catch (error) {
       // ⚠️ 一次非法绑定会把连接拖废 ⇒ 作废重连；"这批失败"与"连接已废"是两件事
       this.writer.invalidate();
-      this.logger.error({ err: String(error) }, '整批写入失败，整批重投');
-      for (const waiter of waiters) waiter.reject(error);
+      const failure = classifyWriteError(error);
+      this.logWriteFailure(failure, error);
+      for (const waiter of waiters) {
+        // B 类抛 `UnrecoverableError` ⇒ 跳过重试直接进 failed 集合；A 类原样抛回交给 BullMQ
+        // 退避重试。整批同码：一个 B 类错误把本批所有 job 一起送进 failed 集合。
+        waiter.reject(
+          failure.kind === 'unrecoverable'
+            ? new UnrecoverableWriteError(failure, error)
+            : error
+        );
+      }
+    }
+  }
+
+  /**
+   * 单批失败只告警一次——一批里有 N 条 job，逐条重复告警会淹没真正的信号。
+   *
+   * ⚠️ `Table does not exist` 走 **fatal**（提级）——正常路径下它不该出现（预建 + 不带
+   * `USING`），一旦出现只可能是**建表遗漏**或**命名逻辑 bug**，都是"平台侧自己错了"。
+   */
+  private logWriteFailure(failure: WriteFailure, error: unknown): void {
+    const fields = {
+      code: failure.code,
+      err: error instanceof Error ? error.message : String(error)
+    };
+    if (failure.elevated) {
+      this.logger.fatal(
+        fields,
+        '⭐ 提级告警：写入子表不存在——预建遗漏或命名逻辑 bug；本批已进 failed 集合'
+      );
+    } else if (failure.kind === 'unrecoverable') {
+      this.logger.error(
+        fields,
+        '写入失败（重试无意义），本批已进 failed 集合待人工处理'
+      );
+    } else {
+      this.logger.error(fields, '整批写入失败，整批重投');
     }
   }
 }
