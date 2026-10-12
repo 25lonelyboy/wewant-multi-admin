@@ -3,6 +3,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { TelemetrySpill } from './telemetry-spill.js';
 
+// 默认走真实实现，只在需要时对单次调用注入失败——用于构造真实文件系统无法制造的
+// "重读失败但后续写入仍可成功"（同一条路径上读失败必然连带写失败，无法隔离）。
+jest.mock('node:fs/promises', () => {
+  const actual =
+    jest.requireActual<typeof import('node:fs/promises')>('node:fs/promises');
+  return { ...actual, readFile: jest.fn(actual.readFile) };
+});
+
+const readFileMock = readFile as unknown as jest.Mock;
+
 const FILE = 'telemetry-spill.ndjson';
 
 async function withSpill(
@@ -98,20 +108,62 @@ describe('TelemetrySpill', () => {
     });
   });
 
-  it('drain 中途追加后把缓冲推过上限，append 仍如实报告超限', async () => {
+  it('drain 中途追加后把缓冲推过上限，append 返回 false 且 overflowed 为真', async () => {
     await withSpill('a\n'.length + 1, async (spill, dir) => {
       await spill.init();
       await spill.append('a');
 
+      let withinLimit: boolean | undefined;
       const count = await spill.drain(async () => {
-        // 追加一行后，落盘体积超过上限 ⇒ overflowed 必须为真（不得超过却不报）
-        await spill.append('bb');
+        // 追加一行后，落盘体积超过上限 ⇒ append 必须返回 false、overflowed 为真
+        withinLimit = await spill.append('bb');
       });
 
       expect(count).toBe(1);
+      expect(withinLimit).toBe(false);
       expect(spill.sizeBytes).toBe(Buffer.byteLength('bb\n'));
       expect(spill.overflowed).toBe(true);
       expect(await readFile(join(dir, FILE), 'utf8')).toBe('bb\n');
+    });
+  });
+
+  it('收尾重读失败（非 ENOENT）时抛出，未投出行留在盘上、不凭空返回成功', async () => {
+    await withSpill(1024, async (spill, dir) => {
+      await spill.init();
+      await spill.append('a');
+      await spill.append('b');
+
+      // 顶部快照读成功、send 途中把"收尾重读"注入一次非 ENOENT 失败（EIO）
+      const eio = Object.assign(new Error('EIO'), { code: 'EIO' });
+      await expect(
+        spill.drain(raw => {
+          if (raw === 'a') readFileMock.mockRejectedValueOnce(eio);
+          return Promise.resolve();
+        })
+      ).rejects.toThrow();
+
+      // 修复前会把重读失败当成空文件 ⇒ writeFile('') 抹掉两行并返回成功；
+      // 修复后读失败即抛出、不写，两行原样留在盘上
+      expect(await readFile(join(dir, FILE), 'utf8')).toBe('a\nb\n');
+      expect(spill.sizeBytes).toBe(Buffer.byteLength('a\nb\n'));
+    });
+  });
+
+  it('缓冲文件被外部删除时当作空缓冲，体积回零（overflowed 可复位）', async () => {
+    await withSpill(3, async (spill, dir) => {
+      await spill.init();
+      await spill.append('a');
+      await spill.append('b');
+      expect(spill.overflowed).toBe(true);
+
+      // 外部删除缓冲文件（ENOENT 是唯一"文件确实不在"的错误）
+      await rm(join(dir, FILE), { force: true });
+
+      const count = await spill.drain(() => Promise.resolve());
+
+      expect(count).toBe(0);
+      expect(spill.sizeBytes).toBe(0);
+      expect(spill.overflowed).toBe(false);
     });
   });
 

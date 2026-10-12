@@ -7,6 +7,15 @@ const SPILL_FILE = 'telemetry-spill.ndjson';
 /** 一条记录的成功投递动作；抛错表示投递失败，本行及其后都保留 */
 export type SpillSend = (raw: string) => Promise<void>;
 
+/** 只有"文件确实不存在"才是可接受的空；其余读错误一律照实抛出，不当作空文件 */
+function isEnoent(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: unknown }).code === 'ENOENT'
+  );
+}
+
 /**
  * 队列不可达时的本地落盘缓冲。
  *
@@ -71,8 +80,12 @@ export class TelemetrySpill {
       lines = (await readFile(this.file, 'utf8'))
         .split('\n')
         .filter(line => line !== '');
-    } catch {
-      lines = [];
+    } catch (error) {
+      // 文件确实不存在 ⇒ 缓冲为空，回零（外部删文件后 overflowed 才能复位）；
+      // 其它读失败照实抛出——不静默当成空文件，也不写任何东西
+      if (!isEnoent(error)) throw error;
+      this.bytes = 0;
+      return 0;
     }
     if (lines.length === 0) return 0;
 
@@ -93,7 +106,11 @@ export class TelemetrySpill {
       let current: string;
       try {
         current = await readFile(this.file, 'utf8');
-      } catch {
+      } catch (error) {
+        // ⚠️ 只有 ENOENT 才算"文件已不在"。其它读失败（EIO/EMFILE…）若当成空，
+        // `remaining` 会变成空串、整文件重写把未投出的行全抹掉，还照样返回 sent
+        // 假装成功——那是 C10 明令禁止的"坏写报成功"。这里**不写**，抛出去让上层响亮失败。
+        if (!isEnoent(error)) throw error;
         current = '';
       }
       const rest = current
