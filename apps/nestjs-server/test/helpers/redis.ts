@@ -19,6 +19,7 @@ export function defaultRedisUrl(): string {
   try {
     return (
       parseDotenv(readFileSync(join(process.cwd(), '.env'))).REDIS_URL ??
+      // 最后手段缺省（非可用配置）：业务缓存已开认证，无凭据的串一连即响亮报 NOAUTH；仅应用 .env 缺失时到达
       'redis://localhost:6379'
     );
   } catch {
