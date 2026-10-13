@@ -2,15 +2,20 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { RAW_METRICS, dsSubtableName } from '../src/schema.js';
 import { levelSpec } from '../src/downsample/level.js';
+import { buildAggregateSql } from '../src/downsample/query.js';
 import { lastClosedBoundary } from '../src/downsample/window.js';
 import {
+  DS_DEVICE_ID_INDEX,
   buildDsReadSql,
   checkTablesNonEmpty,
   checkedWindowRange,
   compareAggregates,
+  dsSelectColumns,
   expectedRows,
   parseDsRows,
+  partitionMismatches,
   verifyLevel,
+  type VerifyMismatch,
   type VerifyQuery
 } from '../src/downsample/verify.js';
 import { parseAggregateRows } from '../src/downsample/rows.js';
@@ -93,6 +98,8 @@ void test('checkedWindowRange：锚定 now、默认跳过最新窗口、比对 K
   assert.equal(range.endMs, 1_791_849_900_000); // 00:05:00Z（最新已闭合窗口往回 1 格）
   assert.equal(range.startMs, 1_791_849_780_000); // 00:03:00Z
   assert.equal(range.guaranteed, true);
+  // 默认 N=K-1 时整段都在 K 契约区内 ⇒ 契约区左边界即范围左边界
+  assert.equal(range.contractStartMs, range.startMs);
   // 两端都是合法窗口边界（与环同一套算术）
   const spec = levelSpec('1m');
   assert.equal(lastClosedBoundary(range.startMs, spec), range.startMs);
@@ -378,4 +385,101 @@ void test('checkTablesNonEmpty：查询抛错 ⇒ missing', async () => {
   const issues = await checkTablesNonEmpty(query);
   assert.equal(issues.length, 3);
   assert.ok(issues.every(issue => issue.kind === 'missing'));
+});
+
+// ---------- 范围与 K 契约区 ----------
+
+void test('checkedWindowRange：N > K 时范围伸进 K 外，契约区左边界仍守在最近 K 个窗口', () => {
+  const range = checkedWindowRange(NOW, levelSpec('1m'), {
+    lookback: 3,
+    windows: 5,
+    skip: 1
+  });
+  assert.equal(range.guaranteed, false);
+  // 边界 = 00:06:00Z；契约区左边界 = 边界 - K 个窗口 = 00:03:00Z
+  assert.equal(range.contractStartMs, 1_791_849_780_000);
+  // 范围左边界再往前伸到边界 - (skip+N) 个窗口 = 00:01:00Z
+  assert.equal(range.startMs, 1_791_849_600_000);
+  assert.ok(range.startMs < range.contractStartMs);
+});
+
+function mismatchAt(ts: number): VerifyMismatch {
+  return {
+    level: '1m',
+    subtable: RAW_NAME,
+    ts,
+    field: 'sum_temperature',
+    expected: '1',
+    actual: '2',
+    kind: 'field'
+  };
+}
+
+void test('partitionMismatches：K 契约区内判失败、区外只提示', () => {
+  const range = checkedWindowRange(NOW, levelSpec('1m'), {
+    lookback: 3,
+    windows: 5,
+    skip: 1
+  });
+  const inside = range.contractStartMs; // 恰在契约区左边界 ⇒ 内
+  const outside = range.contractStartMs - 60_000; // 区外一个窗口
+  const { failures, informational } = partitionMismatches(range, [
+    mismatchAt(inside),
+    mismatchAt(outside)
+  ]);
+  assert.deepEqual(
+    failures.map(m => m.ts),
+    [inside]
+  );
+  assert.deepEqual(
+    informational.map(m => m.ts),
+    [outside]
+  );
+});
+
+// ---------- 两条读之间的一致性边界 ----------
+
+void test('verifyLevel：首轮差异若重读后消失（跨了一次写入）⇒ 不报', async () => {
+  let dsCalls = 0;
+  const query: VerifyQuery = {
+    query: (sql: string) => {
+      if (sql.includes('wewant_iot_ds')) {
+        dsCalls += 1;
+        // 降采样侧：首轮给错值，重读给对值——模拟两次读之间环完成了一次重算
+        return Promise.resolve([
+          dsRow(DS_1M, WINDOW, dsCalls === 1 ? { sum_temperature: 999 } : {})
+        ]);
+      }
+      return Promise.resolve([rawRow(RAW_NAME, WINDOW)]);
+    }
+  };
+  const result = await verifyLevel(query, '1m', NOW, { lookback: 3 });
+  assert.ok(dsCalls >= 2, '发现差异后应重读两侧');
+  assert.deepEqual(result.mismatches, []);
+});
+
+// ---------- 与 query.ts 的列序耦合 ----------
+
+/** 从 SQL 的 SELECT 段取列名（`AS` 后的别名，否则整项） */
+function selectColumns(sql: string): string[] {
+  const select = sql.slice(
+    sql.indexOf('SELECT ') + 'SELECT '.length,
+    sql.indexOf(' FROM ')
+  );
+  return select.split(',').map(part => {
+    const asIndex = part.toUpperCase().indexOf(' AS ');
+    return (asIndex === -1 ? part : part.slice(asIndex + ' AS '.length)).trim();
+  });
+}
+
+void test('降采样读列序与原始聚合读列序对齐（与 query.ts 的耦合漂移即失败）', () => {
+  const rawCols = selectColumns(buildAggregateSql(levelSpec('1m'), 0, 1));
+  const dsCols = selectColumns(buildDsReadSql(levelSpec('1m'), 0, 1));
+  // 原始侧 ['tbname','ts', 聚合…, 单位…]；降采样侧仅末尾多一列 deviceId
+  assert.deepEqual(dsCols.slice(0, -1), rawCols);
+  assert.equal(dsCols[dsCols.length - 1], 'deviceId');
+  // 列下标常量与 SELECT 列数绑死（改一处不同步即失败）
+  assert.equal(DS_DEVICE_ID_INDEX, dsCols.length - 1);
+  // 与 dsSelectColumns 同源
+  assert.deepEqual(dsSelectColumns(), dsCols);
 });

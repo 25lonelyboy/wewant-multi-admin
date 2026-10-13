@@ -15,7 +15,7 @@ import {
   type DsAggregateRow,
   type DsMetricAggregate
 } from './rows.js';
-import { lastClosedBoundary, type WindowSpec } from './window.js';
+import { closedWindowRange, type WindowSpec } from './window.js';
 
 /**
  * 降采样**逐条对账**（判据②改写，设计 §9）。
@@ -64,6 +64,12 @@ export interface CheckRange {
   skip: number;
   /** 环每轮重算的窗口数 K */
   lookback: number;
+  /**
+   * 环的 **K 契约区**左边界（最近 K 个已闭合窗口的起点，epoch 毫秒）。
+   * `ts >= contractStartMs` 的差异落在环保证维护的窗口内 ⇒ **真缺陷**；
+   * 小于它的差异（仅在 N > K 时可能出现）可能是晚到数据造成的**良性陈旧**，不据此判失败（设计 §9）。
+   */
+  contractStartMs: number;
   /** 范围内每个窗口是否都被环最近一轮覆盖（S ≥ 1 且 S+N ≤ K） */
   guaranteed: boolean;
 }
@@ -95,33 +101,32 @@ export function checkedWindowRange(
 ): CheckRange {
   const windows = options.windows ?? options.lookback - 1;
   const skip = options.skip ?? 1;
-  const boundary = lastClosedBoundary(nowMs, spec);
-  // 复用 window.ts 的边界算术，不自算：endMs 仍是合法窗口边界（boundary 往回整数个 windowMs）
-  const endMs = boundary - skip * spec.windowMs;
-  const startMs = endMs - windows * spec.windowMs;
+  // ⭐ 边界只有一个来源：复用环的 `closedWindowRange`（它内部用 lastClosedBoundary 做 floor/offset/时区），
+  // 只在结果上按整数个窗口左右收端，绝不自己再算边界。
+  const full = closedWindowRange(nowMs, spec, skip + windows);
+  const endMs = full.endMs - skip * spec.windowMs;
+  const startMs = full.startMs;
+  // K 契约区 = 最近 K 个已闭合窗口（环每轮重算的那一段），右边界即 full.endMs
+  const contractStartMs = full.endMs - options.lookback * spec.windowMs;
   return {
     startMs,
     endMs,
     windows,
     skip,
     lookback: options.lookback,
+    contractStartMs,
     guaranteed: skip >= 1 && skip + windows <= options.lookback
   };
 }
 
 /**
- * 降采样表的读查询。
+ * 降采样读 SELECT 的列名，**一处定义**：`tbname`、`ts`、每测点 `sum/count/min/max`、每测点 `unit`、`deviceId`。
  *
- * ⚠️ 不复用 `query.ts` 的 `buildAggregateSql`：它写死 `FROM wewant_iot.telemetry`、取 `_wstart`，
- * 是给**原始侧**用的。这里读降采样侧，列名与来源表都不同。但 SELECT 列序刻意与
- * `buildAggregateSql` 对齐（`tbname, ts, [每测点 sum/count/min/max]…, [每测点 unit]…`），
- * 于是**两侧可共用 `parseAggregateRows`**；末尾多一列 `deviceId` 供标签比对。
+ * ⭐ 前两段（聚合 + 单位）的**列序刻意与 `query.ts` 的 `buildAggregateSql` 对齐**，于是两侧可共用
+ * `parseAggregateRows`；`DS_DEVICE_ID_INDEX` 由本函数推导，`buildDsReadSql` 也用它拼 SELECT——
+ * 三者绑在同一条列表上，改列序即同步（并有单测把与 `buildAggregateSql` 的对齐钉死，漂移即失败）。
  */
-export function buildDsReadSql(
-  spec: DsLevelSpec,
-  startMs: number,
-  endMs: number
-): string {
+export function dsSelectColumns(): string[] {
   const aggregates = RAW_METRICS.flatMap(metric => [
     `sum_${metric}`,
     `count_${metric}`,
@@ -129,15 +134,53 @@ export function buildDsReadSql(
     `max_${metric}`
   ]);
   const units = RAW_METRICS.map(metric => `${metric}_unit`);
+  return ['tbname', 'ts', ...aggregates, ...units, 'deviceId'];
+}
+
+/** `deviceId` 在降采样读结果里的列下标——由 `dsSelectColumns` 推导，改列序即随之改变 */
+export const DS_DEVICE_ID_INDEX = dsSelectColumns().indexOf('deviceId');
+
+/**
+ * 把差异按窗口是否落在**环的 K 契约区**内分开。
+ *
+ * ⭐ 契约区内（`ts >= contractStartMs`）的差异是**真缺陷**；区外的（仅当 `--windows > K` 时才可能
+ * 出现）可能是晚到数据造成的**良性陈旧**，调用方只作提示、**不据此判失败**（设计 §9）。
+ */
+export interface MismatchPartition {
+  failures: VerifyMismatch[];
+  informational: VerifyMismatch[];
+}
+
+export function partitionMismatches(
+  range: CheckRange,
+  mismatches: readonly VerifyMismatch[]
+): MismatchPartition {
+  const failures: VerifyMismatch[] = [];
+  const informational: VerifyMismatch[] = [];
+  for (const mismatch of mismatches) {
+    if (mismatch.ts >= range.contractStartMs) failures.push(mismatch);
+    else informational.push(mismatch);
+  }
+  return { failures, informational };
+}
+
+/**
+ * 降采样表的读查询。
+ *
+ * ⚠️ 不复用 `query.ts` 的 `buildAggregateSql`：它写死 `FROM wewant_iot.telemetry`、取 `_wstart`，
+ * 是给**原始侧**用的；这里读降采样侧，来源表不同。列序约定见 `dsSelectColumns`。
+ */
+export function buildDsReadSql(
+  spec: DsLevelSpec,
+  startMs: number,
+  endMs: number
+): string {
   return [
-    `SELECT tbname, ts, ${[...aggregates, ...units, 'deviceId'].join(', ')}`,
+    `SELECT ${dsSelectColumns().join(', ')}`,
     `FROM ${DS_DATABASE}.${dsStableName(spec.level)}`,
     `WHERE ts >= ${startMs} AND ts < ${endMs}`
   ].join(' ');
 }
-
-/** `deviceId` 在降采样读结果里的列下标（`buildDsReadSql` 的 SELECT 列序：2 + 4×测点数 + 测点数） */
-const DEVICE_ID_INDEX = 2 + RAW_METRICS.length * 4 + RAW_METRICS.length;
 
 function nullSafeString(value: unknown): string | null {
   if (value === null || value === undefined || value === 'NULL') return null;
@@ -181,7 +224,7 @@ export function parseDsRows(
     key: verifiedKey(row.tbname, row.ts),
     rawName: stripLevel(row.tbname, level),
     ts: row.ts,
-    deviceId: nullSafeString(rows[index]?.[DEVICE_ID_INDEX]),
+    deviceId: nullSafeString(rows[index]?.[DS_DEVICE_ID_INDEX]),
     metrics: row.metrics
   }));
 }
@@ -316,8 +359,48 @@ export interface VerifyQuery {
   query(sql: string): Promise<TdRow[]>;
 }
 
+interface PassResult {
+  expected: VerifiedRow[];
+  actual: VerifiedRow[];
+  mismatches: VerifyMismatch[];
+}
+
+/** 读两侧一次并比对——原始聚合（复用 `buildAggregateSql`）与降采样行 */
+async function readAndCompare(
+  query: VerifyQuery,
+  spec: DsLevelSpec,
+  level: DsLevel,
+  range: CheckRange,
+  deviceIdFor: (rawName: string) => string | null
+): Promise<PassResult> {
+  const rawAggregates = parseAggregateRows(
+    await query.query(buildAggregateSql(spec, range.startMs, range.endMs)),
+    level
+  );
+  const dsRows = parseDsRows(
+    await query.query(buildDsReadSql(spec, range.startMs, range.endMs)),
+    level
+  );
+  const expected = expectedRows(rawAggregates, level);
+  return {
+    expected,
+    actual: dsRows,
+    mismatches: compareAggregates(level, expected, dsRows, deviceIdFor)
+  };
+}
+
 /**
- * 对单级做一次逐条对账：读原始聚合（复用 `buildAggregateSql`）与降采样行，逐字段比。
+ * 对单级做一次逐条对账。
+ *
+ * ⭐ **一致性边界**：原始侧与降采样侧是**两条独立语句**，可能跨一次写入（原始行在两次读之间到达，
+ * 或环在两次读之间重算）——此时「原始看到新数据、降采样还是旧行」会造出一条**并非缺陷**的差异。
+ * 一旦首轮发现差异，就**重读两侧、重比一遍**，只有重读后**仍存**的差异才报。只重读降采样侧不够
+ * ——陈旧的一侧可能是**期望值（原始聚合）**本身，故两侧都要重取到同一逻辑点。
+ *
+ * ⚠️ 前提取胜于"管道静止"：活数据持续到达时仍可能瞬时报出晚到数据造成的差异，但它在环下一轮重算
+ * + 下次对账即消失。真缺陷（改值、串窗、缺行/多行）在重读后稳定复现。设计 §9 曾提出用**单条 join**
+ * 消除这条缝，但本机实测该 join 不受支持（`9828 Not supported join since 'Join requires valid time
+ * series input and primary timestamp equal condition'`），故采用"重读两侧"这条等价做法。
  */
 export async function verifyLevel(
   query: VerifyQuery,
@@ -329,22 +412,18 @@ export async function verifyLevel(
   const spec = levelSpec(level);
   const range = checkedWindowRange(nowMs, spec, options);
 
-  const rawAggregates = parseAggregateRows(
-    await query.query(buildAggregateSql(spec, range.startMs, range.endMs)),
-    level
-  );
-  const dsRows = parseDsRows(
-    await query.query(buildDsReadSql(spec, range.startMs, range.endMs)),
-    level
-  );
+  let pass = await readAndCompare(query, spec, level, range, deviceIdFor);
+  if (pass.mismatches.length > 0) {
+    // 有差异 ⇒ 排除"两条语句之间发生了一次写入"这类假警报：重读两侧再比，只留仍存的差异
+    pass = await readAndCompare(query, spec, level, range, deviceIdFor);
+  }
 
-  const expected = expectedRows(rawAggregates, level);
   return {
     level,
     range,
-    expectedCount: expected.length,
-    actualCount: dsRows.length,
-    mismatches: compareAggregates(level, expected, dsRows, deviceIdFor)
+    expectedCount: pass.expected.length,
+    actualCount: pass.actual.length,
+    mismatches: pass.mismatches
   };
 }
 
