@@ -5,6 +5,7 @@ import { RAW_DATABASE } from '../src/schema.js';
 import {
   RAW_CODEC,
   TdengineWriter,
+  groupRows,
   insertSql,
   MAX_BIND_ROWS,
   MAX_CONNECTIONS,
@@ -71,6 +72,41 @@ void test('原始列描述：库名与子表名取自行', () => {
   };
   assert.equal(RAW_CODEC.database, RAW_DATABASE);
   assert.equal(RAW_CODEC.subtable(row), 'aweawq05e8pf53wh_001');
+});
+
+// ---- 分组（(子表, 列签名) —— 同组才能共用一条 INSERT + 一次 exec）----
+
+void test('groupRows：同 (子表, 签名) 归一组，异签名 / 异子表各自成组', () => {
+  const oneMetric = {
+    subtable: 's1',
+    ts: 1,
+    metrics: { temperature: { value: 1, unit: '°C' } }
+  };
+  const twoMetrics = {
+    subtable: 's1',
+    ts: 2,
+    metrics: {
+      temperature: { value: 1, unit: '°C' },
+      current: { value: 1, unit: 'A' }
+    }
+  };
+  const otherTable = {
+    subtable: 's2',
+    ts: 3,
+    metrics: { temperature: { value: 1, unit: '°C' } }
+  };
+
+  // 同子表但测点集合不同 ⇒ 列结构不同 ⇒ 必须分组（否则会按错的列 bind 另一组行）
+  const groups = groupRows([oneMetric, twoMetrics, otherTable], RAW_CODEC);
+  assert.equal(groups.length, 3);
+  // 同子表同签名的两行归一组，列描述取该组第一行
+  const merged = groupRows([oneMetric, { ...oneMetric, ts: 9 }], RAW_CODEC);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0]?.rows.length, 2);
+  assert.deepEqual(
+    merged[0]?.columns.map(column => column.name),
+    ['ts', 'temperature', 'temperature_unit']
+  );
 });
 
 // ---- 写入器（连接池 / 作废粒度 / 上限兜底）----

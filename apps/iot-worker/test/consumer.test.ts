@@ -136,7 +136,14 @@ void test('多行部分成功 ⇒ 同批每个 waiter 都 reject，written 不�
     const run = processor(consumer);
     const first = run(job(payload(Date.now())));
     const second = run(job(payload(Date.now() + 1)));
-    await assert.rejects(Promise.all([first, second]));
+    // ⭐ 必须 allSettled：`Promise.all` 只暴露**首个**拒绝，一个"只拒了一个 waiter"的缺陷
+    // 也能通过 ⇒ 断言不到它要断言的东西。这里要求两个 waiter **都** rejected。
+    const results = await Promise.allSettled([first, second]);
+    assert.deepEqual(
+      results.map(result => result.status),
+      ['rejected', 'rejected'],
+      '同批每个 waiter 都应 reject'
+    );
     assert.equal(consumer.stats.written, 0);
   } finally {
     await consumer.close();

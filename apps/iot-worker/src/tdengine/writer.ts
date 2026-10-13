@@ -319,14 +319,19 @@ export class TdengineWriter<Row = PendingRow> {
   }
 }
 
-interface WriteGroup {
+export interface WriteGroup {
   subtable: string;
   columns: readonly WriteColumn[];
   rows: { columns: readonly WriteColumn[] }[];
 }
 
-/** 按 `(子表, 列签名)` 分组——同组才能共用一条语句与一次 exec */
-function groupRows<Row>(
+/**
+ * 按 `(子表, 列签名)` 分组——同组才能共用一条语句与一次 exec。
+ *
+ * ⚠️ **签名是分组键的一半**：同一子表内带不同测点集合的行落成不同列结构，必须分成不同组
+ * （各用各的 INSERT），否则会按某一组的列去 bind 另一组的行。导出供单测钉住这条。
+ */
+export function groupRows<Row>(
   rows: readonly Row[],
   codec: WriteCodec<Row>
 ): WriteGroup[] {

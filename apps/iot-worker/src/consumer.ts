@@ -295,8 +295,13 @@ export class TelemetryConsumer {
   }
 }
 
-/** 批内同 `(子表, ts)` 只保留最后一条——同 ts 覆盖是 TDengine 语义，留着只会白写 */
-function dedupeInBatch(rows: readonly PendingRow[]): PendingRow[] {
+/**
+ * 批内同 `(子表, ts)` 只保留最后一条——同 ts 覆盖是 TDengine 语义，留着只会白写。
+ *
+ * ⭐ **必须在 `write()` 之前做**：不去重会把"重投覆盖"误报成"部分成功"（`affected < 提交数`）。
+ * 因是纯函数、无副作用，导出供单测直接钉住这条不变量（`flushOnce` 仍经它）。
+ */
+export function dedupeInBatch(rows: readonly PendingRow[]): PendingRow[] {
   const byKey = new Map<string, PendingRow>();
   for (const row of rows) {
     byKey.set(`${row.subtable}\u0000${row.ts}`, row);
