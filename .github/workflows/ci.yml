@@ -230,6 +230,10 @@ jobs:
         continue-on-error: true
       - run: pnpm --filter @multi-admin/iot-worker run test:coverage
         # 报警式（ADR-006）：覆盖率不达标只报警不拦截
+        # 只收单测（收 e2e 会让门禁必须先起 redis-queue + tdengine，跑不独立）
+        continue-on-error: true
+      - run: pnpm --filter @multi-admin/iot-worker run test:e2e
+        # iot-worker 的 e2e 需真实队列 Redis + TDengine（本 job services 已备）；报警式，与本 job 其余步骤同姿态
         continue-on-error: true
 
   coverage-web:
