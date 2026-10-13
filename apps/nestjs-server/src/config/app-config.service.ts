@@ -42,6 +42,11 @@ export class AppConfigService {
     return this.config.get('MQTT_CLIENT_ID', { infer: true });
   }
 
+  /** 会话是否干净起始；缺省 `false`（保留持久会话）。e2e 置 `true` 以甩掉上轮 QoS1 积压 */
+  get mqttCleanSession(): boolean {
+    return this.config.get('MQTT_CLEAN_SESSION', { infer: true }) === 'true';
+  }
+
   get mqttSessionExpirySeconds(): number {
     return this.config.get('MQTT_SESSION_EXPIRY_SECONDS', { infer: true });
   }

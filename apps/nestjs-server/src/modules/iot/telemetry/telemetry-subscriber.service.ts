@@ -72,8 +72,9 @@ export class TelemetrySubscriberService
       const client = mqtt.connect(url, {
         clientId: this.config.mqttClientId,
         protocolVersion: 5,
-        // 会话跨重连保留：QoS 1 的未确认投递才可能在重连后补上
-        clean: false,
+        // 生产缺省 `clean=false`：会话跨重连保留，QoS 1 的未确认投递才可能在重连后补上。
+        // e2e 经 `MQTT_CLEAN_SESSION=true` 起干净会话，甩掉上一轮遗留的 QoS1 积压。
+        clean: this.config.mqttCleanSession,
         properties: {
           sessionExpiryInterval: this.config.mqttSessionExpirySeconds
         }

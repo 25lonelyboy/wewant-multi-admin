@@ -1,10 +1,23 @@
 import { Logger } from '@nestjs/common';
+import mqtt from 'mqtt';
 import type { AppConfigService } from '../../../config/app-config.service.js';
 import { TelemetrySubscriberService } from './telemetry-subscriber.service.js';
 import type {
   SendDisposition,
   TelemetryProducer
 } from './telemetry-producer.js';
+
+// MQTT 连接替身：本文件的用例不连真实 Broker。`connect` 返回一个 inert client，
+// `onModuleInit` 里注册的回调都成为空操作，从而只观察"传给 connect 的选项"。
+jest.mock('mqtt', () => {
+  const client = {
+    on: jest.fn(),
+    subscribe: jest.fn(),
+    end: jest.fn(),
+    unsubscribe: jest.fn()
+  };
+  return { __esModule: true, default: { connect: jest.fn(() => client) } };
+});
 
 // 直接构造而不经 Nest 生命周期：本文件只覆盖报文判定与每秒窗口的计数分支。
 // 装生产者走覆写的 createProducer（见 SubscriberWithFake），不触发队列与 MQTT。
@@ -31,11 +44,12 @@ class SubscriberWithFake extends TelemetrySubscriberService {
   }
 }
 
-/** 只用到 start / send 的替身：每次 send 返回指定的去向 */
+/** 只用到 start / send / close 的替身：每次 send 返回指定的去向 */
 function producerReturning(disposition: SendDisposition): TelemetryProducer {
   return {
     start: jest.fn().mockResolvedValue(undefined),
-    send: jest.fn().mockResolvedValue(disposition)
+    send: jest.fn().mockResolvedValue(disposition),
+    close: jest.fn().mockResolvedValue(undefined)
   } as unknown as TelemetryProducer;
 }
 
@@ -210,5 +224,56 @@ describe('TelemetrySubscriberService 每秒窗口（按去向分列）', () => {
     expect(lastLog()).toContain(
       '入队 2 / 落缓冲 0 / 丢弃 0 / 无法读取编号 1 / 1 台设备'
     );
+  });
+});
+
+describe('TelemetrySubscriberService 连接选项（Clean Start 开关）', () => {
+  const connect = mqtt.connect as unknown as jest.Mock;
+
+  /** onModuleInit 会读到的全部配置字段 */
+  function configWith(clean: boolean): AppConfigService {
+    return {
+      mqttUrl: 'mqtt://127.0.0.1:1883',
+      mqttClientId: 'wewant-iot-subscriber',
+      mqttCleanSession: clean,
+      mqttSessionExpirySeconds: 86_400
+    } as unknown as AppConfigService;
+  }
+
+  afterEach(() => {
+    connect.mockClear();
+  });
+
+  it('缺省 clean=false：保留跨重连的持久会话（生产口径）', async () => {
+    const service = new SubscriberWithFake(configWith(false)).use(
+      producerReturning('enqueued')
+    );
+    service.onModuleInit();
+    try {
+      expect(connect).toHaveBeenCalledWith(
+        'mqtt://127.0.0.1:1883',
+        expect.objectContaining({
+          clientId: 'wewant-iot-subscriber',
+          clean: false
+        })
+      );
+    } finally {
+      await service.onModuleDestroy();
+    }
+  });
+
+  it('MQTT_CLEAN_SESSION=true ⇒ clean=true：丢弃同 clientId 的既有会话', async () => {
+    const service = new SubscriberWithFake(configWith(true)).use(
+      producerReturning('enqueued')
+    );
+    service.onModuleInit();
+    try {
+      expect(connect).toHaveBeenCalledWith(
+        'mqtt://127.0.0.1:1883',
+        expect.objectContaining({ clean: true })
+      );
+    } finally {
+      await service.onModuleDestroy();
+    }
   });
 });

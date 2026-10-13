@@ -23,6 +23,8 @@ setIfAbsent('QUEUE_REDIS_URL', 'redis://localhost:6380');
 setIfAbsent('MQTT_URL', 'mqtt://127.0.0.1:1883');
 // 订阅端 clientId 固定 ⇒ 与开发者本机可能在跑的 dev:server 会互踢，测试用独立 id 隔离
 setIfAbsent('MQTT_CLIENT_ID', 'wewant-iot-subscriber-e2e');
+// 干净起始：丢弃上一轮测试遗留的 QoS1 会话与排队报文，避免旧积压混进本轮计数断言
+setIfAbsent('MQTT_CLEAN_SESSION', 'true');
 // 本地缓冲目录落在临时目录，别往仓库里写
 setIfAbsent('IOT_SPILL_DIR', join(tmpdir(), 'wewant-iot-spill-test'));
 setIfAbsent('ADMIN_INIT_PASSWORD', 'e2e-admin-password');

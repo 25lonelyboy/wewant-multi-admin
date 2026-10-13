@@ -14,6 +14,14 @@ export const envSchema = z.object({
   MQTT_URL: z.url().default('mqtt://127.0.0.1:1883'),
   /** 订阅端 clientId：**固定**才能配合 `clean=false` 用上持久会话；每次重启换 id 会让会话白搭 */
   MQTT_CLIENT_ID: z.string().min(1).default('wewant-iot-subscriber'),
+  /**
+   * 会话是否**干净起始**（MQTT 5 的 Clean Start）。缺省 `false`——保留跨重连的持久会话，
+   * QoS 1 的未确认投递才可能在重连后补上（生产口径）。
+   *
+   * ⚠️ 置 `true` 时 Broker 会**丢弃同 clientId 的既有会话及其排队报文**，随后每次连接都从零开始
+   * ⇒ e2e 复跑用它甩掉上一轮遗留的 QoS1 积压，避免旧报文混进本轮的计数断言。
+   */
+  MQTT_CLEAN_SESSION: z.enum(['true', 'false']).default('false'),
   /** 持久会话的过期秒数；0 表示连接断开即结束会话 */
   MQTT_SESSION_EXPIRY_SECONDS: z.coerce
     .number()
