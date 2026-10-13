@@ -877,11 +877,11 @@ flush     2 秒（默认，可配）→ 交接点 250 行/秒
 | **N1** | ⭐ **一次 exec 能不能跨多个子表** | ✅ **能**。100 子表 × 5 行 = 500 行，**一次 exec 21 ms**，`getLastAffected = 500`；同样数据逐子表 exec（100 次）**116 ms——慢 5.5 倍** |
 | **N2** | **跨子表的两种写法** | **两种都可用**：① `INSERT INTO ? USING stb (tags) TAGS (?,?) VALUES (…)` + **`setTableName()`**（官方 Node 示例形态）；② `INSERT INTO db.stb (tbname, tag…, ts, …) VALUES (?,…)` + **`tbname` 作普通绑定参数**（官方 Java 示例形态） |
 | **N3** | ⚠️ **带 `USING` + 子表不存在** | **自动建表**——子表被建出来、数据写进去、`getLastAffected = 1`，**不报错** |
-| **N4** | 不带 `USING` + 子表不存在 | 两条路径的形态不同：本实现强制的 **STMT1** 抛 **`WebSocketInterfaceError` + `code=9731` + message `Table does not exist`**（干净、带码）；旧探针的 **STMT2** 默认路径报文是 **C 源码路径**（`clientStmt2.c[4946]stmtGetStbColFields2()`），**同样带码（`code=555`）** |
+| **N4** | 不带 `USING` + 子表不存在 | 两条路径的形态不同：本实现强制的 **STMT1** 抛 **`WebSocketInterfaceError` + `code=9731` + message `Table does not exist`**（干净、带码）；**STMT2 默认路径**（`tdengine-stmt-probe.mjs` 用连接器默认、未指定 STMT 版本）的报文是 **C 源码路径**（`clientStmt2.c[4946]stmtGetStbColFields2()`），**同样带码（`code=555`）** |
 | **N5** | ⭐ **单次 bind/exec 的行数上限** | **32767 行成功（22 ms）、32768 行失败**（`bind number out of range or not match`）。与列数无关（1 列 35000 同样失败）⇒ **是行数上限，值 = 2¹⁵−1** |
 | **N6** | `exec(sql)` 遇 SQL 错 | **抛 `TaosResultError`，带 `code`**（实测 `9730 Invalid column name`） |
 | **N7** | `setTimestamp()` 收 epoch 毫秒数字 | ✅ 可用，回读与传入一致 |
-| **N8** | `getLastAffected()` 的返回类型 | 写入器强制的 **STMT1** 路径上返回 **`number`**（实测 `value=1`、`typeof=number`）；**BigInt 形态属 STMT2 路径**（旧探针的默认），本路径不出现 |
+| **N8** | `getLastAffected()` 的返回类型 | 写入器强制的 **STMT1** 路径上返回 **`number`**（实测 `value=1`、`typeof=number`）；**BigInt 形态属 STMT2 路径**（`tdengine-stmt-probe.mjs` 用连接器默认、即 STMT2），本路径不出现 |
 | **N9** | 一次非法绑定之后 | **STMT1 路径上连接仍健康**——四种绑定形态（`566` / `65535` / `9730` / 类型不符或 `NaN`）之后均以**同一条连接的下一次成功写入**（`affected=1`）证明，不只是"没抛异常"；"持续重连失败"（后续操作全部 `Failed to reconnect to any available address`）属 **STMT2** 路径（§8 第 11b 项即把该现象归因于 `stmt2 recover exceeded max attempts`） |
 
 **连接器 STMT 的实际 API 面**（`WsStmt`）：`prepare / setTableName / setTags / newStmtParam / bind / batch / exec / getLastAffected / close`。
