@@ -260,7 +260,7 @@ CREATE DATABASE power PRECISION 'ms' KEEP 3650 DURATION 10 BUFFER 16;
 
 ```text
 #1 schema      按功能类别分超表；子表＝采集点；多列；幂等键＝(子表, ts)；类型分档（累计量→DOUBLE/BIGINT）
-#2 写入方式     参数绑定 STMT（走不带 USING 的形态；一个 stmt 句柄 + 一次 exec 覆盖整批）；子表预建；
+#2 写入方式     参数绑定 STMT（走不带 USING 的形态，写具体子表名 ⇒ 每子表一条语句）；子表预建；
                 攒批 500 条 或 2 s；每批多子表；BullMQ 指数退避+抖动；入库成功再 Ack；连接 2~4 条
 #3 协议版本     订阅端 protocolVersion=5；模拟器两版并存；对现场设备允许混用；契约不动
 #4 生命周期     原始库 KEEP 3 年 / DURATION 10 天；降采样另建库（分钟 3 年、小时·天 10 年）；
