@@ -264,6 +264,41 @@ void test('⭐ 同一槽连续失败达上限 ⇒ 作废它重连（半开连接
   await writer.close();
 });
 
+void test('⭐ 作废/重连后计数清零：重连后的单次失败不作废（否则每次必作废）', async () => {
+  // 同一格连续失败：第 2 次达上限作废重连；第 3 次（重连后首次）**不应**再作废
+  let connects = 0;
+  const closed: number[] = [];
+  const connect: WriterConnect = () => {
+    const index = connects;
+    connects += 1;
+    return Promise.resolve({
+      stmtInit: () =>
+        Promise.resolve(
+          fakeStmt({
+            exec: () =>
+              Promise.reject(
+                codedError('TDWebSocketClientError', 105, 'timeout')
+              )
+          })
+        ),
+      close: () => {
+        closed.push(index);
+        return Promise.resolve();
+      }
+    } as never);
+  };
+  const writer = new TdengineWriter('ws://x', RAW_CODEC, 1, connect);
+
+  await assert.rejects(writer.write([row(1)])); // 连续失败 #1
+  await assert.rejects(writer.write([row(2)])); // 连续失败 #2 ⇒ 达上限 ⇒ 作废
+  assert.deepEqual(closed, [0], '第 2 次连续失败才作废');
+  await assert.rejects(writer.write([row(3)])); // 重连后首次失败 ⇒ 计数从 0 起 ⇒ **不**作废
+  assert.deepEqual(closed, [0], '重连后计数清零，单次失败不再作废');
+  await assert.rejects(writer.write([row(4)])); // 重连后第 2 次连续失败 ⇒ 再次作废
+  assert.deepEqual(closed, [0, 1], '再次连中两次才作废');
+  await writer.close();
+});
+
 void test('⭐ 交替成功 ⇒ 连续失败计数重置，好连接不被作废', async () => {
   const timeout = codedError('TDWebSocketClientError', 105, 'timeout');
   let connects = 0;

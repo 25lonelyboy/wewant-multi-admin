@@ -98,11 +98,14 @@ interface WriterSlot {
 export const MAX_CONNECTIONS = 4;
 
 /**
- * 同一格**连续失败**达此数即作废它重连（成功会清零）。
+ * 同一格**连续失败**达此数即作废它重连。
+ *
+ * ⭐ **不变式**：计的是"**连续**失败"——**成功**清零（见 `write()`）、**作废 / 重连后也从零起**
+ * （见 `discard()`）。故一次瞬时错（如重连后的**单次** 105）不作废；只有真正的**连中** K 次才作废。
  *
  * ⚠️ 这是"连接坏了但报的不是连接级码"（半开 socket 报 105、或判不出形态）的兜底：那种连接若
  * 不丢弃，会被轮转反复复用、每次失败——单次不作废、永远不作废都不是想要的，故取"有界"。
- * ⚠️ 取 2：一次瞬时错（如单个 105）仍不作废；连中两次才作废。
+ * ⚠️ 取 2：连中两次才作废。
  */
 const SLOT_FAILURE_LIMIT = 2;
 
@@ -149,9 +152,8 @@ function bindColumn(
  * ⚠️ **`invalidate()` 必须先关旧连接再置空**——只置空会把一条**还活着的** WebSocket 泄漏掉。
  * ⚠️ **只有连接级错误才该 `invalidate()`**（调用方按 `failure.connectionLevel` 判定）：超时
  * "可能已成功"、连接数上限、判不出形态的默认桶都**不证明连接坏了**，作废它们只是白白重连。
- * ⚠️ **连续失败有界**：同一格连中 `SLOT_FAILURE_LIMIT` 次即作废重连，成功清零——兜住"连接坏了
- * 但报的不是连接级码"的半开连接（否则它会被轮转反复复用、每次失败；既不因一次瞬时错作废，
- * 也不永久赖着）。
+ * ⚠️ **连续失败有界**：同一格连中 `SLOT_FAILURE_LIMIT` 次即作废重连——**成功或作废 / 重连后都清零**
+ * （兜住"连接坏了但报的不是连接级码"的半开连接：既不因一次瞬时错作废，也不永久赖着）。
  */
 export class TdengineWriter<Row = PendingRow> {
   private readonly slots: WriterSlot[];
@@ -160,6 +162,11 @@ export class TdengineWriter<Row = PendingRow> {
   /** `write()` 失败时记下用的是哪一格，供 `invalidate()` 精确作废；成功或未失败时为空 */
   private failedSlot: WriterSlot | null = null;
 
+  /**
+   * @param connections 连接池大小——**本层接受 1~`MAX_CONNECTIONS`(4)**。⭐ 下限取 1 是刻意的：
+   * 单连接是合法的退化形态（单测与降采样读侧都用它）；**生产**经 `loadConfig` 只放行 **2~4**
+   * （`TDENGINE_CONNECTIONS`），故这里更宽的下限不是漏配，而是给内部使用者留的余量。
+   */
   constructor(
     private readonly url: string,
     private readonly codec: WriteCodec<Row> = RAW_CODEC as WriteCodec<Row>,
@@ -281,6 +288,9 @@ export class TdengineWriter<Row = PendingRow> {
   /**
    * 尽力关闭这一格的连接并置空，让下一次写入重连。
    *
+   * ⚠️ **同时把连续失败计数清零**：连接都没了，计数必须从头起——否则上限会从"连中 K 次"退化
+   * 成"距上次成功 K 次"，重连后的**单次**失败也会立刻再作废（等于每次写都重连），既违背
+   * `SLOT_FAILURE_LIMIT` 的本意，也违背行 5"单次瞬时错不作废"。与读侧 `dropReader` 同一处重置。
    * ⚠️ 关闭是尽力而为、**不 await**——半开连接的 `close()` 可能挂起，拖住恢复（与读侧 `dropReader` 同一思路）。
    */
   private discard(slot: WriterSlot): void {
@@ -288,6 +298,7 @@ export class TdengineWriter<Row = PendingRow> {
     slot.stmt = null;
     slot.preparedSql = null;
     slot.connection = null;
+    slot.failures = 0;
     if (stmt !== null)
       void Promise.resolve(stmt.close()).catch(() => undefined);
     if (connection !== null)
