@@ -78,6 +78,25 @@ const job = (data: unknown): Job => ({ data }) as unknown as Job;
 /** 让已排入微任务队列的回调跑完，再看是否有写入发生 */
 const tick = (): Promise<void> => new Promise(resolve => setImmediate(resolve));
 
+/**
+ * 给一个可能永不落定的 Promise 加上界。
+ *
+ * ⭐ 本文件刻意不挂 flush 定时器，于是"达到条数阈值"是唯一的落定路径——一旦那条触发失效，
+ * await 会**永久挂起**（node:test 默认无单测超时）直到 CI 作业超时，而不是失败。用有界的
+ * race 让回归**响亮且立刻**地失败。落定即清定时器，不留悬挂句柄。
+ */
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  what: string
+): Promise<T> {
+  let timer: NodeJS.Timeout;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`超时（${ms}ms）：${what}`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 function row(subtable: string, ts: number, value: number): PendingRow {
   return {
     subtable,
@@ -119,7 +138,12 @@ void test('⭐ 攒批条数触发：达到 INGEST_BATCH_SIZE 才 flush，且只 
     assert.equal(calls(), 0, '未达阈值不该 flush');
 
     const third = run(job(payload(3_000)));
-    await Promise.all([first, second, third]);
+    // 有界等待：条数触发若失效，三个 Promise 永不落定 ⇒ 立刻失败而非挂到作业超时
+    await withTimeout(
+      Promise.all([first, second, third]),
+      2_000,
+      '达到阈值应触发整批 flush'
+    );
 
     assert.equal(calls(), 1, '达到阈值只 flush 一次（整批一起）');
     assert.equal(last().length, 3, '本批应装入三条');
@@ -136,7 +160,11 @@ void test('⭐ 批内同 (子表, ts)：只提交一份、计入 duplicateInBatc
     const run = processor(consumer);
     const ts = 5_000;
     // 同一个 ts 的两条报文：去重后应合成一行
-    await Promise.all([run(job(payload(ts))), run(job(payload(ts)))]);
+    await withTimeout(
+      Promise.all([run(job(payload(ts))), run(job(payload(ts)))]),
+      2_000,
+      '达到阈值应触发整批 flush'
+    );
 
     assert.equal(consumer.stats.duplicateInBatch, 1, '应计一条批内重复');
     assert.equal(
@@ -155,7 +183,11 @@ void test('异 ts 的批内行不去重，duplicateInBatch 保持 0', async () =
   const consumer = makeConsumer(writer, 2);
   try {
     const run = processor(consumer);
-    await Promise.all([run(job(payload(7_000))), run(job(payload(7_001)))]);
+    await withTimeout(
+      Promise.all([run(job(payload(7_000))), run(job(payload(7_001)))]),
+      2_000,
+      '达到阈值应触发整批 flush'
+    );
     assert.equal(consumer.stats.duplicateInBatch, 0);
     assert.equal(consumer.stats.written, 2);
   } finally {

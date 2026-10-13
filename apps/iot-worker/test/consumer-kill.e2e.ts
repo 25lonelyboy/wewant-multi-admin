@@ -67,9 +67,7 @@ async function readTsSet(sql: TdSql): Promise<number[]> {
   const rows = await sql.query(
     `SELECT ts FROM ${RAW_DATABASE}.telemetry WHERE ts >= ${BASE} AND ts < ${BASE + N} ORDER BY ts`
   );
-  return rows.map(row =>
-    typeof row[0] === 'bigint' ? Number(row[0]) : Number(row[0])
-  );
+  return rows.map(row => Number(row[0]));
 }
 
 async function waitFor(
