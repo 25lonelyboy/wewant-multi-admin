@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     services:
-      # 镜像沿用 coverage job 同源 digest pin（生产安全基线：全仓镜像引用必须 pin；+2 pin 后 check-digests 计数 8 → 10，见 Step 3）
+      # 镜像沿用 coverage job 同源 digest pin（生产安全基线：全仓镜像引用必须 pin；本文件与 compose / Dockerfile 的 pin 由 pnpm ops:check-digests 统一巡检）
       postgres:
         image: postgres:15-alpine@sha256:fe0737ba566a2c5b2a28f34433c0a423261900ec17b9bf7ad115e1aae7e57f1b # pin: 2026-08-27 (pnpm ops:check-digests quarterly)
         env:
@@ -345,7 +345,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # ④ covers 漂移靠比对完整 git 历史的提交时间；默认 depth=1 浅克隆会让所有路径时间戳塌缩到 HEAD，漂移检测静默失效
+          fetch-depth: 0 # ④ covers 漂移靠比对完整 git 历史的提交时间的 UTC 日期；默认 depth=1 浅克隆会让所有路径时间戳塌缩到 HEAD，漂移检测静默失效
       - uses: actions/setup-node@v4
         with:
           node-version: 24

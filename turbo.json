@@ -15,17 +15,17 @@
     "test": {
       "dependsOn": ["^build"],
       "cache": false,
-      "env": ["DATABASE_URL", "REDIS_URL", "MQTT_URL"]
+      "env": ["DATABASE_URL", "REDIS_URL", "MQTT_URL", "QUEUE_REDIS_URL"]
     },
     "test:e2e": {
       "dependsOn": ["^build"],
       "cache": false,
-      "env": ["DATABASE_URL", "REDIS_URL", "MQTT_URL"]
+      "env": ["DATABASE_URL", "REDIS_URL", "MQTT_URL", "QUEUE_REDIS_URL"]
     },
     "test:coverage": {
       "dependsOn": ["^build"],
       "cache": false,
-      "env": ["DATABASE_URL", "REDIS_URL", "MQTT_URL"]
+      "env": ["DATABASE_URL", "REDIS_URL", "MQTT_URL", "QUEUE_REDIS_URL"]
     },
     "dev": {
       "persistent": true,

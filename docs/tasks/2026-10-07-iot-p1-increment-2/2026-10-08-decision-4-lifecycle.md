@@ -725,16 +725,10 @@ CREATE STREAM <db>.s_downsample
                ⚠️ 流级 CONFIG(timezone=…) 在 3.4.2.8 不可用（§7.1 M21）
 
 降采样
-  路径         流计算 CREATE STREAM
-  计算子句       FROM <源表>   ⚠️ 不是 %%trows（§7.1 M25：%%trows 会在补传时静默写坏已算窗口）
-                 ⛔ 也不能改成"带 _tprev_localtime 的增量写法"——它会把补传与停机期间的数据
-                    整段跳过（§13 实测：那是正确性问题，不是成本问题）
-  触发          PERIOD（3.4.2.8 上 INTERVAL 作触发类型被拒）
-  分组          PARTITION BY tbname
-                 · ⚠️ 位置固定：紧跟 FROM 之后、INTERVAL 之前（放 INTERVAL 后面报 9728 语法错）
-                 · 一条流覆盖全部设备——万级设备不需要万条流
-                 · 且只有带分组才产出超表 —— 分钟级超表级 KEEP 的前提
-  粒度          分钟 / 小时 / 天（三级**平级**：三条流各自读原始超表，见 §14.3）
+  路径          ⭐ **不用流**——由 worker 进程内的降采样环定时重算最近 K 个已闭合窗口
+                （触发 / 读取 / 写入形态见 [降采样设计](2026-10-12-downsample-design.md)；
+                 本机实测 3.4.2.8 的流会把每个窗口的聚合**复制给全部输出子表**，用它算不出正确结果）
+  粒度          分钟 / 小时 / 天（三级**平级**：三条调度各自读原始超表，互不依赖）
   聚合列        第一级存 SUM / COUNT（并 MIN / MAX）—— 不只存 AVG（§7 M12 实测偏差 14%）
   窗口          INTERVAL(<n>, <offset>)；offset 用于对齐业务日（如 1d, 8h ⇒ 早 8 点）
 
@@ -856,7 +850,7 @@ SECURE_DELETE  不用
 
 | # | 实测 | 结果 |
 | --- | --- | --- |
-| **C1** | **全量写法会不会重算已算过的旧窗口** | ✅ **会**。删掉输出表里一个旧窗口行，**在源表无任何新写入**的情况下，下一轮触发**把它原样写了回来**（`v_avg`/`count` 一致） |
+| **C1** | **全量写法会不会重算已算过的旧窗口** | ✅ **会**。删掉输出表里一个旧窗口行，**在源表无任何新写入**的情况下，下一轮触发**把它原样写了回来**（`v_avg`/`count` 一致）。⚠️ **适用边界**：流只处理**它启动之后**的数据——`ins_streams` 的 `message` 记 `Running start from: <ts>`（容器重启后随重部署刷新，见 C3）；早于该时刻写入的数据不在它的计算范围内 |
 | **C2** | ⛔ **增量写法在"停机期间的数据"上** | **一条都没算**。重启后灌入两条 `ts` 落在停机期间的数据（其中一条 `v=999` 便于辨认），**输出表此后停在重启前那一行，之后一行都没有** |
 | **C3** | 流在容器重启后 | ✅ **自动重新部署**（`Undeployed` → `Running`，状态里带新的 `Running start from:`）——但**这救不了增量写法** |
 | **C4** | **为什么增量写法会跳过** | `_tprev_localtime` / `_tlocaltime` 是**触发时刻（wall clock）**，而 `WHERE` 拿它去比**数据的 `ts`** ⇒ **任何 `ts` 早于"上次触发时刻"的数据都被跳过** |
@@ -929,34 +923,13 @@ ALTER STABLE telemetry_1m KEEP 1095;   -- ⭐ 分钟级超表级 KEEP（3 年）
 
 ⚠️ **一条实现细节**：`count_<metric>` 要数的是**该测点有值的行数**（`COUNT(temperature)`），**不是总行数**（`COUNT(*)`）——否则窗口内某测点缺值时，`sum/count` 算出来的均值是错的。
 
-### 14.3 三条流的形态
+### 14.3 降采样如何产出（**不用流**）
 
-```sql
--- 分钟级
-CREATE STREAM wewant_iot_ds.s_1m PERIOD(1m) FROM wewant_iot.telemetry PARTITION BY tbname
-  INTO wewant_iot_ds.telemetry_1m
-  TAGS (deviceId VARCHAR(16) AS deviceId)
-  AS SELECT _wstart AS ts,
-            SUM(temperature) AS sum_temperature, COUNT(temperature) AS count_temperature,
-            MIN(temperature) AS min_temperature, MAX(temperature) AS max_temperature,
-            …（其余两个测点同形）
-       FROM wewant_iot.telemetry
-     INTERVAL(1m);
+⚠️ 本节原来给的三条 `CREATE STREAM` 由 [降采样设计](2026-10-12-downsample-design.md) 取代——本机实测该版本（`3.4.2.8.community`）的流会把每个窗口的聚合**复制给全部输出子表**，用它算不出正确结果。改为 **worker 进程内的降采样环定时重算**：三级 `1m` / `1h` / `1d` **平级**、各自一条调度、都从原始超表算，互不依赖（上两节 §14.1 / §14.2 的表结构一字不改）。窗口口径不变：`INTERVAL(1m)` / `INTERVAL(1h)` / `INTERVAL(1d, 8h)`——业务日从早 8 点起。
 
--- 小时级 / 天级：同形，只是 PERIOD 与 INTERVAL 换值
---   s_1h  PERIOD(1h)          INTERVAL(1h)
---   s_1d  PERIOD(1d, 8h)      INTERVAL(1d, 8h)   ← 业务日从早 8 点（§11 已定）
-```
+### 14.4 与本节相关的未实测项
 
-⭐ **三个流平级、都读原始超表**——不是"在上一级输出表上再建流"，理由见 **§13**。
-
-### 14.4 本节未实测、留到写建流脚本时验的三条
-
-| 项 | 说明 |
-| --- | --- |
-| **`PERIOD(1d, 8h)` 的 offset 语法** | 官方示例有 `PERIOD(1n, 14d)`（"On the 15th of each month"）⇒ 类比成立，但**未实测** |
-| **不指定 `OUTPUT_SUBTABLE` 时，输出子表名的默认值** | 显式指定可控（官方文档确认）；**默认形态未实测**（3d） |
-| **`TAGS (… AS …)` 标签继承的实际行为** | 官方示例有该形态，**未实测** |
+表结构（§14.1 / §14.2）本机逐条实跑复核；降采样**产出机制**的选型依据与实测见 [降采样设计](2026-10-12-downsample-design.md)。
 
 ---
 

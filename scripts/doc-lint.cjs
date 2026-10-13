@@ -327,8 +327,9 @@ function gitLastCommitTs(gitPath) {
 
 // 提交时间戳 → UTC 日期（YYYY-MM-DD）。用 UTC 而非本地时区：CI 在 UTC 运行、开发者
 // 机器多在本地时区，本地换算会让同一次提交在不同机器上落到不同日期，判定随环境漂移。
-// UTC 只会让变更日更早或相等（coverDate(UTC) ≤ coverDate(local) ≤ verifiedDate），
-// 即最多漏报、绝不误报——门禁宁可漏不可冤。命令失败（null）或无提交（0）都返回 null。
+// 在 UTC 偏移 ≥ 0 的机器上（本仓 +0800、CI 为 UTC），UTC 只会让变更日更早或相等
+// （coverDate(UTC) ≤ coverDate(local) ≤ verifiedDate），即最多漏报、绝不误报——门禁宁可漏不
+// 可冤；偏移为负时本地日期可能早于 UTC，该不等式不再成立。命令失败（null）或无提交（0）都返回 null。
 function gitLastCommitDate(gitPath) {
   const ts = gitLastCommitTs(gitPath);
   if (!ts) return null;
