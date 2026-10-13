@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import mqtt, { type MqttClient } from 'mqtt';
 import { TELEMETRY_TOPIC_FILTER } from '@multi-admin/contracts';
@@ -42,16 +42,7 @@ export class TelemetrySubscriberService
   /** 本地缓冲超限后停订阅；**不自动恢复**，需人工处置后重启 */
   private subscriptionStopped = false;
 
-  /**
-   * ⚠️ 生产者以构造参数注入仅为**测试替换**：生产链路里它交给 `onModuleInit` 自建，
-   * 因为超限回调要绑回本实例，做成 Nest provider 会绕成循环依赖。
-   */
-  constructor(
-    private readonly config: AppConfigService,
-    @Optional() injectedProducer?: TelemetryProducer
-  ) {
-    this.producer = injectedProducer ?? null;
-  }
+  constructor(private readonly config: AppConfigService) {}
 
   /** 自启动以来**真正入队**的报文数（落缓冲与丢弃不计） */
   get receivedTotal(): number {
@@ -74,22 +65,8 @@ export class TelemetrySubscriberService
       `设备上行订阅目标：${url}，主题 ${TELEMETRY_TOPIC_FILTER}，clientId ${this.config.mqttClientId}`
     );
 
-    // 队列生产者：构造即完成，不 ping、不 await 下游（注入替身时保留替身）
-    if (this.producer === null) {
-      this.producer = new TelemetryProducer({
-        queueRedisUrl: this.config.queueRedisUrl,
-        spillDir: this.config.iotSpillDir,
-        spillMaxBytes: this.config.iotSpillMaxBytes,
-        logger: {
-          info: message => this.logger.log(message),
-          warn: message => this.logger.warn(message),
-          error: message => this.logger.error(message)
-        },
-        onSpillOverflow: message => this.stopSubscribing(message),
-        onSpillFailure: message => this.logger.error(message)
-      });
-    }
-    void this.producer.start();
+    // 队列生产者：构造即完成，不 ping、不 await 下游
+    this.startProducer();
 
     try {
       const client = mqtt.connect(url, {
@@ -143,10 +120,39 @@ export class TelemetrySubscriberService
   }
 
   /**
+   * 装配生产者：仅在 `onModuleInit` 调一次，把生产者的创建与启动收在一处。
+   * 覆写 {@link createProducer} 返回替身后的测试可直接调用本方法，省去真实队列与 MQTT 连接。
+   */
+  protected startProducer(): void {
+    this.producer = this.createProducer();
+    void this.producer.start();
+  }
+
+  /**
+   * 生产者的构造点——覆写本方法即可注入替身（生产链路走真实实现；做成 Nest provider 会因
+   * 超限回调要绑回本实例而绕成循环依赖，故不交给容器）。
+   */
+  protected createProducer(): TelemetryProducer {
+    return new TelemetryProducer({
+      queueRedisUrl: this.config.queueRedisUrl,
+      spillDir: this.config.iotSpillDir,
+      spillMaxBytes: this.config.iotSpillMaxBytes,
+      logger: {
+        info: message => this.logger.log(message),
+        warn: message => this.logger.warn(message),
+        error: message => this.logger.error(message)
+      },
+      onSpillOverflow: message => this.stopSubscribing(message),
+      onSpillFailure: message => this.logger.error(message)
+    });
+  }
+
+  /**
    * 单条报文处理。
    *
    * **"丢弃"分两类、归属不同**：
-   * - `JSON.parse` 失败 ⇒ **原样入队**，由消费者计数与丢弃
+   * - 读不出设备编号（JSON 解析失败，或 `localDeviceId` 缺失 / 非字符串 / 空串）⇒ **原样入队**，
+   *   由消费者计数与丢弃
    * - 主题段 ≠ 载荷 `localDeviceId` ⇒ 订阅端**拦下**（主题是 ACL 的授权单位，身份却以载荷为准
    *   ⇒ 不拦的话，一个已授权设备可以在自己的主题上发别人的编号，数据落进别人的子表）
    */
@@ -166,8 +172,8 @@ export class TelemetrySubscriberService
       this.seenDevices.add(outcome.localDeviceId);
       this.counter.recordDevice(outcome.localDeviceId);
     } else {
-      // 坏 JSON：读不出编号，进不了设备视图；但报文照样入队 ⇒ 单独计"坏 JSON"
-      this.counter.recordBadJson();
+      // 读不出设备编号（JSON 坏、或缺 localDeviceId）：进不了设备视图；报文照样入队 ⇒ 单列计数
+      this.counter.recordUnreadable();
     }
 
     void this.enqueue(raw);
@@ -201,7 +207,9 @@ export class TelemetrySubscriberService
 
   /**
    * 每秒一行聚合，即验收证据：可 grep、可计数。**按去向分列**，因为"入队数"若把落缓冲 /
-   * 丢弃一并算进去，读数就偏高、反而误导。返回本窗口，供调用方与测试读取。
+   * 丢弃一并算进去，读数就偏高、反而误导。「无法读取编号」与去向**正交**（这类报文照样入队），
+   * 故与三个去向**并列**成列，不写成某个去向的括号附注——否则会被读成"丢弃的子集"而自相矛盾。
+   * 返回本窗口，供调用方与测试读取。
    */
   report(): TelemetryWindow {
     const window = this.counter.drain();
@@ -211,13 +219,13 @@ export class TelemetrySubscriberService
       window.enqueued +
       window.spilled +
       window.dropped +
-      window.badJson +
+      window.unreadable +
       rejected;
     if (active === 0) return window;
 
     this.logger.log(
       `telemetry 每秒：入队 ${window.enqueued} / 落缓冲 ${window.spilled} / 丢弃 ${window.dropped}` +
-        `（坏 JSON ${window.badJson}）/ ${window.devices} 台设备` +
+        ` / 无法读取编号 ${window.unreadable} / ${window.devices} 台设备` +
         (rejected > 0 ? `（身份不一致拦截 ${rejected} 条）` : '')
     );
     return window;

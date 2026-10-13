@@ -7,7 +7,7 @@ describe('TelemetryWindowCounter', () => {
     counter.recordEnqueued();
     counter.recordSpilled();
     counter.recordDropped();
-    counter.recordBadJson();
+    counter.recordUnreadable();
     counter.recordDevice('sim-001');
     counter.recordDevice('sim-001');
     counter.recordDevice('sim-002');
@@ -16,7 +16,7 @@ describe('TelemetryWindowCounter', () => {
       enqueued: 2,
       spilled: 1,
       dropped: 1,
-      badJson: 1,
+      unreadable: 1,
       devices: 2
     });
   });
@@ -30,7 +30,7 @@ describe('TelemetryWindowCounter', () => {
       enqueued: 0,
       spilled: 0,
       dropped: 0,
-      badJson: 0,
+      unreadable: 0,
       devices: 0
     });
   });
@@ -40,7 +40,7 @@ describe('TelemetryWindowCounter', () => {
       enqueued: 0,
       spilled: 0,
       dropped: 0,
-      badJson: 0,
+      unreadable: 0,
       devices: 0
     });
   });

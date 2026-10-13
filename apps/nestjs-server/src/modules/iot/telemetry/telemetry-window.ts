@@ -11,8 +11,12 @@ export interface TelemetryWindow {
   spilled: number;
   /** 既没入队也没落缓冲——真的丢了 */
   dropped: number;
-  /** 其中解析不出 JSON 的条数：与去向正交（坏 JSON 也会入队 / 落缓冲 / 丢弃） */
-  badJson: number;
+  /**
+   * 读不出设备编号的条数（`readLocalDeviceId` 返回 `null`：JSON 解析失败，或解析成功但
+   * `localDeviceId` 缺失 / 非字符串 / 空串）。⭐ 与去向**正交**——这类报文原样入队，
+   * 同样会 `enqueued` / `spilled` / `dropped`，故单列、不是某个去向的子集。
+   */
+  unreadable: number;
   /** 报文里读到过编号的设备数（去重） */
   devices: number;
 }
@@ -25,7 +29,7 @@ export class TelemetryWindowCounter {
   private enqueued = 0;
   private spilled = 0;
   private dropped = 0;
-  private badJson = 0;
+  private unreadable = 0;
   private devices = new Set<string>();
 
   recordEnqueued(): void {
@@ -40,8 +44,8 @@ export class TelemetryWindowCounter {
     this.dropped += 1;
   }
 
-  recordBadJson(): void {
-    this.badJson += 1;
+  recordUnreadable(): void {
+    this.unreadable += 1;
   }
 
   recordDevice(localDeviceId: string): void {
@@ -54,13 +58,13 @@ export class TelemetryWindowCounter {
       enqueued: this.enqueued,
       spilled: this.spilled,
       dropped: this.dropped,
-      badJson: this.badJson,
+      unreadable: this.unreadable,
       devices: this.devices.size
     };
     this.enqueued = 0;
     this.spilled = 0;
     this.dropped = 0;
-    this.badJson = 0;
+    this.unreadable = 0;
     this.devices = new Set<string>();
     return window;
   }
