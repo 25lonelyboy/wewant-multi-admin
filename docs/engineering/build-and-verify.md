@@ -142,4 +142,5 @@ check-digests 远端比对依赖可联网环境：本机无 Registry 直连时�
 ## iot-worker 测试与覆盖率
 
 - 单测 / e2e 走 Node 内建 `node --test`（`test/*.test.ts` 与 `test/*.e2e.ts`）；`test:coverage` 由 `apps/iot-worker/scripts/coverage.mjs` 驱动，只统计本应用 `src/**`，门槛行 ≥90% / 函数 ≥85% / 分支 ≥80%（用数组参数启动子进程，避免 shell 展开 `src/**` 使报告变空）。
+- **降采样逐条对账**（判据②，`apps/iot-worker/scripts/downsample-verify.ts`）：`pnpm --filter @multi-admin/iot-worker run downsample:verify` [选项]。对最近 N 个窗口把「原始表按子表窗口聚合」与降采样表**逐字段**比对（sum/count/min/max + 单位 + deviceId 标签），不等即报出 `(子表, 窗口, 字段, 期望, 实际)`；三条输出表存在性 + 非空一并查；有任何差异非零退出，可作门禁。窗口口径与降采样环**同源**（复用 `window.ts` / `query.ts`），默认**跳过最新一个已闭合窗口**（吸收调度触发抖动）、比对 `K-1` 个窗口；`--now <ms|iso>` 可复算历史段，`--windows` / `--skip` / `--level` 可覆盖默认。浮点列（sum/min/max）取 `1e-9` 相对容差、`count` 精确比较（见脚本注释）。
 - 消费者 e2e（`test/consumer.e2e.ts`）连真实队列与 TDengine：前置 `docker compose up -d redis-queue tdengine` 并 `pnpm ops:tdengine-init`；队列与 TDengine 无假实现可用，这段接线是本应用唯一带真实外部依赖的部分，本地整体前置即 `pnpm ops:env-up`。CI coverage job 已配对应 service 并先跑 `tdengine:init`。

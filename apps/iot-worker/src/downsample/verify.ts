@@ -1,0 +1,390 @@
+import {
+  DS_DATABASE,
+  RAW_METRICS,
+  dsStableName,
+  dsSubtableName,
+  type DsLevel,
+  type RawMetric
+} from '../schema.js';
+import type { TdRow } from '../tdengine/client.js';
+import type { DsLevelSpec } from './level.js';
+import { levelSpec } from './level.js';
+import { buildAggregateSql } from './query.js';
+import {
+  parseAggregateRows,
+  type DsAggregateRow,
+  type DsMetricAggregate
+} from './rows.js';
+import { lastClosedBoundary, type WindowSpec } from './window.js';
+
+/**
+ * 降采样**逐条对账**（判据②改写，设计 §9）。
+ *
+ * 对每个 `(子表, 窗口)`，把「原始超表按同子表同窗口聚合」与「降采样表那一行」逐字段比。
+ * 与降采样环**共用同一套窗口算术**（`window.ts`）与同一套读形状（`query.ts` 的聚合读复用于原始侧）——
+ * 对账脚本若自己另算边界，日级业务日（`INTERVAL(1d, 8h)`）或任何对齐边缘上就会与环"算一段、比另一段"，
+ * 报出的是脚本自己的错位、不是数据的错。
+ */
+
+/** 浮点列（sum/min/max）比较容差：相对值 + 绝对值下限 */
+const REL_TOLERANCE = 1e-9;
+const ABS_TOLERANCE = 1e-9;
+
+/** 一条差异。字段名与降采样表的列名一致；整行缺失/多出时 `field` 为 `<row>` */
+export interface VerifyMismatch {
+  level: DsLevel;
+  /** 原始库子表名（多出的降采样行按其名去掉级别后缀还原） */
+  subtable: string;
+  /** 窗口起始（epoch 毫秒） */
+  ts: number;
+  field: string;
+  expected: string;
+  actual: string;
+  kind: 'field' | 'missing-row' | 'extra-row';
+}
+
+/** 对账用的一行——原始侧与降采样侧解析成同一形态后按键比对 */
+interface VerifiedRow {
+  /** 比对键：`<降采样子表名>@<窗口ts>`（同一子表在范围内可有多个窗口） */
+  key: string;
+  /** 原始库子表名（报告用） */
+  rawName: string;
+  ts: number;
+  deviceId: string | null;
+  metrics: Record<RawMetric, DsMetricAggregate>;
+}
+
+/** 已校验的窗口范围 */
+export interface CheckRange {
+  startMs: number;
+  endMs: number;
+  /** 实际比对的窗口数 N */
+  windows: number;
+  /** 从"最新已闭合窗口"往回跳过的窗口数 S */
+  skip: number;
+  /** 环每轮重算的窗口数 K */
+  lookback: number;
+  /** 范围内每个窗口是否都被环最近一轮覆盖（S ≥ 1 且 S+N ≤ K） */
+  guaranteed: boolean;
+}
+
+export interface CheckRangeOptions {
+  lookback: number;
+  /** 比对窗口数 N，缺省 `lookback - 1` */
+  windows?: number;
+  /** 跳过的最新窗口数 S，缺省 1 */
+  skip?: number;
+}
+
+/**
+ * 选取要逐条对账的窗口范围，锚定**墙上时钟** `nowMs`。
+ *
+ * ⭐ **默认跳过最新那个已闭合窗口（S = 1）、比对 N = K-1 个窗口**。环按固定周期触发，
+ * 最新已闭合窗口在它闭合到下一位环 tick 之间**可能尚未被重算**——把它算作差异就是拿环的触发抖动
+ * 当数据缺陷，够多的假警报会让脚本被无视。`S ≥ 1` 且 `S + N ≤ K` 时，范围内每个窗口都保证被环
+ * **最近一轮**覆盖（前提：环每窗口至少 tick 一次）⇒ 此时的差异是**真缺陷**；范围外的差异则可能是
+ * 晚到数据造成的**良性陈旧**（环只在最近 K 个窗口内自愈，§3.2），脚本不据此判失败。
+ *
+ * ⚠️ 锚定 `nowMs` 而非"降采样表里最新的那行"：环的契约是"最近 K 个**已闭合**窗口"，锚到墙上时钟
+ * 才能把"环落后了（契约窗口缺行）"照出来；锚到表里最新行会在环停摆时把范围缩到零、假装通过。
+ */
+export function checkedWindowRange(
+  nowMs: number,
+  spec: WindowSpec,
+  options: CheckRangeOptions
+): CheckRange {
+  const windows = options.windows ?? options.lookback - 1;
+  const skip = options.skip ?? 1;
+  const boundary = lastClosedBoundary(nowMs, spec);
+  // 复用 window.ts 的边界算术，不自算：endMs 仍是合法窗口边界（boundary 往回整数个 windowMs）
+  const endMs = boundary - skip * spec.windowMs;
+  const startMs = endMs - windows * spec.windowMs;
+  return {
+    startMs,
+    endMs,
+    windows,
+    skip,
+    lookback: options.lookback,
+    guaranteed: skip >= 1 && skip + windows <= options.lookback
+  };
+}
+
+/**
+ * 降采样表的读查询。
+ *
+ * ⚠️ 不复用 `query.ts` 的 `buildAggregateSql`：它写死 `FROM wewant_iot.telemetry`、取 `_wstart`，
+ * 是给**原始侧**用的。这里读降采样侧，列名与来源表都不同。但 SELECT 列序刻意与
+ * `buildAggregateSql` 对齐（`tbname, ts, [每测点 sum/count/min/max]…, [每测点 unit]…`），
+ * 于是**两侧可共用 `parseAggregateRows`**；末尾多一列 `deviceId` 供标签比对。
+ */
+export function buildDsReadSql(
+  spec: DsLevelSpec,
+  startMs: number,
+  endMs: number
+): string {
+  const aggregates = RAW_METRICS.flatMap(metric => [
+    `sum_${metric}`,
+    `count_${metric}`,
+    `min_${metric}`,
+    `max_${metric}`
+  ]);
+  const units = RAW_METRICS.map(metric => `${metric}_unit`);
+  return [
+    `SELECT tbname, ts, ${[...aggregates, ...units, 'deviceId'].join(', ')}`,
+    `FROM ${DS_DATABASE}.${dsStableName(spec.level)}`,
+    `WHERE ts >= ${startMs} AND ts < ${endMs}`
+  ].join(' ');
+}
+
+/** `deviceId` 在降采样读结果里的列下标（`buildDsReadSql` 的 SELECT 列序：2 + 4×测点数 + 测点数） */
+const DEVICE_ID_INDEX = 2 + RAW_METRICS.length * 4 + RAW_METRICS.length;
+
+function nullSafeString(value: unknown): string | null {
+  if (value === null || value === undefined || value === 'NULL') return null;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'bigint')
+    return String(value);
+  return null; // 非预期类型按缺失处理（不把对象 stringify 成 '[object Object]'）
+}
+
+/** 还原降采样子表名对应的原始库子表名（`dsSubtableName` 的逆，仅用于报告可读） */
+function stripLevel(dsName: string, level: DsLevel): string {
+  const suffix = `_${level}`;
+  return dsName.endsWith(suffix) ? dsName.slice(0, -suffix.length) : dsName;
+}
+
+function verifiedKey(dsName: string, ts: number): string {
+  return `${dsName}@${ts}`;
+}
+
+/** 原始侧：解析出的聚合行 → 对账行（键取它**应当**落进的降采样子表名） */
+export function expectedRows(
+  aggregateRows: readonly DsAggregateRow[],
+  level: DsLevel
+): VerifiedRow[] {
+  return aggregateRows.map(row => ({
+    key: verifiedKey(dsSubtableName(row.tbname, level), row.ts),
+    rawName: row.tbname,
+    ts: row.ts,
+    deviceId: null, // 原始聚合读不含标签；期望标签由调用方按注册表另配
+    metrics: row.metrics
+  }));
+}
+
+/** 降采样侧：读结果 → 对账行（含 deviceId 标签列） */
+export function parseDsRows(
+  rows: readonly TdRow[],
+  level: DsLevel
+): VerifiedRow[] {
+  const parsed = parseAggregateRows(rows, level);
+  return parsed.map((row, index) => ({
+    key: verifiedKey(row.tbname, row.ts),
+    rawName: stripLevel(row.tbname, level),
+    ts: row.ts,
+    deviceId: nullSafeString(rows[index]?.[DEVICE_ID_INDEX]),
+    metrics: row.metrics
+  }));
+}
+
+function fmt(value: string | number | bigint | null): string {
+  return value === null ? 'NULL' : String(value);
+}
+
+function nullSafeEqual(a: string | null, b: string | null): boolean {
+  return a === b;
+}
+
+/**
+ * 浮点列比较。
+ *
+ * ⭐ 两侧的 `sum`（DOUBLE）/`min`·`max`（FLOAT）由**同一引擎**对**同一批原始行**聚合，
+ * 经同一连接器取回，理论上逐位相等 ⇒ 容差只需覆盖表示层，取 `1e-9`（相对 + 绝对下限）。
+ * 一个 FLOAT 的最小表示误差约 `1.2e-7` 相对 ⇒ **比本容差大百倍**，任何真实篡改（改值、串窗、
+ * 取错窗口的行）都远在容差之上、必被报出；而 `count`（BIGINT）精确比较、不容差。
+ */
+function floatEqual(a: number | null, b: number | null): boolean {
+  if (a === null || b === null) return a === b;
+  const diff = Math.abs(a - b);
+  if (diff <= ABS_TOLERANCE) return true;
+  return diff <= REL_TOLERANCE * Math.max(Math.abs(a), Math.abs(b));
+}
+
+/**
+ * 逐字段比对两侧对账行。期望标签由 `deviceIdFor` 按原始子表名给出（取自注册表）——
+ * 降采样行的 `deviceId` 标签必须与之相等。
+ */
+export function compareAggregates(
+  level: DsLevel,
+  expected: readonly VerifiedRow[],
+  actual: readonly VerifiedRow[],
+  deviceIdFor: (rawName: string) => string | null = () => null
+): VerifyMismatch[] {
+  const expectedByKey = new Map(expected.map(row => [row.key, row]));
+  const actualByKey = new Map(actual.map(row => [row.key, row]));
+  const mismatches: VerifyMismatch[] = [];
+
+  const keys = new Set([...expectedByKey.keys(), ...actualByKey.keys()]);
+  for (const key of keys) {
+    const exp = expectedByKey.get(key);
+    const act = actualByKey.get(key);
+
+    if (exp !== undefined && act === undefined) {
+      mismatches.push({
+        level,
+        subtable: exp.rawName,
+        ts: exp.ts,
+        field: '<row>',
+        expected: '原始有聚合',
+        actual: '降采样缺行',
+        kind: 'missing-row'
+      });
+      continue;
+    }
+    if (act !== undefined && exp === undefined) {
+      mismatches.push({
+        level,
+        subtable: act.rawName,
+        ts: act.ts,
+        field: '<row>',
+        expected: '无对应原始聚合',
+        actual: '降采样多行',
+        kind: 'extra-row'
+      });
+      continue;
+    }
+    if (exp === undefined || act === undefined) continue;
+
+    const base = { level, subtable: exp.rawName, ts: exp.ts };
+    const push = (
+      field: string,
+      expectedValue: string,
+      actualValue: string
+    ): void => {
+      mismatches.push({
+        ...base,
+        field,
+        expected: expectedValue,
+        actual: actualValue,
+        kind: 'field'
+      });
+    };
+
+    // 标签：期望值取自注册表（建表端写死的那个），实际值取自降采样行
+    const expectedDeviceId = deviceIdFor(exp.rawName);
+    if (!nullSafeEqual(expectedDeviceId, act.deviceId)) {
+      push('deviceId', fmt(expectedDeviceId), fmt(act.deviceId));
+    }
+
+    for (const metric of RAW_METRICS) {
+      const e = exp.metrics[metric];
+      const a = act.metrics[metric];
+      // count 精确（BIGINT）
+      if (e.count !== a.count) {
+        push(`count_${metric}`, e.count.toString(), a.count.toString());
+      }
+      if (!floatEqual(e.sum, a.sum)) {
+        push(`sum_${metric}`, fmt(e.sum), fmt(a.sum));
+      }
+      if (!floatEqual(e.min, a.min)) {
+        push(`min_${metric}`, fmt(e.min), fmt(a.min));
+      }
+      if (!floatEqual(e.max, a.max)) {
+        push(`max_${metric}`, fmt(e.max), fmt(a.max));
+      }
+      if (!nullSafeEqual(e.unit, a.unit)) {
+        push(`${metric}_unit`, fmt(e.unit), fmt(a.unit));
+      }
+    }
+  }
+
+  return mismatches;
+}
+
+/** 单级对账结果 */
+export interface LevelVerifyResult {
+  level: DsLevel;
+  range: CheckRange;
+  /** 范围内原始侧聚合出的 `(子表, 窗口)` 数 */
+  expectedCount: number;
+  /** 范围内降采样侧读到的行数 */
+  actualCount: number;
+  mismatches: VerifyMismatch[];
+}
+
+/** 只读查询依赖——生产是 `TdSql`，单测注入替身以隔离 TDengine */
+export interface VerifyQuery {
+  query(sql: string): Promise<TdRow[]>;
+}
+
+/**
+ * 对单级做一次逐条对账：读原始聚合（复用 `buildAggregateSql`）与降采样行，逐字段比。
+ */
+export async function verifyLevel(
+  query: VerifyQuery,
+  level: DsLevel,
+  nowMs: number,
+  options: CheckRangeOptions,
+  deviceIdFor: (rawName: string) => string | null = () => null
+): Promise<LevelVerifyResult> {
+  const spec = levelSpec(level);
+  const range = checkedWindowRange(nowMs, spec, options);
+
+  const rawAggregates = parseAggregateRows(
+    await query.query(buildAggregateSql(spec, range.startMs, range.endMs)),
+    level
+  );
+  const dsRows = parseDsRows(
+    await query.query(buildDsReadSql(spec, range.startMs, range.endMs)),
+    level
+  );
+
+  const expected = expectedRows(rawAggregates, level);
+  return {
+    level,
+    range,
+    expectedCount: expected.length,
+    actualCount: dsRows.length,
+    mismatches: compareAggregates(level, expected, dsRows, deviceIdFor)
+  };
+}
+
+/** 输出表存在性检查结果 */
+export interface TableIssue {
+  level: DsLevel;
+  kind: 'missing' | 'empty';
+  message: string;
+}
+
+/**
+ * 三条输出表**都存在且非空**（判据②的另一半）。
+ *
+ * ⚠️ 用 `LIMIT 1` 取一行判空，不用 `COUNT(*)`——后者要扫全表；`COUNT(DISTINCT …)` 在 TDengine 里
+ * **不可信**（实测真值 1 却返回 100，C11），本脚本任何位置都不用它。
+ */
+export async function checkTablesNonEmpty(
+  query: VerifyQuery
+): Promise<TableIssue[]> {
+  const issues: TableIssue[] = [];
+  for (const level of ['1m', '1h', '1d'] as const) {
+    const table = `${DS_DATABASE}.${dsStableName(level)}`;
+    try {
+      const rows = await query.query(`SELECT ts FROM ${table} LIMIT 1`);
+      if (rows.length === 0) {
+        issues.push({
+          level,
+          kind: 'empty',
+          message: `输出表 ${table} 存在但为空`
+        });
+      }
+    } catch (error) {
+      issues.push({
+        level,
+        kind: 'missing',
+        message: `输出表 ${table} 不存在或不可读：${
+          error instanceof Error ? error.message : String(error)
+        }`
+      });
+    }
+  }
+  return issues;
+}

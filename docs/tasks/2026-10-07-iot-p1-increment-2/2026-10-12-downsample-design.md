@@ -170,6 +170,7 @@ SELECT tbname,
 > **判据②（改写）**：降采样结果**逐条对账**——对每个 `(子表, 窗口)`，`telemetry_1m` 的 `sum/count/min/max` 与**原始表同子表同窗口**的聚合**逐字段相等**；三条输出表都存在且非空。
 
 - 对账本身可以就是一个脚本：把 §3.3 的查询跑一遍，与降采样表 `JOIN` 比字段
+- 落点为 `apps/iot-worker/scripts/downsample-verify.ts`：`pnpm --filter @multi-admin/iot-worker run downsample:verify`；窗口口径复用环的 `window.ts`/`query.ts`（不自算，免得在日级业务日或对齐边缘与环"算一段、比另一段"）。默认**跳过最新一个已闭合窗口**（环按周期触发，最新窗口闭合到下一位 tick 之间可能尚未重算）、比对 `K-1` 个窗口；`K` 之内的差异是真缺陷，`K` 之外可能是晚到数据造成的良性陈旧，脚本不据此判失败。见 [build-and-verify.md](../../engineering/build-and-verify.md) 的 iot-worker 段。
 - ⚠️ `COUNT(DISTINCT x)` 在 TDengine 里**不可信**（实测：真值 1 却返回 100）——对账脚本里**不要用它**，用 `GROUP BY` 或直接逐行比
 
 ## 10. 配置项（新增）

@@ -15,7 +15,8 @@
     "test": "node --import tsx --test test/*.test.ts",
     "test:e2e": "node --import tsx --test test/*.e2e.ts",
     "test:coverage": "node scripts/coverage.mjs",
-    "tdengine:init": "tsx scripts/tdengine-init.ts"
+    "tdengine:init": "tsx scripts/tdengine-init.ts",
+    "downsample:verify": "tsx scripts/downsample-verify.ts"
   },
   "dependencies": {
     "@multi-admin/contracts": "workspace:*",
