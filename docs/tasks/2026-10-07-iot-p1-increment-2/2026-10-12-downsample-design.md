@@ -171,7 +171,7 @@ SELECT tbname,
 
 - 对账本身可以就是一个脚本：把 §3.3 的查询跑一遍，与降采样表 `JOIN` 比字段
 - 落点为 `apps/iot-worker/scripts/downsample-verify.ts`：`pnpm --filter @multi-admin/iot-worker run downsample:verify`；窗口口径复用环的 `window.ts`/`query.ts`（不自算，免得在日级业务日或对齐边缘与环"算一段、比另一段"）。默认**跳过最新一个已闭合窗口**（环按周期触发，最新窗口闭合到下一位 tick 之间可能尚未重算）、比对 `K-1` 个窗口；`K` 之内的差异是真缺陷，`K` 之外可能是晚到数据造成的良性陈旧，脚本不据此判失败。见 [build-and-verify.md](../../engineering/build-and-verify.md) 的 iot-worker 段。
-- ⚠️ 上面那条「单条 `JOIN`」本机**不可行**：跨库、外层套窗口聚合的 join 报 `9828 Not supported join since 'Join requires valid time series input and primary timestamp equal condition'`（3.4.2.8.community 实测）。改走**两条独立读 + 发现差异时重读两侧再比**：只有重读后仍存的差异才报，排除「两次读之间发生一次写入」的假警报。前提是**管道相对静止**；活数据持续到达时，晚到数据造成的差异在环下一轮重算 + 下次对账后消失。
+- ⚠️ 上面那条「单条 `JOIN`」本机**不可行**：**外层套窗口聚合**的 join 报 `9828 Not supported join since 'Join requires valid time series input and primary timestamp equal condition'`（3.4.2.8.community 实测）。约束在**形状**不在库位置——TDengine 要求 join 两侧都是合法时序输入、主时间戳在等值条件里，而**聚合 / 窗口子查询不是这样的输入**（实测：纯子查询 ⋈ 同库超表、两张基础超表跨库 `on ts=` 均 `code 0`；聚合子查询 ⋈ 降采样表、子查询 ⋈ 子查询、`PARTITION BY tbname INTERVAL(1m)` 子查询 ⋈ 超表均报同一条 `9828`）。改走**两条独立读 + 发现差异时重读两侧再比**：只有重读后仍存的差异才报，排除「两次读之间发生一次写入」的假警报。前提是**管道相对静止**；活数据持续到达时，晚到数据造成的差异在环下一轮重算 + 下次对账后消失。
 - ⚠️ `COUNT(DISTINCT x)` 在 TDengine 里**不可信**（实测：真值 1 却返回 100）——对账脚本里**不要用它**，用 `GROUP BY` 或直接逐行比
 
 ## 10. 配置项（新增）

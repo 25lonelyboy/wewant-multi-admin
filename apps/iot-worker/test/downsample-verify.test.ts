@@ -458,6 +458,32 @@ void test('verifyLevel：首轮差异若重读后消失（跨了一次写入）�
   assert.deepEqual(result.mismatches, []);
 });
 
+void test('verifyLevel：两侧都在两次读之间变化 ⇒ 只重读一侧仍会误报', async () => {
+  // 取值刻意让「只重读一侧」仍留下差异：raw 100→300、ds 200→300，两轮都改。
+  // 只重读降采样侧 ⇒ 100(旧 raw) ≠ 300(新 ds)；只重读原始侧 ⇒ 300(新 raw) ≠ 200(旧 ds)；
+  // 两侧都重读 ⇒ 300 = 300，差异消除。任缺一侧，本用例即失败。
+  let rawCalls = 0;
+  let dsCalls = 0;
+  const query: VerifyQuery = {
+    query: (sql: string) => {
+      if (sql.includes('wewant_iot_ds')) {
+        dsCalls += 1;
+        return Promise.resolve([
+          dsRow(DS_1M, WINDOW, { sum_temperature: dsCalls === 1 ? 200 : 300 })
+        ]);
+      }
+      rawCalls += 1;
+      return Promise.resolve([
+        rawRow(RAW_NAME, WINDOW, rawCalls === 1 ? 100 : 300)
+      ]);
+    }
+  };
+  const result = await verifyLevel(query, '1m', NOW, { lookback: 3 });
+  assert.ok(rawCalls >= 2, '原始侧必须重读');
+  assert.ok(dsCalls >= 2, '降采样侧必须重读');
+  assert.deepEqual(result.mismatches, []);
+});
+
 // ---------- 与 query.ts 的列序耦合 ----------
 
 /** 从 SQL 的 SELECT 段取列名（`AS` 后的别名，否则整项） */
