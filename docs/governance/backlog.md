@@ -67,6 +67,7 @@ last_verified: 2026-10-13
 | 本地缓冲两处并发残留 | ① `apps/nestjs-server/src/modules/iot/telemetry/telemetry-spill.ts` 的 `drain` **初始快照读仍在临界区外**（单条 NDJSON 行一次 append 写入，撕裂读风险低）；收尾重读在锁内，才是「不丢」的关键那一步；② `TelemetrySpill` **自身不设 drain×drain 守卫**，靠生产侧 `producer.draining` 保证。（源：F2 报告 §遗留） | 缓冲层并发路径变更、或出现多 drain / 跨实例的新用法时 | 2026-10-13 |
 | 消费端 Worker 无 `stalledInterval` / `lockDuration` 配置口子 | 判据③「强杀重投不丢」的 e2e 时长约 61 s，绑死于 BullMQ 默认 `lockDuration/stalledInterval=30s`；缩短会引入「仅测试用的生产配置」，故未动。（源：F8 报告 §关注点 2） | CI 时长成为问题时（给消费端 Worker 加该配置口子） | 2026-10-13 |
 | 失败告警的逐 job 噪声 | 一批失败时 `flushOnce` 出**一条** `fatal`（带提级标记），而 `worker.on('failed')` 对**每个 job** 各出一条 `error` ⇒ 一批 N 条 job 会有 N 条 error（沿用既有逐 job 日志形态）。（源：F3 报告 §八.4） | 大批量失败时日志噪声成为运维问题时收敛 | 2026-10-13 |
+| 写入器：以「省略 tags 的形态② + STMT2」换回单次 exec 跨子表 | 现写入器走「不带 `USING`、写死子表名」的 STMT1（决策 2 §9）——缺子表报错（防线成立），代价是**每个子表一条语句**、拿不到决策 2 §10 N1 的 5.5×。N2 形态② 探针（§10 N10 / N11，2026-10-13）实测：**字面形态（带 tags）缺子表会静默建表**（与 `USING` 同病，不可用）；**省略 tags 的子形态**（`INSERT INTO <stb> (tbname, ts, …)` + 子表预建）缺表**报错**、且**一次 exec 跨 100 子表**——但**只在 STMT2 路径成立**（写入器强制的 STMT1 上形态② 在 `bind` 即 `512 Invalid operation`）。⇒ 要兼得须放弃 STMT1 强制、改用 STMT2 + 省略 tags，且缺表报错会从干净的 `9731 Table does not exist` 变成 `560 Stmt cache error`（诊断性下降）。（源：F11 报告） | 十万级规模下"每子表一条语句"成为写入瓶颈时（届时连同换 STMT2 路径、换报错码一起评估） | 2026-10-13 |
 
 ## 已关闭
 

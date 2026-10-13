@@ -25,6 +25,7 @@
 | [scripts/probe/tdengine-container.sh](../../../scripts/probe/tdengine-container.sh) | 起临时容器 → 等 taosAdapter 就绪 → 跑探针；`--down` 停掉 |
 | [scripts/probe/taosdump-roundtrip.sh](../../../scripts/probe/taosdump-roundtrip.sh) | **taosdump 备份 / 恢复往返探针**（零依赖，内容全部在容器内执行）：`-M all` 往返、`-S`/`-E` 时间范围归档、`-M ext-meta` 备份流定义、`-W` 改名恢复、**`-M` 两侧不一致时的静默失效** |
 | [apps/nestjs-server/scripts/tdengine-stmt-probe.mjs](../../../apps/nestjs-server/scripts/tdengine-stmt-probe.mjs) | **TDengine STMT 写入形态探针**（用仓库里真正的 `@tdengine/websocket`）：一次 exec 跨多子表、两种跨子表写法、`USING` 语法自动建表、单次 bind/exec 的 32767 行上限、错误处理形态。⚠️ **它在 nestjs-server 目录下**——连接器依赖按 catalog 规则只属于该应用 |
+| [apps/nestjs-server/scripts/tdengine-stmt-tbname-probe.mjs](../../../apps/nestjs-server/scripts/tdengine-stmt-tbname-probe.mjs) | **TDengine「形态②」探针**（用仓库里真正的 `@tdengine/websocket`）：`INSERT INTO <stb> (tbname, tag…, ts, …)` 且 `tbname` 作普通绑定参数时——缺子表是**报错还是静默建表**、一次 `exec` 能否跨 100 个子表；**STMT2 与 STMT1 两条路径都测**。⚠️ **它在 nestjs-server 目录下**，自建临时库 `probe_stmt_tb` 并跑完**整库删掉** |
 | [apps/iot-simulator/scripts/mqtt-protocol-probe.mjs](../../../apps/iot-simulator/scripts/mqtt-protocol-probe.mjs) | MQTT 协议版本探针（用 `mqtt@5.16.0` 真实建连，**不改 EMQX 配置**）：3.1.1 / 5.0 混用、**跨版本矩阵（载荷无损）**、User Properties 透传、`properties` 在 3.1.1 下被静默忽略。⚠️ **它在模拟器目录下**——`mqtt` 依赖按 catalog 规则只属于模拟器，仓库根没有 |
 | [apps/iot-simulator/scripts/mqtt-credential-probe.mjs](../../../apps/iot-simulator/scripts/mqtt-credential-probe.mjs) | MQTT 凭据探针（需一个**配了认证器**的独立 Broker）：3.1.1 × 5.0 × {无凭据 / 正确 / 错误密码 / 不存在用户 / 二进制密码 / 增强认证属性}，对比失败原因码。⚠️ **默认无认证的 1883 不适用** |
 

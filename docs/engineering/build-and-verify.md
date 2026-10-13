@@ -108,10 +108,11 @@ check-digests 远端比对依赖可联网环境：本机无 Registry 直连时�
 | `tdengine-container.sh` | 起临时容器 → 等 taosAdapter 就绪 → 跑探针；`--down` 停掉 |
 | `taosdump-roundtrip.sh` | `taosdump` 备份 / 恢复往返（内容全部在容器内执行）：`-M all` 往返、`-S`/`-E` 时间范围归档、`-M ext-meta` 备份流定义、`-W` 改名恢复、**`-M` 两侧不一致时的静默失效**。⚠️ 与 `tdengine-container.sh` 共用同一个容器 |
 
-⚠️ **另有三个探针在应用目录下**，不在此目录——它们需要某个**按 catalog 判据只属于该应用**的依赖，仓库根没有，Node 从脚本所在目录向上解析依赖：
+⚠️ **另有四个探针在应用目录下**，不在此目录——它们需要某个**按 catalog 判据只属于该应用**的依赖，仓库根没有，Node 从脚本所在目录向上解析依赖：
 
 - `apps/iot-simulator/scripts/`：`mqtt-protocol-probe.mjs` / `mqtt-credential-probe.mjs`（需要 `mqtt`）。凭据探针还需一个**配了认证器的独立 Broker**（开发环境那台默认无认证，不适用）
 - `apps/nestjs-server/scripts/tdengine-stmt-probe.mjs`（需要 `@tdengine/websocket`）：TDengine STMT 写入形态——一次 exec 跨多子表、两种跨子表写法、`USING` 语法自动建表、单次 bind/exec 的行数上限。⚠️ 它建自己的库 `probe_stmt` 并反复重建超表，**不要指向有数据的实例**
+- `apps/nestjs-server/scripts/tdengine-stmt-tbname-probe.mjs`（需要 `@tdengine/websocket`）：TDengine「形态②」（`INSERT INTO <stb> (tbname, tag…, ts, …)` 且 `tbname` 作普通绑定参数）的两项行为——缺子表时**报错还是静默建表**、一次 `exec` 能否跨多个子表；**STMT2（连接器默认）与 STMT1（写入器强制）两条路径都测**。⚠️ 它建**自己的临时库** `probe_stmt_tb` 并跑完**整库删掉**，另快照 `wewant_iot` / `wewant_iot_ds` 的建表指纹验证真实库未被波及，**不要指向有数据的实例**
 
 ## 已知环境事实
 
