@@ -36,6 +36,15 @@ export interface WriteFailure {
    */
   elevated: boolean;
   basis: FailureBasis;
+  /**
+   * ⭐ **连接 / 会话已不可用** ⇒ 该连接须作废（重连）。**比 `kind==='retryable'` 更窄**，
+   * 是 A 类里的一个子集：超时（105，"可能已成功"）、连接数上限（110）、判不出形态的默认桶
+   * 都是 A 类却**不证明连接坏了**，不得作废（行 5）。
+   *
+   * 判据由**实测**定：逐条诱发、再在同一连接上写一次看是否还活着。结果：108（连接已关）实测
+   * 连接已废；而 9731 / 566 / 65535 / 9730 之后连接仍健康 ⇒ 都不是连接级。
+   */
+  connectionLevel: boolean;
 }
 
 /** A 类：连接 / 超时 / 资源——瞬时故障，重试可能自愈 */
@@ -91,6 +100,26 @@ const TABLE_MISSING_PATTERNS: readonly RegExp[] = [
 ];
 
 /**
+ * 连接级码：这两个之后连接 / 会话已不可用。判据来自**实测**——
+ * 逐条诱发错误，再在同一连接上写一次看是否还活着（`failure.test.ts` 与报告记录）。
+ *
+ * - `104` = `ERR_WEBSOCKET_CONNECTION_FAIL`：建连失败，或 `Failed to reconnect to any available address`（连接器源码）；
+ * - `108` = `ERR_CONNECTION_CLOSED`：`Invalid websocket connection`——实测之后同一连接持续报 108。
+ *
+ * ⚠️ 105（读超时）与 110（连接数上限）**虽是 A 类却连接完好**，刻意不在列（行 5）；
+ * 9731 / 566 / 65535 / 9730 之后连接实测仍健康，也不在列。
+ */
+const CONNECTION_LEVEL_CODES: ReadonlySet<number> = new Set([104, 108]);
+
+/** 无码时的连接级报文形态（连接器源码里这几处都表示连接已废） */
+const CONNECTION_LEVEL_PATTERNS: readonly RegExp[] = [
+  /invalid websocket connection/i,
+  /websocket connection closed/i,
+  /connection creation failed/i,
+  /failed to reconnect/i
+];
+
+/**
  * 报文形态兜底（错误没有已知码时用）。顺序：先 B 后 A——B 的报文通常更具体
  * （"Invalid column name" 同时含不了"connection"），把具体形态排在前面能减少歧义。
  */
@@ -129,7 +158,8 @@ function matches(message: string, patterns: readonly RegExp[]): boolean {
 }
 
 /**
- * 把一次写入失败归成 A / B 两类。带码走码，不带码走报文形态，都判不出则默认 A 类。
+ * 把一次写入失败归成 A / B 两类，并标出是否**连接级**（连接已废、须作废）。
+ * 带码走码，不带码走报文形态，都判不出则默认 A 类、非连接级。
  */
 export function classifyWriteError(error: unknown): WriteFailure {
   // 已经分类过的错误（B 类 fail-fast 时抛出的包装）直接取回原判定
@@ -137,6 +167,9 @@ export function classifyWriteError(error: unknown): WriteFailure {
 
   const code = errorCode(error);
   const message = errorMessage(error);
+  const connectionLevel =
+    (code !== undefined && CONNECTION_LEVEL_CODES.has(code)) ||
+    matches(message, CONNECTION_LEVEL_PATTERNS);
 
   // ⭐ 提级判定先于普通 B 类：子表不可解析是"平台侧自己错了"，级别更高
   if (
@@ -148,26 +181,62 @@ export function classifyWriteError(error: unknown): WriteFailure {
       kind: 'unrecoverable',
       code,
       elevated: true,
-      basis: byCode ? 'code' : 'message'
+      basis: byCode ? 'code' : 'message',
+      connectionLevel
     };
   }
 
   if (code !== undefined && UNRECOVERABLE_CODES.has(code)) {
-    return { kind: 'unrecoverable', code, elevated: false, basis: 'code' };
+    return {
+      kind: 'unrecoverable',
+      code,
+      elevated: false,
+      basis: 'code',
+      connectionLevel
+    };
   }
   if (code !== undefined && RETRYABLE_CODES.has(code)) {
-    return { kind: 'retryable', code, elevated: false, basis: 'code' };
+    return {
+      kind: 'retryable',
+      code,
+      elevated: false,
+      basis: 'code',
+      connectionLevel
+    };
   }
 
   if (matches(message, UNRECOVERABLE_PATTERNS)) {
-    return { kind: 'unrecoverable', code, elevated: false, basis: 'message' };
+    return {
+      kind: 'unrecoverable',
+      code,
+      elevated: false,
+      basis: 'message',
+      connectionLevel
+    };
   }
   if (matches(message, RETRYABLE_PATTERNS)) {
-    return { kind: 'retryable', code, elevated: false, basis: 'message' };
+    return {
+      kind: 'retryable',
+      code,
+      elevated: false,
+      basis: 'message',
+      connectionLevel
+    };
   }
 
-  // 判不出形态：宁可重投也不丢（C10）
-  return { kind: 'retryable', code, elevated: false, basis: 'default' };
+  // 判不出形态：宁可重投也不丢（C10）。但"判不出"**不证明连接坏了** ⇒ 不作废连接
+  return {
+    kind: 'retryable',
+    code,
+    elevated: false,
+    basis: 'default',
+    connectionLevel
+  };
+}
+
+/** 便利判定：这个错误是否意味着**连接 / 会话已不可用**（行 5）。比 `kind==='retryable'` 更窄。 */
+export function isConnectionLevel(error: unknown): boolean {
+  return classifyWriteError(error).connectionLevel;
 }
 
 /**

@@ -201,7 +201,7 @@ void test('⭐ C10：写入行数少于提交数 ⇒ 响亮失败', async () => 
   }
 });
 
-void test('连接级（可重试）写入失败 ⇒ 作废连接并抛回', async () => {
+void test('连接级（104）写入失败 ⇒ 作废连接并抛回', async () => {
   const { connect } = fakeConnect([aggRow()]);
   const { writer, invalidations } = fakeWriter(
     rows => rows.length,
@@ -212,7 +212,24 @@ void test('连接级（可重试）写入失败 ⇒ 作废连接并抛回', asyn
   const ring = makeRing({ connect, writer, queue, worker });
   try {
     await assert.rejects(ring.recompute('1m', NOW));
-    assert.equal(invalidations(), 1, '可重试故障应作废连接');
+    assert.equal(invalidations(), 1, '连接级故障应作废连接');
+  } finally {
+    await ring.close();
+  }
+});
+
+void test('⭐ 超时（105）写入失败 ⇒ 抛回但**不作废**连接（连接是好的，行 5）', async () => {
+  const { connect } = fakeConnect([aggRow()]);
+  const { writer, invalidations } = fakeWriter(
+    rows => rows.length,
+    codedError('TDWebSocketClientError', 105, 'websocket query timeout')
+  );
+  const { queue } = fakeQueue();
+  const { worker } = fakeWorker();
+  const ring = makeRing({ connect, writer, queue, worker });
+  try {
+    await assert.rejects(ring.recompute('1m', NOW));
+    assert.equal(invalidations(), 0, '超时是 A 类但不是连接级，不该作废连接');
   } finally {
     await ring.close();
   }
@@ -267,6 +284,33 @@ void test('⭐ 读失败后作废读连接：下一次读重连成功，不永�
     assert.equal(await ring.recompute('1m', NOW), 1);
     assert.equal(connects, 2, '读失败后应重连');
     assert.equal(written.length, 1);
+  } finally {
+    await ring.close();
+  }
+});
+
+void test('⭐ 读侧：确定性 SQL 错（非连接级）不丢 reader——不再每次尝试都重连', async () => {
+  let connects = 0;
+  const connect: TdConnect = () => {
+    connects += 1;
+    return Promise.resolve(
+      fakeSql(() =>
+        Promise.reject(
+          codedError('TaosResultError', 9730, 'Invalid column name: bad')
+        )
+      )
+    );
+  };
+  const { writer } = fakeWriter(rows => rows.length);
+  const { queue } = fakeQueue();
+  const { worker } = fakeWorker();
+  const ring = makeRing({ connect, writer, queue, worker });
+  try {
+    await assert.rejects(ring.recompute('1m', NOW), /Invalid column name/);
+    assert.equal(connects, 1);
+    // 非连接级读错 ⇒ reader 保留 ⇒ 第二次读仍是同一条连接（不重连）
+    await assert.rejects(ring.recompute('1m', NOW), /Invalid column name/);
+    assert.equal(connects, 1, '非连接级读错不该丢掉 reader');
   } finally {
     await ring.close();
   }

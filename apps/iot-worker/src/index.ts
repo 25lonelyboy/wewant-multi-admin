@@ -2,6 +2,7 @@ import { loadConfig } from './config.js';
 import { TelemetryConsumer } from './consumer.js';
 import { DownsampleRing } from './downsample/ring.js';
 import { createLogger } from './logger.js';
+import { destroyTd } from './tdengine/client.js';
 
 /**
  * 消费者进程入口。
@@ -26,6 +27,7 @@ logger.info(
   {
     queueRedisUrl: config.queueRedisUrl,
     tdengineUrl: config.tdengineUrl,
+    tdengineConnections: config.tdengineConnections,
     batchSize: config.ingestBatchSize,
     flushIntervalMs: config.ingestFlushIntervalMs,
     concurrency: config.ingestConcurrency,
@@ -40,10 +42,13 @@ const shutdown = (signal: string): void => {
   Promise.all([consumer.close(), ring?.close() ?? Promise.resolve()])
     .then(() => {
       logger.info(consumer.stats, 'iot-worker 已停止');
+      // 释放连接器持有的全局资源（连接池 / 定时器等）——不调它进程可能停不干净
+      destroyTd();
       process.exit(0);
     })
     .catch(error => {
       logger.error({ err: String(error) }, '停机失败');
+      destroyTd();
       process.exit(1);
     });
 };

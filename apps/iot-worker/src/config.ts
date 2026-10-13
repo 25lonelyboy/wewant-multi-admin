@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MAX_BIND_ROWS } from './schema.js';
 
 /**
  * 布尔型环境变量。
@@ -37,8 +38,24 @@ const envSchema = z.object({
   TDENGINE_URL: z.string().min(1).default('ws://root:taosdata@127.0.0.1:6041'),
   /** 期望的服务器时区——窗口对齐靠它，不匹配则启动即失败 */
   TDENGINE_TIMEZONE: z.string().min(1).default('Asia/Shanghai'),
-  /** 攒批：条数上限 */
-  INGEST_BATCH_SIZE: z.coerce.number().int().positive().default(500),
+  /**
+   * TDengine 连接池大小（2~4，默认 2）。同一池里一条连接挂掉只作废那一条，不全链路停摆
+   * （决策 2 §9 的故障隔离）；连接数不是越大越好——服务端有真实的会话上限。
+   */
+  TDENGINE_CONNECTIONS: z.coerce.number().int().min(2).max(4).default(2),
+  /**
+   * 攒批：条数上限。
+   * ⚠️ 上限 32767：单次 `bind` 的行数硬上限（2¹⁵−1，探针实测），超出会在写入时抛
+   * `bind number out of range` ⇒ 必须在启动时挡下（行 2），不等到写的时候才炸。
+   */
+  INGEST_BATCH_SIZE: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(MAX_BIND_ROWS, {
+      message: `不能超过单次 bind 上限 ${MAX_BIND_ROWS}（超出会抛 bind number out of range）`
+    })
+    .default(500),
   /** 攒批：等待上限（毫秒），与条数先到先 flush */
   INGEST_FLUSH_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
   /**
@@ -62,6 +79,8 @@ export interface WorkerConfig {
   tdengineUrl: string;
   /** 期望的服务器时区——窗口对齐靠它，不匹配则启动即失败 */
   tdengineTimezone: string;
+  /** TDengine 连接池大小（2~4）——一条挂掉不全链路停摆（决策 2 §9） */
+  tdengineConnections: number;
   ingestBatchSize: number;
   ingestFlushIntervalMs: number;
   ingestConcurrency: number;
@@ -86,6 +105,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
     queueRedisUrl: parsed.data.QUEUE_REDIS_URL,
     tdengineUrl: parsed.data.TDENGINE_URL,
     tdengineTimezone: parsed.data.TDENGINE_TIMEZONE,
+    tdengineConnections: parsed.data.TDENGINE_CONNECTIONS,
     ingestBatchSize: parsed.data.INGEST_BATCH_SIZE,
     ingestFlushIntervalMs: parsed.data.INGEST_FLUSH_INTERVAL_MS,
     ingestConcurrency: parsed.data.INGEST_CONCURRENCY,

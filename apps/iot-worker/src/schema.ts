@@ -8,6 +8,13 @@ export const DS_DATABASE = 'wewant_iot_ds';
 /** 原始超表 */
 export const RAW_STABLE = 'telemetry';
 
+/**
+ * 单次 `bind` 的行数上限 = 2¹⁵−1（本机探针实测：32767 行成功、32768 行报
+ * `bind number out of range or not match`，与列数无关）。`INGEST_BATCH_SIZE` 超出它会在
+ * 写入时才炸——故配置层据此在启动时挡下，写入层再兜一道。
+ */
+export const MAX_BIND_ROWS = 32767;
+
 /** P1 的三个测点——列名即载荷里的 `metrics[].key` */
 export const RAW_METRICS = ['temperature', 'vibration', 'current'] as const;
 export type RawMetric = (typeof RAW_METRICS)[number];

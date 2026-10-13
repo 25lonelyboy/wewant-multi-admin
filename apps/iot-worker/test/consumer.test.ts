@@ -116,13 +116,14 @@ function processor(consumer: TelemetryConsumer): (job: Job) => Promise<void> {
 
 const job = (data: unknown): Job => ({ data }) as unknown as Job;
 
-void test('单行部分成功（affected < 提交数）⇒ reject，且不累加 written', async () => {
+void test('单行部分成功（affected < 提交数）⇒ reject，不累加 written，且不作废连接', async () => {
   const { writer, invalidations } = fakeWriter(() => 0);
   const consumer = makeConsumer(writer, 1);
   try {
     await assert.rejects(processor(consumer)(job(payload(Date.now()))));
     assert.equal(consumer.stats.written, 0);
-    assert.equal(invalidations(), 1);
+    // 能拿到结果说明连接是好的——部分成功不该作废连接（行 5）
+    assert.equal(invalidations(), 0);
   } finally {
     await consumer.close();
   }
@@ -158,15 +159,57 @@ void test('全部成功 ⇒ resolve，written 按提交数累加', async () => {
   }
 });
 
-void test('写入抛异常 ⇒ 整批 reject，且不累加 written', async () => {
+void test('连接级写入失败（108）⇒ 整批 reject、作废连接，且不累加 written', async () => {
   const { writer, invalidations } = fakeWriter(() => {
-    throw new Error('TDengine 连接已废');
+    throw codedError('TaosResultError', 108, 'Invalid websocket connection');
   });
   const consumer = makeConsumer(writer, 1);
   try {
     await assert.rejects(processor(consumer)(job(payload(Date.now()))));
     assert.equal(consumer.stats.written, 0);
-    assert.equal(invalidations(), 1);
+    assert.equal(invalidations(), 1, '连接级错误应作废连接');
+  } finally {
+    await consumer.close();
+  }
+});
+
+void test('⭐ 超时（105）⇒ 整批 reject，但**不作废**连接（连接是好的，行 5）', async () => {
+  const { writer, invalidations } = fakeWriter(() => {
+    throw codedError('TDWebSocketClientError', 105, 'websocket query timeout');
+  });
+  const consumer = makeConsumer(writer, 1);
+  try {
+    await assert.rejects(processor(consumer)(job(payload(Date.now()))));
+    assert.equal(consumer.stats.written, 0);
+    assert.equal(invalidations(), 0, '超时"可能已成功"，但连接没坏，不该作废');
+  } finally {
+    await consumer.close();
+  }
+});
+
+void test('⭐ 全列皆未知 ⇒ 告警带上报的 key，并计入 unknownMetrics（行 4）', async () => {
+  const { logger, calls } = spyLogger();
+  const { writer } = fakeWriter(rows => rows.length);
+  const consumer = makeConsumer(writer, 1, { logger });
+  try {
+    const data = JSON.stringify({
+      localDeviceId: 'sim-001',
+      ts: Date.now(),
+      metrics: [{ key: 'pressure', value: 1, unit: 'kPa' }]
+    });
+    await processor(consumer)(job(data));
+    assert.equal(consumer.stats.rejected, 1);
+    assert.equal(consumer.stats.unknownMetrics, 1);
+    const line = calls.find(
+      call =>
+        call.level === 'warn' &&
+        Array.isArray((call.fields as { keys?: unknown }).keys)
+    );
+    assert.deepEqual(
+      (line?.fields as { keys?: string[] } | undefined)?.keys,
+      ['pressure'],
+      '告警必须带上报的 key'
+    );
   } finally {
     await consumer.close();
   }

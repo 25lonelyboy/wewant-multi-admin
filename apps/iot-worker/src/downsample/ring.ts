@@ -2,7 +2,11 @@ import { Queue, UnrecoverableError, Worker, type Job } from 'bullmq';
 import { TELEMETRY_QUEUE_PREFIX } from '@multi-admin/contracts';
 import { DS_LEVELS, RAW_DATABASE, type DsLevel } from '../schema.js';
 import type { WorkerConfig } from '../config.js';
-import { classifyWriteError, UnrecoverableWriteError } from '../failure.js';
+import {
+  classifyWriteError,
+  isConnectionLevel,
+  UnrecoverableWriteError
+} from '../failure.js';
 import type { Logger } from '../logger.js';
 import { connectTd, type TdRow, type TdSql } from '../tdengine/client.js';
 import { TdengineWriter } from '../tdengine/writer.js';
@@ -81,7 +85,11 @@ export class DownsampleRing {
     this.connect = deps.connect ?? connectTd;
     this.writer =
       deps.writer ??
-      new TdengineWriter<DsAggregateRow>(config.tdengineUrl, DS_CODEC);
+      new TdengineWriter<DsAggregateRow>(
+        config.tdengineUrl,
+        DS_CODEC,
+        config.tdengineConnections
+      );
 
     const connection = {
       url: config.queueRedisUrl,
@@ -163,10 +171,9 @@ export class DownsampleRing {
       affected = await this.writer.write(aggregates);
     } catch (error) {
       const failure = classifyWriteError(error);
-      // ⚠️ `kind === 'retryable'` 是**粗代理**、并不等价于"连接已断"：它含超时（105，可能已成功）、
-      // 连接数上限（110）与判不出形态的默认桶。这里只是"有可能可重试就作废重连"。
-      // 把"何时作废连接"收窄到真正的连接级错误是 **F7-5** 的范围，本处留作其待覆盖的调用点。
-      if (failure.kind === 'retryable') this.writer.invalidate();
+      // ⭐ 作废收窄到**连接级**（行 5）：`kind==='retryable'` 是粗代理，含超时（105，可能已成功）、
+      // 连接数上限（110）与判不出形态的默认桶——这些连接是好的，作废只会白白重连。
+      if (failure.connectionLevel) this.writer.invalidate();
       this.logger.error(
         {
           level,
@@ -256,15 +263,16 @@ export class DownsampleRing {
   /**
    * 跑一条聚合查询。
    *
-   * ⚠️ 连接**不自我修复** ⇒ 读失败即作废缓存的连接，下一次重连（与写入器同一条恢复思路）。
+   * ⚠️ 连接**不自我修复** ⇒ **连接级**读错（实测：108 / 104）即作废缓存的连接，下一次重连；
    * 不作废的话，失败的连接会被重试反复复用，三级重算**永久卡死**直到进程重启。
+   * ⚠️ 但**确定性 SQL / 解析错**（如 9730 非法列名）连接是好的——不作废，否则每次尝试都白重连一次。
    */
   private async readAggregates(sqlText: string): Promise<TdRow[]> {
     try {
       const sql = await this.sqlClient();
       return await sql.query(sqlText);
     } catch (error) {
-      this.dropReader();
+      if (isConnectionLevel(error)) this.dropReader();
       throw error;
     }
   }

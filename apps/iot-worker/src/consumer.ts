@@ -13,7 +13,11 @@ import {
 } from './failure.js';
 import type { Logger } from './logger.js';
 import { ResolveCache } from './registry-cache.js';
-import { TdengineWriter, type PendingRow } from './tdengine/writer.js';
+import {
+  RAW_CODEC,
+  TdengineWriter,
+  type PendingRow
+} from './tdengine/writer.js';
 
 /** 查档结果的缓存有效期：档案一变，最多等这么久生效 */
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -66,7 +70,13 @@ export class TelemetryConsumer {
     deps: ConsumerDeps = {}
   ) {
     this.cache = new ResolveCache(p1DeviceRegistry, CACHE_TTL_MS);
-    this.writer = deps.writer ?? new TdengineWriter(config.tdengineUrl);
+    this.writer =
+      deps.writer ??
+      new TdengineWriter(
+        config.tdengineUrl,
+        RAW_CODEC,
+        config.tdengineConnections
+      );
 
     this.worker =
       deps.worker ??
@@ -158,7 +168,16 @@ export class TelemetryConsumer {
     const detected = detect(data);
     if (!detected.ok) {
       this.rejected += 1;
-      this.logger.warn({ reason: detected.reason }, '报文不符，丢弃');
+      // ⭐ 全列皆未知也要把上报的 key 带出来——"告警必须带 key"，否则人只知道"有未知测点"
+      if (detected.unknownMetricKeys.length > 0) {
+        this.unknownMetrics += detected.unknownMetricKeys.length;
+        this.logger.warn(
+          { reason: detected.reason, keys: detected.unknownMetricKeys },
+          '报文测点全不可用，丢弃（带上报的 key）'
+        );
+      } else {
+        this.logger.warn({ reason: detected.reason }, '报文不符，丢弃');
+      }
       return null;
     }
 
@@ -232,9 +251,10 @@ export class TelemetryConsumer {
       this.written += deduped.length;
       for (const waiter of waiters) waiter.resolve();
     } catch (error) {
-      // ⚠️ 一次非法绑定会把连接拖废 ⇒ 作废重连；"这批失败"与"连接已废"是两件事
-      this.writer.invalidate();
       const failure = classifyWriteError(error);
+      // ⭐ 只有连接级错误才作废连接（行 5）：超时"可能已成功"、数据 / 结构错、判不出形态的默认桶
+      // 都**不证明连接坏了**——作废它们只会白白重连。作废粒度是失败的那一条（writer 记下的那一格）。
+      if (failure.connectionLevel) this.writer.invalidate();
       this.logWriteFailure(failure, error);
       for (const waiter of waiters) {
         // B 类抛 `UnrecoverableError` ⇒ 跳过重试直接进 failed 集合；A 类原样抛回交给 BullMQ

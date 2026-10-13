@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { UnrecoverableError } from 'bullmq';
-import { classifyWriteError, UnrecoverableWriteError } from '../src/failure.js';
+import {
+  classifyWriteError,
+  isConnectionLevel,
+  UnrecoverableWriteError
+} from '../src/failure.js';
 
 /** 造一个连接器风格的错误：带数字 `code` 与 `name`（与实测抛出的对象同形） */
 function codedError(name: string, code: number, message: string): Error {
@@ -93,4 +97,84 @@ void test('UnrecoverableWriteError 是 BullMQ 认的 UnrecoverableError，且可
   assert.equal(classifyWriteError(wrapped).elevated, true);
   assert.match(wrapped.message, /Table does not exist/);
   assert.match(wrapped.message, /code=9731/);
+});
+
+// ---- 行 5：连接级判定（比 A 类更窄，实测决定）----
+// 实测（3.4.2.8 + @tdengine/websocket 3.5.0）：作废后仍健康与否决定归类。
+// 108（连接已关）实测 DEAD；9731 / 566 / 65535 / 9730 之后连接仍 HEALTHY。
+
+void test('⭐ 连接级 · 连接已关（108）⇒ 连接已废，须作废', () => {
+  const error = codedError(
+    'TaosResultError',
+    108,
+    'Invalid websocket connection'
+  );
+  assert.equal(classifyWriteError(error).connectionLevel, true);
+  assert.equal(isConnectionLevel(error), true);
+});
+
+void test('连接级 · 连接建立失败（104）⇒ 无可用的连接', () => {
+  assert.equal(
+    isConnectionLevel(
+      codedError(
+        'TDWebSocketClientError',
+        104,
+        'connection creation failed, dsn:{…}'
+      )
+    ),
+    true
+  );
+});
+
+void test('⭐ 连接级 · 读超时（105）是 A 类但**不是**连接级——连接是好的', () => {
+  const c = classifyWriteError(
+    codedError('TDWebSocketClientError', 105, 'websocket query timeout')
+  );
+  assert.equal(c.kind, 'retryable');
+  assert.equal(
+    c.connectionLevel,
+    false,
+    '超时"可能已成功"，但连接没坏，不该作废'
+  );
+});
+
+void test('连接级 · 连接数上限（110）不是连接级', () => {
+  assert.equal(
+    isConnectionLevel(
+      codedError(
+        'TDWebSocketClientError',
+        110,
+        'websocket connect arrived limited'
+      )
+    ),
+    false
+  );
+});
+
+void test('连接级 · 数据 / 结构类（9731 / 566 / 9730 / 65535）都不是连接级', () => {
+  for (const [name, code] of [
+    ['WebSocketInterfaceError', 9731],
+    ['WebSocketInterfaceError', 566],
+    ['TaosResultError', 9730],
+    ['WebSocketInterfaceError', 65535]
+  ] as const) {
+    assert.equal(
+      isConnectionLevel(codedError(name, code, 'x')),
+      false,
+      `码 ${code} 不该判为连接级`
+    );
+  }
+});
+
+void test('连接级 · 判不出形态的默认桶不证明连接坏了 ⇒ 不是连接级', () => {
+  assert.equal(isConnectionLevel(new Error('something unexpected')), false);
+});
+
+void test('连接级 · 不带码时按报文形态命中（Failed to reconnect）', () => {
+  assert.equal(
+    isConnectionLevel(
+      new Error('Failed to reconnect to any available address')
+    ),
+    true
+  );
 });

@@ -1,6 +1,14 @@
 import { createRequire } from 'node:module';
 import type * as TdClient from '@tdengine/websocket';
-import { RAW_DATABASE, RAW_METRICS, type RawMetric } from '../schema.js';
+import {
+  MAX_BIND_ROWS,
+  RAW_DATABASE,
+  RAW_METRICS,
+  type RawMetric
+} from '../schema.js';
+
+// 单次 bind 行数上限由 schema 侧一处定义，配位层（config）与写入层共用（行 2）
+export { MAX_BIND_ROWS } from '../schema.js';
 
 const require = createRequire(import.meta.url);
 const td = require('@tdengine/websocket') as typeof TdClient;
@@ -69,6 +77,21 @@ type TdConnection = Awaited<ReturnType<typeof td.sqlConnect>>;
 type TdStmt = Awaited<ReturnType<TdConnection['stmtInit']>>;
 type TdParams = ReturnType<TdStmt['newStmtParam']>;
 
+/** 建一条连接——生产是连接器的 `sqlConnect`；单测注入替身以制造"连接已废" */
+export type WriterConnect = (url: string) => Promise<TdConnection>;
+
+const defaultConnect: WriterConnect = url =>
+  td.sqlConnect(
+    new td.WSConfig(`${url}/${RAW_DATABASE}`, FORCE_STMT1_MIN_VERSION)
+  );
+
+/** 连接池的一格：一条连接及其 stmt / 已 prepare 的语句（`preparedSql` 决定要不要重 prepare） */
+interface WriterSlot {
+  connection: TdConnection | null;
+  stmt: TdStmt | null;
+  preparedSql: string | null;
+}
+
 /** 组装一条按列名写死的 INSERT（STMT1 不支持 `USING`/`tbname` 形态） */
 export function insertSql(
   database: string,
@@ -104,41 +127,102 @@ function bindColumn(
 }
 
 /**
- * 参数绑定写入器。
+ * 参数绑定写入器——持一个连接池（默认 2 条，可配 2~4，行 1）。
  *
  * ⚠️ **不另造重试**：失败直接抛回调用方（队列重试），数据全程在 Redis。
- * ⚠️ 一次非法绑定会把连接拖废 ⇒ 出错即作废重连，且告诉调用方"连接已废"与"这批失败"是两件事。
+ * ⚠️ **作废粒度是"失败的那一条"**：`write()` 记下这一次用的是哪一格，`invalidate()` 只作废它，
+ * 同一池里其它连接不陪葬（行 5）。
+ * ⚠️ **`invalidate()` 必须先关旧连接再置空**——只置空会把一条**还活着的** WebSocket 泄漏掉。
+ * ⚠️ **只有连接级错误才该 `invalidate()`**（调用方按 `failure.connectionLevel` 判定）：超时
+ * "可能已成功"、连接数上限、判不出形态的默认桶都**不证明连接坏了**，作废它们只是白白重连。
  */
 export class TdengineWriter<Row = PendingRow> {
-  private connection: TdConnection | null = null;
-  private stmt: TdStmt | null = null;
-  private preparedSql: string | null = null;
+  private readonly slots: WriterSlot[];
+  /** 下一次写入用哪一格（轮转） */
+  private cursor = 0;
+  /** `write()` 失败时记下用的是哪一格，供 `invalidate()` 精确作废；成功或未失败时为空 */
+  private failedSlot: WriterSlot | null = null;
 
   constructor(
     private readonly url: string,
-    private readonly codec: WriteCodec<Row> = RAW_CODEC as WriteCodec<Row>
-  ) {}
-
-  async connect(): Promise<void> {
-    this.connection = await td.sqlConnect(
-      new td.WSConfig(`${this.url}/${RAW_DATABASE}`, FORCE_STMT1_MIN_VERSION)
-    );
-    this.stmt = null;
-    this.preparedSql = null;
+    private readonly codec: WriteCodec<Row> = RAW_CODEC as WriteCodec<Row>,
+    connections = 2,
+    private readonly connect: WriterConnect = defaultConnect
+  ) {
+    const count = Math.max(1, Math.trunc(connections));
+    this.slots = Array.from({ length: count }, () => ({
+      connection: null,
+      stmt: null,
+      preparedSql: null
+    }));
   }
 
   /** 写入一批；返回 `getLastAffected()` 的合计（核对用） */
   async write(rows: readonly Row[]): Promise<number> {
-    const stmt = await this.requireStmt();
     const groups = groupRows(rows, this.codec);
+    // 单组行数超上限会在 bind 时报 `bind number out of range`——在建连 / bind 之前响亮挡下（行 2）
+    for (const group of groups) {
+      if (group.rows.length > MAX_BIND_ROWS) {
+        throw new Error(
+          `单组行数 ${group.rows.length} 超过单次 bind 上限 ${MAX_BIND_ROWS}（INGEST_BATCH_SIZE 应 ≤ ${MAX_BIND_ROWS}）`
+        );
+      }
+    }
+
+    const slot = this.slots[this.cursor] ?? this.slots[0];
+    if (slot === undefined) throw new Error('TDengine 连接池为空');
+    this.cursor = (this.cursor + 1) % this.slots.length;
+    this.failedSlot = null;
+    try {
+      return await this.writeGroups(slot, groups);
+    } catch (error) {
+      // 记下失败的是哪一格——调用方按连接级判定决定是否 `invalidate()`，作废只针对它
+      this.failedSlot = slot;
+      throw error;
+    }
+  }
+
+  /**
+   * 作废**失败的那一条**连接（`write()` 记下的那一格），让下一次写入在它上面重连。
+   *
+   * ⚠️ 由调用方在**连接级**错误时调用（`failure.connectionLevel`）；非连接级（超时 / 连接数上限 /
+   * 默认桶）不得调用，否则会白白丢掉一条好连接并重连。
+   */
+  invalidate(): void {
+    const slot = this.failedSlot;
+    this.failedSlot = null;
+    if (slot !== null) this.discard(slot);
+  }
+
+  async close(): Promise<void> {
+    for (const slot of this.slots) {
+      const { stmt, connection } = slot;
+      slot.stmt = null;
+      slot.preparedSql = null;
+      slot.connection = null;
+      try {
+        if (stmt !== null) await stmt.close();
+        if (connection !== null) await connection.close();
+      } catch {
+        // 关闭期错误不影响退出
+      }
+    }
+    this.failedSlot = null;
+  }
+
+  private async writeGroups(
+    slot: WriterSlot,
+    groups: readonly WriteGroup[]
+  ): Promise<number> {
+    const stmt = await this.requireStmt(slot);
 
     let affected = 0;
     for (const group of groups) {
       const names = group.columns.map(column => column.name);
       const sql = insertSql(this.codec.database, group.subtable, names);
-      if (this.preparedSql !== sql) {
+      if (slot.preparedSql !== sql) {
         await stmt.prepare(sql);
-        this.preparedSql = sql;
+        slot.preparedSql = sql;
       }
 
       const params = stmt.newStmtParam();
@@ -159,34 +243,33 @@ export class TdengineWriter<Row = PendingRow> {
     return affected;
   }
 
-  /** 作废连接：下一次写入会重连。用于"连接已废"的分支 */
-  invalidate(): void {
-    this.connection = null;
-    this.stmt = null;
-    this.preparedSql = null;
+  /**
+   * 尽力关闭这一格的连接并置空，让下一次写入重连。
+   *
+   * ⚠️ 关闭是尽力而为、**不 await**——半开连接的 `close()` 可能挂起，拖住恢复（与读侧 `dropReader` 同一思路）。
+   */
+  private discard(slot: WriterSlot): void {
+    const { stmt, connection } = slot;
+    slot.stmt = null;
+    slot.preparedSql = null;
+    slot.connection = null;
+    if (stmt !== null)
+      void Promise.resolve(stmt.close()).catch(() => undefined);
+    if (connection !== null)
+      void Promise.resolve(connection.close()).catch(() => undefined);
   }
 
-  async close(): Promise<void> {
-    const stmt = this.stmt;
-    const connection = this.connection;
-    this.invalidate();
-    try {
-      if (stmt !== null) await stmt.close();
-      if (connection !== null) await connection.close();
-    } catch {
-      // 关闭期错误不影响退出
+  private async requireStmt(slot: WriterSlot): Promise<TdStmt> {
+    if (slot.connection === null) {
+      slot.connection = await this.connect(this.url);
+      slot.stmt = null;
+      slot.preparedSql = null;
     }
-  }
-
-  private async requireStmt(): Promise<TdStmt> {
-    if (this.connection === null) await this.connect();
-    const connection = this.connection;
-    if (connection === null) throw new Error('TDengine 连接不可用');
-    if (this.stmt === null) {
-      this.stmt = await connection.stmtInit();
-      this.preparedSql = null;
+    if (slot.stmt === null) {
+      slot.stmt = await slot.connection.stmtInit();
+      slot.preparedSql = null;
     }
-    return this.stmt;
+    return slot.stmt;
   }
 }
 
