@@ -1,6 +1,24 @@
 import { z } from 'zod';
 
 /**
+ * 布尔型环境变量。
+ *
+ * ⚠️ 不能用 `z.coerce.boolean()`：它对任意非空字符串都返回 `true`（`Boolean('false') === true`），
+ * 于是 `DOWNSAMPLE_ENABLED=false` 会被静默当成开启。只认 `true/false/1/0`（大小写不敏感）。
+ */
+const booleanEnv = (defaultValue: boolean) =>
+  z
+    .string()
+    .default(String(defaultValue))
+    .transform((value, ctx) => {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === 'true' || normalized === '1') return true;
+      if (normalized === 'false' || normalized === '0') return false;
+      ctx.addIssue({ code: 'custom', message: `不是布尔值：${value}` });
+      return z.NEVER;
+    });
+
+/**
  * worker 的运行期配置。
  *
  * ⚠️ 队列 Redis 与业务缓存是**两个实例**（ADR-010 D4）：BullMQ 要求 `noeviction`，
@@ -28,7 +46,11 @@ const envSchema = z.object({
    * 处理器返回的 Promise 由整批的写入结果兑现，所以在手的条数就是并发数 ⇒
    * 攒批靠这个值，不靠逐条处理。
    */
-  INGEST_CONCURRENCY: z.coerce.number().int().positive().default(500)
+  INGEST_CONCURRENCY: z.coerce.number().int().positive().default(500),
+  /** 降采样开关：关掉只跑消费环（排障用） */
+  DOWNSAMPLE_ENABLED: booleanEnv(true),
+  /** 每次重算的窗口数 K——晚到数据只要落在最近 K 个窗口内即被自愈 */
+  DOWNSAMPLE_LOOKBACK_WINDOWS: z.coerce.number().int().positive().default(3)
 });
 
 export interface WorkerConfig {
@@ -43,6 +65,8 @@ export interface WorkerConfig {
   ingestBatchSize: number;
   ingestFlushIntervalMs: number;
   ingestConcurrency: number;
+  downsampleEnabled: boolean;
+  downsampleLookbackWindows: number;
 }
 
 /** 读取并校验环境变量；不合法直接抛，不让进程带着半截配置跑起来 */
@@ -64,6 +88,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
     tdengineTimezone: parsed.data.TDENGINE_TIMEZONE,
     ingestBatchSize: parsed.data.INGEST_BATCH_SIZE,
     ingestFlushIntervalMs: parsed.data.INGEST_FLUSH_INTERVAL_MS,
-    ingestConcurrency: parsed.data.INGEST_CONCURRENCY
+    ingestConcurrency: parsed.data.INGEST_CONCURRENCY,
+    downsampleEnabled: parsed.data.DOWNSAMPLE_ENABLED,
+    downsampleLookbackWindows: parsed.data.DOWNSAMPLE_LOOKBACK_WINDOWS
   };
 }

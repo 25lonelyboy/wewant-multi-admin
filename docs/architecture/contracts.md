@@ -27,7 +27,7 @@ last_verified: 2026-10-13
 - **主题段是路由地址、不是身份**：段里放设备自报的 `localDeviceId`（`telemetryTopic` 生成、`localDeviceIdFromTopic` 逆运算）；平台不以其判定身份——**身份以载荷为准**，订阅端只做一致性拦截（主题段与载荷不一致即丢弃 + 计数 + 告警）。
 - **载荷字段**：`localDeviceId`（设备自报编号，与主题段同值）、可选 `localPointId`（仅多点设备需要，是否允许缺省由档案登记决定）、`ts`（epoch 毫秒）、`metrics[]`。载荷字段与主题占位段统一用 `localDeviceId`（早期草案的 `deviceId` 已弃用），wire format 以本契约为准。
 - **设备侧编号约定**：`localDeviceIdForIndex` 生成 P1 编号（`sim-001`…），模拟器与设备档案共用同一函数，不靠事后断言对齐；`normalizeLocalId` 统一去首尾空白 + 小写（只处理同一台设备前后不一致，不跨设备去重）。
-- **队列常量**：`TELEMETRY_INGEST_QUEUE`（`iot-telemetry-ingest`）与 `TELEMETRY_QUEUE_PREFIX`（`wewant`）。生产者（订阅端）与消费者（`apps/iot-worker`）分属两个应用，队列名必须一处定义，否则两端会各自连到不同的队列而不报错。⚠️ 队列名**不能含 `:`**——BullMQ 用它作 Redis 键分隔符，含冒号构造即抛；故分隔符用 `-`，命名空间交给 `prefix`。
+- **队列常量**：`TELEMETRY_INGEST_QUEUE`（`iot-telemetry-ingest`）与 `TELEMETRY_QUEUE_PREFIX`（`wewant`）。生产者（订阅端）与消费者（`apps/iot-worker`）分属两个应用，队列名必须一处定义，否则两端会各自连到不同的队列而不报错。⚠️ 队列名**不能含 `:`**——BullMQ 用它作 Redis 键分隔符，含冒号构造即抛；故分隔符用 `-`，命名空间交给 `prefix`。⚠️ 反之，**同一应用内**的队列不属契约、就地定义即可——如降采样环的 `iot-telemetry-downsample`，其调度注册与消费都在 `apps/iot-worker` 进程内，没有第二个应用引用它（判据是"是否跨应用"，不是"是不是队列"）。
 - **扩展方式**：event / service 通道随物模型增量在 iot 段内扩展；telemetry 通道本身不变。
 - **契约边界**：主题、上行载荷与队列名属契约；写哪张表、DDL 形态**不属**契约——归 `apps/iot-worker` 内部（schema 定义与建库脚本均在该应用内）。
 

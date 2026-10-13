@@ -32,17 +32,75 @@ export type PendingRow = {
   metrics: Partial<Record<RawMetric, MetricSample>>;
 };
 
+/**
+ * 列的绑定类型——与 TDengine stmt 的 `setXxx` 一一对应。
+ *
+ * ⚠️ 名称必须与超级表的**列类型**一致（DOUBLE 用 `double`、BIGINT 用 `bigint`…），
+ * 而不是与 JS 值的类型一致：连接器按声明类型编码，选错会写坏或报错。
+ */
+export type ColumnKind =
+  'timestamp' | 'float' | 'double' | 'bigint' | 'varchar';
+
+/** INSERT 的一列：列名、绑定类型、该行的取值 */
+export interface WriteColumn {
+  name: string;
+  kind: ColumnKind;
+  value: number | bigint | string | null;
+}
+
+/**
+ * 行的列描述——把"某一行怎么写"从写入器里抽出来。
+ *
+ * ⚠️ 原始库与降采样库的行**列不同**（前者是「测点值 + 单位」、后者是「sum/count/min/max + 单位」），
+ * 故列描述由调用方以 codec 提供；写入器只负责按 codec 分组、建语句、绑定、exec。
+ */
+export interface WriteCodec<Row> {
+  /** 目标库——INSERT 用它限定，故两种库可共用同一个写入器 */
+  database: string;
+  /** 该行的目标子表 */
+  subtable(row: Row): string;
+  /** 列集合标识：同标识的行列结构一致，才可共用一条语句与一次 exec */
+  signature(row: Row): string;
+  /** INSERT 的列（含 ts）与各列取值；顺序即 VALUES 顺序 */
+  columns(row: Row): readonly WriteColumn[];
+}
+
 type TdConnection = Awaited<ReturnType<typeof td.sqlConnect>>;
 type TdStmt = Awaited<ReturnType<TdConnection['stmtInit']>>;
+type TdParams = ReturnType<TdStmt['newStmtParam']>;
 
-/** 该行带了哪些测点——同签名的行才能共用一条语句 */
-function insertSql(subtable: string, present: readonly string[]): string {
-  const columns = [
-    'ts',
-    ...present.flatMap(metric => [`${metric}`, `${metric}_unit`])
-  ];
-  const values = columns.map(() => '?').join(', ');
-  return `INSERT INTO ${RAW_DATABASE}.${subtable} (${columns.join(', ')}) VALUES (${values})`;
+/** 组装一条按列名写死的 INSERT（STMT1 不支持 `USING`/`tbname` 形态） */
+export function insertSql(
+  database: string,
+  subtable: string,
+  names: readonly string[]
+): string {
+  const values = names.map(() => '?').join(', ');
+  return `INSERT INTO ${database}.${subtable} (${names.join(', ')}) VALUES (${values})`;
+}
+
+function bindColumn(
+  params: TdParams,
+  kind: ColumnKind,
+  values: (number | bigint | string | null)[]
+): void {
+  switch (kind) {
+    case 'timestamp':
+      params.setTimestamp(values as number[]);
+      break;
+    case 'float':
+      params.setFloat(values);
+      break;
+    case 'double':
+      params.setDouble(values);
+      break;
+    case 'bigint':
+      params.setBigint(values);
+      break;
+    case 'varchar':
+      params.setVarchar(values);
+      break;
+  }
 }
 
 /**
@@ -51,12 +109,15 @@ function insertSql(subtable: string, present: readonly string[]): string {
  * ⚠️ **不另造重试**：失败直接抛回调用方（队列重试），数据全程在 Redis。
  * ⚠️ 一次非法绑定会把连接拖废 ⇒ 出错即作废重连，且告诉调用方"连接已废"与"这批失败"是两件事。
  */
-export class TdengineWriter {
+export class TdengineWriter<Row = PendingRow> {
   private connection: TdConnection | null = null;
   private stmt: TdStmt | null = null;
   private preparedSql: string | null = null;
 
-  constructor(private readonly url: string) {}
+  constructor(
+    private readonly url: string,
+    private readonly codec: WriteCodec<Row> = RAW_CODEC as WriteCodec<Row>
+  ) {}
 
   async connect(): Promise<void> {
     this.connection = await td.sqlConnect(
@@ -67,24 +128,25 @@ export class TdengineWriter {
   }
 
   /** 写入一批；返回 `getLastAffected()` 的合计（核对用） */
-  async write(rows: readonly PendingRow[]): Promise<number> {
+  async write(rows: readonly Row[]): Promise<number> {
     const stmt = await this.requireStmt();
-    const groups = groupRows(rows);
+    const groups = groupRows(rows, this.codec);
 
     let affected = 0;
     for (const group of groups) {
-      const sql = insertSql(group.subtable, group.present);
+      const names = group.columns.map(column => column.name);
+      const sql = insertSql(this.codec.database, group.subtable, names);
       if (this.preparedSql !== sql) {
         await stmt.prepare(sql);
         this.preparedSql = sql;
       }
 
       const params = stmt.newStmtParam();
-      params.setTimestamp(group.rows.map(row => row.ts));
-      for (const metric of group.present) {
-        params.setFloat(group.rows.map(row => row.metrics[metric]?.value ?? 0));
-        params.setVarchar(
-          group.rows.map(row => row.metrics[metric]?.unit ?? '')
+      for (const [index, column] of group.columns.entries()) {
+        bindColumn(
+          params,
+          column.kind,
+          group.rows.map(row => row.columns[index]?.value ?? null)
         );
       }
       await stmt.bind(params);
@@ -130,26 +192,58 @@ export class TdengineWriter {
 
 interface WriteGroup {
   subtable: string;
-  present: readonly RawMetric[];
-  rows: PendingRow[];
+  columns: readonly WriteColumn[];
+  rows: { columns: readonly WriteColumn[] }[];
 }
 
-/** 按 `(子表, 带了哪些测点)` 分组——同组才能共用一条语句与一次 exec */
-function groupRows(rows: readonly PendingRow[]): WriteGroup[] {
+/** 按 `(子表, 列签名)` 分组——同组才能共用一条语句与一次 exec */
+function groupRows<Row>(
+  rows: readonly Row[],
+  codec: WriteCodec<Row>
+): WriteGroup[] {
   const groups = new Map<string, WriteGroup>();
   for (const row of rows) {
-    const present = RAW_METRICS.filter(
-      metric => row.metrics[metric] !== undefined
-    );
-    if (present.length === 0) continue;
-
-    const key = `${row.subtable}\u0000${present.join('+')}`;
+    const columns = codec.columns(row);
+    const subtable = codec.subtable(row);
+    const key = `${subtable}\u0000${codec.signature(row)}`;
     const existing = groups.get(key);
     if (existing === undefined) {
-      groups.set(key, { subtable: row.subtable, present, rows: [row] });
+      groups.set(key, { subtable, columns, rows: [{ columns }] });
     } else {
-      existing.rows.push(row);
+      existing.rows.push({ columns });
     }
   }
   return [...groups.values()];
+}
+
+/**
+ * 原始库的列描述。
+ *
+ * ⚠️ 一行只写它**带了的**测点（列随测点集合变）⇒ 签名取"带了哪些测点"，
+ * 缺测点的行落成 `NONE`、保留旧值（§4.5）。
+ */
+export const RAW_CODEC: WriteCodec<PendingRow> = {
+  database: RAW_DATABASE,
+  subtable: row => row.subtable,
+  signature: row => presentMetrics(row).join('+'),
+  columns: row => {
+    const columns: WriteColumn[] = [
+      { name: 'ts', kind: 'timestamp', value: row.ts }
+    ];
+    for (const metric of presentMetrics(row)) {
+      const sample = row.metrics[metric];
+      if (sample === undefined) continue;
+      columns.push({ name: metric, kind: 'float', value: sample.value });
+      columns.push({
+        name: `${metric}_unit`,
+        kind: 'varchar',
+        value: sample.unit
+      });
+    }
+    return columns;
+  }
+};
+
+function presentMetrics(row: PendingRow): RawMetric[] {
+  return RAW_METRICS.filter(metric => row.metrics[metric] !== undefined);
 }

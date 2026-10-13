@@ -1,5 +1,6 @@
 import { loadConfig } from './config.js';
 import { TelemetryConsumer } from './consumer.js';
+import { DownsampleRing } from './downsample/ring.js';
 import { createLogger } from './logger.js';
 
 /**
@@ -14,21 +15,29 @@ const logger = createLogger(config);
 const consumer = new TelemetryConsumer(config, logger);
 consumer.start();
 
+// 降采样环与消费环**并列**、各自独立队列：任一条跑挂不得带走另一条（§3.5）
+const ring = config.downsampleEnabled
+  ? new DownsampleRing(config, logger)
+  : null;
+// ⚠️ 不 await：调度注册不得因为 queue Redis 抖动挡住进程启动（C1）；start() 自身不抛
+void ring?.start();
+
 logger.info(
   {
     queueRedisUrl: config.queueRedisUrl,
     tdengineUrl: config.tdengineUrl,
     batchSize: config.ingestBatchSize,
     flushIntervalMs: config.ingestFlushIntervalMs,
-    concurrency: config.ingestConcurrency
+    concurrency: config.ingestConcurrency,
+    downsampleEnabled: config.downsampleEnabled,
+    downsampleLookbackWindows: config.downsampleLookbackWindows
   },
   'iot-worker 已启动'
 );
 
 const shutdown = (signal: string): void => {
   logger.info({ signal }, '收到停止信号，先落库再退出');
-  consumer
-    .close()
+  Promise.all([consumer.close(), ring?.close() ?? Promise.resolve()])
     .then(() => {
       logger.info(consumer.stats, 'iot-worker 已停止');
       process.exit(0);
