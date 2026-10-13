@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import type { Queue, Worker } from 'bullmq';
 import { p1DeviceRegistry } from '@multi-admin/device-registry';
 import { loadConfig } from '../src/config.js';
 import { createLogger } from '../src/logger.js';
@@ -12,6 +13,24 @@ import {
   closedWindowRange,
   lastClosedBoundary
 } from '../src/downsample/window.js';
+
+/**
+ * ⚠️ 不消费的 worker / queue 替身：本 e2e **只驱动 `recompute`**，不能起真实的消费 worker——
+ * 否则它会去抢 Redis 里早已注册的 `ds-1m` 调度 job，与直接调用**并发**使用同一个写入器
+ * （单连接、单 stmt 不可并发），会把用例拖死。worker 循环本身另有单测覆盖。
+ */
+const inertQueue = {
+  waitUntilReady: (): Promise<void> => Promise.resolve(),
+  upsertJobScheduler: (): Promise<undefined> => Promise.resolve(undefined),
+  close: (): Promise<void> => Promise.resolve()
+} as unknown as Queue;
+const inertWorker = ((): Worker => {
+  const worker = {
+    on: (): Worker => worker,
+    close: (): Promise<void> => Promise.resolve()
+  } as unknown as Worker;
+  return worker;
+})();
 
 // 连接器会把 winston 的 uncaughtException 处理器摘掉（见 client.ts），这里补上自己的：
 // 否则未捕获异常会让进程静默退出，什么也看不到。
@@ -127,7 +146,10 @@ async function cleanup(sql: TdSql): Promise<void> {
 void test('降采样环：三级各自从原始表重算，落库值与手跑 §3.3 查询逐字段相等', async () => {
   const sql = await connectTd(config.tdengineUrl, RAW_DATABASE);
   const rawWriter = new TdengineWriter(config.tdengineUrl);
-  const ring = new DownsampleRing(config, logger);
+  const ring = new DownsampleRing(config, logger, {
+    queue: inertQueue,
+    worker: inertWorker
+  });
 
   try {
     // 1) 造原始数据——只在 T0 那一个 1m 窗口内
@@ -216,6 +238,79 @@ void test('降采样环：三级各自从原始表重算，落库值与手跑 §
     }
   } finally {
     await cleanup(sql);
+    await ring.close();
+    await rawWriter.close();
+    await sql.close();
+    destroyTd();
+  }
+});
+
+/**
+ * ⭐ 窗口内**缺测点** ⇒ 降采样列落 NULL 的**真库往返**。
+ *
+ * 窗口里只上报 temperature ⇒ vibration / current 的 sum/min/max/unit 应为 NULL、count 为 0。
+ * 这条路径（连接器把 `null` 绑进 DOUBLE/FLOAT/VARCHAR 列）此前只由单测的**解析**覆盖，
+ * 未曾在真表上写过并读回——`writer.ts` 里 `?? null` 的兜底正需要这一条来证。
+ */
+void test('降采样环：窗口内缺测点 ⇒ 对应列落 NULL（真库往返）', async () => {
+  const sql = await connectTd(config.tdengineUrl, RAW_DATABASE);
+  const rawWriter = new TdengineWriter(config.tdengineUrl);
+  const ring = new DownsampleRing(config, logger, {
+    queue: inertQueue,
+    worker: inertWorker
+  });
+
+  const nullableSub = p1DeviceRegistry.allSubtables()[1];
+  const TN = Date.parse('2026-09-16T10:00:00.000Z');
+  const spec = levelSpec('1m');
+
+  try {
+    const affected = await rawWriter.write([
+      {
+        subtable: nullableSub.name,
+        ts: TN + 5_000,
+        metrics: { temperature: { value: 55.5, unit: '°C' } }
+      }
+    ]);
+    assert.equal(affected, 1, '原始行应落库');
+
+    assert.equal(await ring.recompute('1m', TN + spec.windowMs + 90_000), 1);
+
+    const windowStart = lastClosedBoundary(TN, spec);
+    const rows = await sql.query(
+      `SELECT sum_temperature, count_temperature,` +
+        ` sum_vibration, count_vibration, min_vibration, max_vibration, vibration_unit,` +
+        ` sum_current, count_current, current_unit` +
+        ` FROM ${DS_DATABASE}.${dsSubtableName(nullableSub.name, '1m')} WHERE ts = ${windowStart}`
+    );
+    assert.equal(rows.length, 1, '降采样表应有 1 行');
+    const row = rows[0];
+
+    // 有值的测点照写
+    assert.equal(asNumber(row[0]), 55.5);
+    assert.equal(BigInt(asNumber(row[1])), 1n);
+
+    // 缺值的测点：sum/min/max/unit 落 NULL（连接器把 SQL NULL 渲染成字符串 'NULL'，两种都认）
+    for (const index of [2, 4, 5, 6, 7, 9]) {
+      const value = row[index];
+      assert.ok(
+        value === null || value === 'NULL',
+        `列 ${index} 应为 NULL，实际 ${String(value)}`
+      );
+    }
+    assert.equal(BigInt(asNumber(row[3])), 0n, 'count_vibration 应为 0');
+    assert.equal(BigInt(asNumber(row[8])), 0n, 'count_current 应为 0');
+  } finally {
+    await sql
+      .exec(
+        `DELETE FROM ${RAW_DATABASE}.${nullableSub.name} WHERE ts >= ${TN} AND ts < ${TN + 60_000}`
+      )
+      .catch(() => undefined);
+    await sql
+      .exec(
+        `DELETE FROM ${DS_DATABASE}.${dsSubtableName(nullableSub.name, '1m')} WHERE ts = ${lastClosedBoundary(TN, spec)}`
+      )
+      .catch(() => undefined);
     await ring.close();
     await rawWriter.close();
     await sql.close();

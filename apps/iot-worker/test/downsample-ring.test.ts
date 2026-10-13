@@ -5,11 +5,8 @@ import { loadConfig } from '../src/config.js';
 import { createLogger } from '../src/logger.js';
 import { dsSubtableName } from '../src/schema.js';
 import { DS_CODEC, type DsAggregateRow } from '../src/downsample/rows.js';
-import {
-  DownsampleRing,
-  type AggregateReader
-} from '../src/downsample/ring.js';
-import type { TdRow } from '../src/tdengine/client.js';
+import { DownsampleRing, type TdConnect } from '../src/downsample/ring.js';
+import type { TdRow, TdSql } from '../src/tdengine/client.js';
 import type { TdengineWriter } from '../src/tdengine/writer.js';
 
 /** 一行读查询结果（列序见 buildAggregateSql） */
@@ -39,6 +36,16 @@ function codedError(name: string, code: number, message: string): Error {
   const error = new Error(message);
   error.name = name;
   return Object.assign(error, { code });
+}
+
+/** 一个只实现读的 TdSql 替身 */
+function fakeSql(query: (sql: string) => Promise<TdRow[]>): TdSql {
+  return {
+    query,
+    exec: (): Promise<void> => Promise.resolve(),
+    version: (): Promise<string> => Promise.resolve('fake'),
+    close: (): Promise<void> => Promise.resolve()
+  };
 }
 
 function fakeWorker(): {
@@ -83,18 +90,20 @@ function fakeQueue(): { queue: Queue; upserts: Upsert[] } {
   return { queue, upserts };
 }
 
-function fakeReader(rows: readonly TdRow[]): {
-  reader: AggregateReader;
+/** 读连接工厂替身：每次 connect 给一条新连接，记录跑过的 SQL */
+function fakeConnect(rows: readonly TdRow[]): {
+  connect: TdConnect;
   queries: string[];
 } {
   const queries: string[] = [];
   return {
-    reader: {
-      query: (sql: string): Promise<TdRow[]> => {
-        queries.push(sql);
-        return Promise.resolve([...rows]);
-      }
-    },
+    connect: (): Promise<TdSql> =>
+      Promise.resolve(
+        fakeSql(sql => {
+          queries.push(sql);
+          return Promise.resolve([...rows]);
+        })
+      ),
     queries
   };
 }
@@ -126,7 +135,7 @@ function fakeWriter(
 }
 
 function makeRing(deps: {
-  reader: AggregateReader;
+  connect: TdConnect;
   writer: TdengineWriter<DsAggregateRow>;
   queue: Queue;
   worker: Worker;
@@ -142,11 +151,11 @@ function makeRing(deps: {
 const NOW = 1_791_850_011_067;
 
 void test('recompute：把窗口聚合写进**带级别后缀**的降采样子表', async () => {
-  const { reader, queries } = fakeReader([aggRow()]);
+  const { connect, queries } = fakeConnect([aggRow()]);
   const { writer, written } = fakeWriter(rows => rows.length);
   const { queue } = fakeQueue();
   const { worker } = fakeWorker();
-  const ring = makeRing({ reader, writer, queue, worker });
+  const ring = makeRing({ connect, writer, queue, worker });
   try {
     const count = await ring.recompute('1m', NOW);
     assert.equal(count, 1);
@@ -166,11 +175,11 @@ void test('recompute：把窗口聚合写进**带级别后缀**的降采样子�
 });
 
 void test('recompute：空窗口落 0 行、不写（不是失败）', async () => {
-  const { reader } = fakeReader([]);
+  const { connect } = fakeConnect([]);
   const { writer, written } = fakeWriter(rows => rows.length);
   const { queue } = fakeQueue();
   const { worker } = fakeWorker();
-  const ring = makeRing({ reader, writer, queue, worker });
+  const ring = makeRing({ connect, writer, queue, worker });
   try {
     assert.equal(await ring.recompute('1h', NOW), 0);
     assert.equal(written.length, 0);
@@ -180,11 +189,11 @@ void test('recompute：空窗口落 0 行、不写（不是失败）', async () 
 });
 
 void test('⭐ C10：写入行数少于提交数 ⇒ 响亮失败', async () => {
-  const { reader } = fakeReader([aggRow(), aggRow('x')]);
+  const { connect } = fakeConnect([aggRow(), aggRow('x')]);
   const { writer } = fakeWriter(rows => rows.length - 1);
   const { queue } = fakeQueue();
   const { worker } = fakeWorker();
-  const ring = makeRing({ reader, writer, queue, worker });
+  const ring = makeRing({ connect, writer, queue, worker });
   try {
     await assert.rejects(ring.recompute('1m', NOW), /少于提交行数/);
   } finally {
@@ -193,45 +202,82 @@ void test('⭐ C10：写入行数少于提交数 ⇒ 响亮失败', async () => 
 });
 
 void test('连接级（可重试）写入失败 ⇒ 作废连接并抛回', async () => {
-  const { reader } = fakeReader([aggRow()]);
+  const { connect } = fakeConnect([aggRow()]);
   const { writer, invalidations } = fakeWriter(
     rows => rows.length,
     codedError('TDWebSocketClientError', 104, 'connection creation failed')
   );
   const { queue } = fakeQueue();
   const { worker } = fakeWorker();
-  const ring = makeRing({ reader, writer, queue, worker });
+  const ring = makeRing({ connect, writer, queue, worker });
   try {
     await assert.rejects(ring.recompute('1m', NOW));
-    assert.equal(invalidations(), 1, '连接级故障应作废连接');
+    assert.equal(invalidations(), 1, '可重试故障应作废连接');
   } finally {
     await ring.close();
   }
 });
 
-void test('数据/结构类失败不重连（invalidate 只在连接级调用）', async () => {
-  const { reader } = fakeReader([aggRow()]);
+void test('⭐ B 类（结构类）失败 ⇒ UnrecoverableError 且不重连（快速进 failed 集合）', async () => {
+  const { connect } = fakeConnect([aggRow()]);
   const { writer, invalidations } = fakeWriter(
     rows => rows.length,
     codedError('WebSocketInterfaceError', 9731, 'Table does not exist')
   );
   const { queue } = fakeQueue();
   const { worker } = fakeWorker();
-  const ring = makeRing({ reader, writer, queue, worker });
+  const ring = makeRing({ connect, writer, queue, worker });
   try {
-    await assert.rejects(ring.recompute('1m', NOW));
-    assert.equal(invalidations(), 0);
+    await assert.rejects(ring.recompute('1m', NOW), error => {
+      assert.ok(
+        error instanceof UnrecoverableError,
+        'B 类须抛 UnrecoverableError，才能跳过重试直接进 failed 集合'
+      );
+      return true;
+    });
+    assert.equal(invalidations(), 0, 'B 类连接是好的，不该重连');
+  } finally {
+    await ring.close();
+  }
+});
+
+void test('⭐ 读失败后作废读连接：下一次读重连成功，不永久卡死', async () => {
+  let connects = 0;
+  const connect: TdConnect = () => {
+    connects += 1;
+    const stale = connects === 1;
+    return Promise.resolve(
+      fakeSql(() =>
+        stale
+          ? Promise.reject(
+              codedError('TaosResultError', 108, 'Invalid websocket connection')
+            )
+          : Promise.resolve([aggRow()])
+      )
+    );
+  };
+  const { writer, written } = fakeWriter(rows => rows.length);
+  const { queue } = fakeQueue();
+  const { worker } = fakeWorker();
+  const ring = makeRing({ connect, writer, queue, worker });
+  try {
+    await assert.rejects(ring.recompute('1m', NOW), /Invalid websocket/);
+    assert.equal(connects, 1, '首次读应建立一条连接');
+    // 连接已作废 ⇒ 第二次读必须重连，而不是复用死连接
+    assert.equal(await ring.recompute('1m', NOW), 1);
+    assert.equal(connects, 2, '读失败后应重连');
+    assert.equal(written.length, 1);
   } finally {
     await ring.close();
   }
 });
 
 void test('start：注册三条调度，身份与节拍正确', async () => {
-  const { reader } = fakeReader([]);
+  const { connect } = fakeConnect([]);
   const { writer } = fakeWriter(rows => rows.length);
   const { queue, upserts } = fakeQueue();
   const { worker } = fakeWorker();
-  const ring = makeRing({ reader, writer, queue, worker });
+  const ring = makeRing({ connect, writer, queue, worker });
   try {
     await ring.start();
     assert.equal(upserts.length, 3);
@@ -267,11 +313,11 @@ void test('start：注册三条调度，身份与节拍正确', async () => {
 });
 
 void test('onJob：载荷 level 非法 ⇒ UnrecoverableError（不重试）', async () => {
-  const { reader } = fakeReader([aggRow()]);
+  const { connect } = fakeConnect([aggRow()]);
   const { writer } = fakeWriter(rows => rows.length);
   const { queue } = fakeQueue();
   const { worker } = fakeWorker();
-  const ring = makeRing({ reader, writer, queue, worker });
+  const ring = makeRing({ connect, writer, queue, worker });
   try {
     const onJob = (
       ring as unknown as { onJob(job: Job): Promise<void> }
@@ -286,11 +332,11 @@ void test('onJob：载荷 level 非法 ⇒ UnrecoverableError（不重试）', a
 });
 
 void test('onJob：载荷合法 ⇒ 触发对应级别的重算', async () => {
-  const { reader, queries } = fakeReader([aggRow()]);
+  const { connect, queries } = fakeConnect([aggRow()]);
   const { writer, written } = fakeWriter(rows => rows.length);
   const { queue } = fakeQueue();
   const { worker } = fakeWorker();
-  const ring = makeRing({ reader, writer, queue, worker });
+  const ring = makeRing({ connect, writer, queue, worker });
   try {
     const onJob = (
       ring as unknown as { onJob(job: Job): Promise<void> }

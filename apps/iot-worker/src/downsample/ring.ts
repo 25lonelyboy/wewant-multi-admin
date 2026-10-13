@@ -2,11 +2,16 @@ import { Queue, UnrecoverableError, Worker, type Job } from 'bullmq';
 import { TELEMETRY_QUEUE_PREFIX } from '@multi-admin/contracts';
 import { DS_LEVELS, RAW_DATABASE, type DsLevel } from '../schema.js';
 import type { WorkerConfig } from '../config.js';
-import { classifyWriteError } from '../failure.js';
+import { classifyWriteError, UnrecoverableWriteError } from '../failure.js';
 import type { Logger } from '../logger.js';
 import { connectTd, type TdRow, type TdSql } from '../tdengine/client.js';
 import { TdengineWriter } from '../tdengine/writer.js';
-import { LEVEL_SPECS, levelSpec, type LevelSchedule } from './level.js';
+import {
+  LEVEL_SPECS,
+  assertLevelCoverage,
+  levelSpec,
+  type LevelSchedule
+} from './level.js';
 import { buildAggregateSql } from './query.js';
 import { DS_CODEC, parseAggregateRows, type DsAggregateRow } from './rows.js';
 import { closedWindowRange } from './window.js';
@@ -38,14 +43,12 @@ const JOB_OPTIONS = {
   removeOnFail: { count: 5000 }
 } as const;
 
-/** 读端：把一条聚合 SQL 跑出行。生产用真实 TDengine；单测注入替身 */
-export interface AggregateReader {
-  query(sql: string): Promise<TdRow[]>;
-}
+/** 建一条读连接——生产是 `connectTd`；单测注入替身以制造"连接已废" */
+export type TdConnect = (url: string, database?: string) => Promise<TdSql>;
 
 /** 可注入依赖——单测注入替身以隔离 BullMQ 与 TDengine；生产一律走默认值 */
 export interface RingDeps {
-  reader?: AggregateReader;
+  connect?: TdConnect;
   writer?: TdengineWriter<DsAggregateRow>;
   queue?: Queue;
   worker?: Worker;
@@ -58,7 +61,7 @@ export interface RingDeps {
  * ⭐ 每次只算**最近 K 个已闭合窗口**、不记游标——晚到数据落在最近 K 个窗口内即被自愈（§3.2）。
  */
 export class DownsampleRing {
-  private readonly injectedReader: AggregateReader | undefined;
+  private readonly connect: TdConnect;
   private readonly writer: TdengineWriter<DsAggregateRow>;
   private readonly queue: Queue;
   private readonly worker: Worker;
@@ -72,7 +75,10 @@ export class DownsampleRing {
     private readonly logger: Logger,
     deps: RingDeps = {}
   ) {
-    this.injectedReader = deps.reader;
+    // 级别口径漂移（DS_LEVELS ↔ LEVEL_SPECS）是静态错误，构造即响亮失败，不留到运行期才发现
+    assertLevelCoverage();
+
+    this.connect = deps.connect ?? connectTd;
     this.writer =
       deps.writer ??
       new TdengineWriter<DsAggregateRow>(config.tdengineUrl, DS_CODEC);
@@ -129,7 +135,8 @@ export class DownsampleRing {
   }
 
   /**
-   * 按需重算一级的最近 K 个已闭合窗口。**可注入 `nowMs`**——单测与验收据它复算历史段。
+   * 按需重算一级的最近 K 个已闭合窗口。`nowMs` 默认取墙上时钟——**生产路径**；
+   * 单测与验收可注入它复算历史段。
    *
    * ⚠️ 任一环节失败**原样抛出**（C10）：交给 BullMQ 记入 failed/重试，绝不在此吞掉后报成功。
    */
@@ -140,8 +147,9 @@ export class DownsampleRing {
       spec,
       this.config.downsampleLookbackWindows
     );
-    const reader = await this.readerClient();
-    const rows = await reader.query(buildAggregateSql(spec, startMs, endMs));
+    const rows = await this.readAggregates(
+      buildAggregateSql(spec, startMs, endMs)
+    );
     const aggregates = parseAggregateRows(rows, level);
 
     if (aggregates.length === 0) {
@@ -154,19 +162,26 @@ export class DownsampleRing {
     try {
       affected = await this.writer.write(aggregates);
     } catch (error) {
-      // 连接级（可重试）错误才作废连接重连；数据/结构类错误连接是好的，不该重连
-      if (classifyWriteError(error).kind === 'retryable')
-        this.writer.invalidate();
+      const failure = classifyWriteError(error);
+      // ⚠️ `kind === 'retryable'` 是**粗代理**、并不等价于"连接已断"：它含超时（105，可能已成功）、
+      // 连接数上限（110）与判不出形态的默认桶。这里只是"有可能可重试就作废重连"。
+      // 把"何时作废连接"收窄到真正的连接级错误是 **F7-5** 的范围，本处留作其待覆盖的调用点。
+      if (failure.kind === 'retryable') this.writer.invalidate();
       this.logger.error(
         {
           level,
           startMs,
           endMs,
+          code: failure.code,
           err: error instanceof Error ? error.message : String(error)
         },
         '降采样写入失败，交给队列重试'
       );
-      throw error;
+      // B 类（格式 / 权限 / 表结构）重试无意义 ⇒ 抛 UnrecoverableError 直接进 failed 集合，
+      // 不再空耗 attempts 次全窗扫描（与消费环同一纪律；仍然响亮失败，C10）
+      throw failure.kind === 'unrecoverable'
+        ? new UnrecoverableWriteError(failure, error)
+        : error;
     }
 
     // ⭐ C10：写入行数少于提交数 ⇒ 必有行没落库。getLastAffected 不给行级定位 ⇒ 唯一可执行的
@@ -238,12 +253,34 @@ export class DownsampleRing {
     }
   }
 
-  private async readerClient(): Promise<AggregateReader> {
-    if (this.injectedReader !== undefined) return this.injectedReader;
+  /**
+   * 跑一条聚合查询。
+   *
+   * ⚠️ 连接**不自我修复** ⇒ 读失败即作废缓存的连接，下一次重连（与写入器同一条恢复思路）。
+   * 不作废的话，失败的连接会被重试反复复用，三级重算**永久卡死**直到进程重启。
+   */
+  private async readAggregates(sqlText: string): Promise<TdRow[]> {
+    try {
+      const sql = await this.sqlClient();
+      return await sql.query(sqlText);
+    } catch (error) {
+      this.dropReader();
+      throw error;
+    }
+  }
+
+  private async sqlClient(): Promise<TdSql> {
     if (this.sql === null) {
-      this.sql = await connectTd(this.config.tdengineUrl, RAW_DATABASE);
+      this.sql = await this.connect(this.config.tdengineUrl, RAW_DATABASE);
     }
     return this.sql;
+  }
+
+  /** 作废读连接：置空引用，并尽力关闭旧句柄（不 await——半开连接的 close 可能挂起、拖住恢复） */
+  private dropReader(): void {
+    const stale = this.sql;
+    this.sql = null;
+    if (stale !== null) void stale.close().catch(() => undefined);
   }
 }
 
