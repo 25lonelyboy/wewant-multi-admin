@@ -4,7 +4,7 @@ covers:
   - apps/nestjs-server/
   - docker-compose.yml
   - .github/workflows/
-last_verified: 2026-10-13
+last_verified: 2026-10-14
 ---
 
 # 全局 backlog
@@ -69,6 +69,7 @@ last_verified: 2026-10-13
 | 失败告警的逐 job 噪声 | 一批失败时 `flushOnce` 出**一条** `fatal`（带提级标记），而 `worker.on('failed')` 对**每个 job** 各出一条 `error` ⇒ 一批 N 条 job 会有 N 条 error（沿用既有逐 job 日志形态）。（源：F3 报告 §八.4） | 大批量失败时日志噪声成为运维问题时收敛 | 2026-10-13 |
 | 写入器：以「省略 tags 的形态② + STMT2」换回单次 exec 跨子表 | 现写入器走「不带 `USING`、写死子表名」的 STMT1（决策 2 §9）——缺子表报错（防线成立），代价是**每个子表一条语句**、拿不到决策 2 §10 N1 的 5.5×。N2 形态② 探针（§10 N10 / N11，2026-10-13）实测：**字面形态（带 tags）缺子表会静默建表**（与 `USING` 同病，不可用）；**省略 tags 的子形态**（`INSERT INTO <stb> (tbname, ts, …)` + 子表预建）缺表**报错**、且**一次 exec 跨 100 子表**——但**只在 STMT2 路径成立**（写入器强制的 STMT1 上形态② 在 `bind` 即 `512 Invalid operation`）。⇒ 要兼得须放弃 STMT1 强制、改用 STMT2 + 省略 tags。⚠️ **换路径会把缺表报错从 `9731 Table does not exist` 换成 `560 Stmt cache error`**——该码**未登记进 `apps/iot-worker/src/failure.ts`**（`RETRYABLE_CODES` / `UNRECOVERABLE_CODES` / `TABLE_MISSING_CODES` 都没有 `560`，报文 `Stmt cache error` 也不匹配任何 pattern），按现分类会落进 `basis: 'default'`、判成 **A 类可重试且不提级**——与今天（`9731` ⇒ B 类 + 提级告警）**相反**：**缺子表会被无限重投而不是响亮失败**。⇒ 采用该候选**必须先给 `failure.ts` 补 `560`**（或重定它的 A/B 归类），否则等于把「漏建表」从快速失败变成静默重投。（源：F11 报告） | 十万级规模下"每子表一条语句"成为写入瓶颈时（届时连同换 STMT2 路径、换报错码一起评估） | 2026-10-13 |
 | iot-worker e2e 写生产形态原始表且不清理 | `apps/iot-worker/test/consumer.e2e.ts` 的两条用例都以 `Date.now()` 为基准、向 `wewant_iot.telemetry`（`sim-001` 子表）各写 3 行，`finally` 仅 `obliterate` 队列、**不删除**这些行；同目录 `consumer-kill.e2e.ts` 与三个降采样 e2e 都在 `finally` 删除自己造的行。后果：每跑一次 `pnpm --filter @multi-admin/iot-worker run test:e2e`，本地开发库多 6 行"形似真设备"的遥测（CI 用一次性 TDengine service，无累积）；反复跑单调增长，且若恰在窗口边界附近跑、叠加正在运行的降采样环，对应窗口会多出非设备来源的行。（源：F10 复验——跑一次 e2e 套件后原始表 +6 行，全在 `m5obq5cr2hcze10j_001`、时间戳 `2026-10-13T16:01:03Z` 两组各 3 行） | 本地反复跑 iot-worker e2e 使开发库膨胀，或 e2e 与降采样环同跑出现窗口混淆时（给两条用例加 `finally` 删除自己写入的 `ts` 区间即可） | 2026-10-13 |
+| 写入器 `SLOT_FAILURE_LIMIT` 计数含 B 类（平台侧确定性）失败 | `apps/iot-worker/src/tdengine/writer.ts` 的连续失败计数把 B 类一并计入——命名 bug 之类反复报 `Table does not exist` 的系统错误，在轮转下最终会作废一条**健康**连接。当前无害且有界（该批已失败并 park，恢复正是此计数的作用），故不改。（源：增量 2 终审复审） | 「只作废失败的那一条、仅连接级」须从**消费级口径**升为**写入器级字面不变式**时（改为只计「连接可能真的半开」的错误） | 2026-10-14 |
 
 ## 已关闭
 

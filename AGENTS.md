@@ -92,4 +92,5 @@ pnpm doc:lint
 - 读取顺序：本文件 → [docs/README.md](docs/README.md) → 对应领域 README → 最小主题文件；按需读取，不要求通读。在某个应用内工作时，优先读该应用的 AGENTS.md（已有：[apps/pure-web](apps/pure-web/AGENTS.md) / [apps/nestjs-server](apps/nestjs-server/AGENTS.md)）。
 - 事实源：架构事实在 `docs/architecture/`，工程实践在 `docs/engineering/`，决策在 `docs/decisions/`（ADR），过程材料在 `docs/tasks/`，backlog 在 `docs/governance/`。
 - 文档与代码冲突时以代码为准，并修复文档；信任活文档 frontmatter 的 `last_verified`，不信任编辑时间。文档变更后跑 `pnpm doc:lint` 验收（副本落后于技能母版时随重组更新）。
+- 「文档」不止 `docs/`：echo 串、CI step 名、日志文案都是文档，改事实时须与 `docs/` 一并扫过；被改值的引用清单要**在仓库里搜旧值**得到，凭记忆列举的不算扫描。
 - 新文档必须归位到对应层目录，并登记进该目录 README 索引。

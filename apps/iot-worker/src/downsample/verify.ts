@@ -1,6 +1,7 @@
 import {
   DS_DATABASE,
   RAW_METRICS,
+  dsLevelSuffix,
   dsStableName,
   dsSubtableName,
   type DsLevel,
@@ -192,7 +193,7 @@ function nullSafeString(value: unknown): string | null {
 
 /** 还原降采样子表名对应的原始库子表名（`dsSubtableName` 的逆，仅用于报告可读） */
 function stripLevel(dsName: string, level: DsLevel): string {
-  const suffix = `_${level}`;
+  const suffix = dsLevelSuffix(level);
   return dsName.endsWith(suffix) ? dsName.slice(0, -suffix.length) : dsName;
 }
 

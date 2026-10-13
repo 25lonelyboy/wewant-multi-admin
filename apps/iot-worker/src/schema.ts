@@ -39,6 +39,11 @@ export function dsStableName(level: DsLevel): string {
   return `telemetry_${level}`;
 }
 
+/** 降采样子表名的级别后缀——命名约定的唯一出处（建表端与对账报告共用，勿各处重打） */
+export function dsLevelSuffix(level: DsLevel): string {
+  return `_${level}`;
+}
+
 /**
  * 降采样子表名：`{name}_{level}`（`name` 即原始库的子表名，折小写）。
  *
@@ -46,7 +51,7 @@ export function dsStableName(level: DsLevel): string {
  * 超表，否则报 `Table already exists in other stables`。建表端与写入端复用本函数，命名只此一处。
  */
 export function dsSubtableName(name: string, level: DsLevel): string {
-  return `${name}_${level}`;
+  return `${name}${dsLevelSuffix(level)}`;
 }
 
 /** 建库语句——两个库，幂等 */

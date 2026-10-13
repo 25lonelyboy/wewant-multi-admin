@@ -78,7 +78,7 @@ pnpm --filter @multi-admin/nestjs-server exec prisma migrate deploy
 echo "▶ 执行 prisma db seed..."
 pnpm --filter @multi-admin/nestjs-server exec prisma db seed
 
-echo "▶ 初始化 TDengine（建库 / 建超表 / 建子表 / 建流，幂等）..."
+echo "▶ 初始化 TDengine（建库 / 建超表 / 建子表 / 降采样子表，并清理遗留降采样流，幂等）..."
 pnpm --filter @multi-admin/iot-worker run tdengine:init
 
 echo ""
