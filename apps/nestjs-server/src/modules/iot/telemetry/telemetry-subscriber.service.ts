@@ -1,11 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import mqtt, { type MqttClient } from 'mqtt';
 import { TELEMETRY_TOPIC_FILTER } from '@multi-admin/contracts';
 import { AppConfigService } from '../../../config/app-config.service.js';
 import { classifyMessage } from './telemetry-message.js';
 import { TelemetryProducer } from './telemetry-producer.js';
-import { TelemetryWindowCounter } from './telemetry-window.js';
+import {
+  TelemetryWindowCounter,
+  type TelemetryWindow
+} from './telemetry-window.js';
 
 /** 聚合日志窗口：逐条打印在 100 台设备下不可读 */
 const REPORT_INTERVAL_MS = 1000;
@@ -39,9 +42,18 @@ export class TelemetrySubscriberService
   /** 本地缓冲超限后停订阅；**不自动恢复**，需人工处置后重启 */
   private subscriptionStopped = false;
 
-  constructor(private readonly config: AppConfigService) {}
+  /**
+   * ⚠️ 生产者以构造参数注入仅为**测试替换**：生产链路里它交给 `onModuleInit` 自建，
+   * 因为超限回调要绑回本实例，做成 Nest provider 会绕成循环依赖。
+   */
+  constructor(
+    private readonly config: AppConfigService,
+    @Optional() injectedProducer?: TelemetryProducer
+  ) {
+    this.producer = injectedProducer ?? null;
+  }
 
-  /** 自启动以来投进队列的报文总数 */
+  /** 自启动以来**真正入队**的报文数（落缓冲与丢弃不计） */
   get receivedTotal(): number {
     return this.enqueued;
   }
@@ -62,19 +74,21 @@ export class TelemetrySubscriberService
       `设备上行订阅目标：${url}，主题 ${TELEMETRY_TOPIC_FILTER}，clientId ${this.config.mqttClientId}`
     );
 
-    // 队列生产者：构造即完成，不 ping、不 await 下游
-    this.producer = new TelemetryProducer({
-      queueRedisUrl: this.config.queueRedisUrl,
-      spillDir: this.config.iotSpillDir,
-      spillMaxBytes: this.config.iotSpillMaxBytes,
-      logger: {
-        info: message => this.logger.log(message),
-        warn: message => this.logger.warn(message),
-        error: message => this.logger.error(message)
-      },
-      onSpillOverflow: message => this.stopSubscribing(message),
-      onSpillFailure: message => this.logger.error(message)
-    });
+    // 队列生产者：构造即完成，不 ping、不 await 下游（注入替身时保留替身）
+    if (this.producer === null) {
+      this.producer = new TelemetryProducer({
+        queueRedisUrl: this.config.queueRedisUrl,
+        spillDir: this.config.iotSpillDir,
+        spillMaxBytes: this.config.iotSpillMaxBytes,
+        logger: {
+          info: message => this.logger.log(message),
+          warn: message => this.logger.warn(message),
+          error: message => this.logger.error(message)
+        },
+        onSpillOverflow: message => this.stopSubscribing(message),
+        onSpillFailure: message => this.logger.error(message)
+      });
+    }
     void this.producer.start();
 
     try {
@@ -150,7 +164,10 @@ export class TelemetrySubscriberService
 
     if (outcome.kind === 'accept') {
       this.seenDevices.add(outcome.localDeviceId);
-      this.counter.record(outcome.localDeviceId);
+      this.counter.recordDevice(outcome.localDeviceId);
+    } else {
+      // 坏 JSON：读不出编号，进不了设备视图；但报文照样入队 ⇒ 单独计"坏 JSON"
+      this.counter.recordBadJson();
     }
 
     void this.enqueue(raw);
@@ -159,8 +176,16 @@ export class TelemetrySubscriberService
   private async enqueue(raw: string): Promise<void> {
     const producer = this.producer;
     if (producer === null) return;
-    await producer.send(raw);
-    this.enqueued += 1;
+    // 按**实际去向**计数：落缓冲 / 丢弃都不算"入队"
+    const disposition = await producer.send(raw);
+    if (disposition === 'enqueued') {
+      this.enqueued += 1;
+      this.counter.recordEnqueued();
+    } else if (disposition === 'spilled') {
+      this.counter.recordSpilled();
+    } else {
+      this.counter.recordDropped();
+    }
   }
 
   /** 本地缓冲超限：**停订阅 + 告警**。⚠️ 不自动恢复——需人工处置后重启 */
@@ -174,17 +199,28 @@ export class TelemetrySubscriberService
     });
   }
 
-  /** 每秒一行聚合，即验收证据：可 grep、可计数 */
-  private report(): void {
+  /**
+   * 每秒一行聚合，即验收证据：可 grep、可计数。**按去向分列**，因为"入队数"若把落缓冲 /
+   * 丢弃一并算进去，读数就偏高、反而误导。返回本窗口，供调用方与测试读取。
+   */
+  report(): TelemetryWindow {
     const window = this.counter.drain();
     const rejected = this.identityRejected - this.reportedRejected;
     this.reportedRejected = this.identityRejected;
-    if (window.messages === 0 && rejected === 0) return;
+    const active =
+      window.enqueued +
+      window.spilled +
+      window.dropped +
+      window.badJson +
+      rejected;
+    if (active === 0) return window;
 
     this.logger.log(
-      `telemetry 每秒入队 ${window.messages} 条 / ${window.devices} 台设备` +
+      `telemetry 每秒：入队 ${window.enqueued} / 落缓冲 ${window.spilled} / 丢弃 ${window.dropped}` +
+        `（坏 JSON ${window.badJson}）/ ${window.devices} 台设备` +
         (rejected > 0 ? `（身份不一致拦截 ${rejected} 条）` : '')
     );
+    return window;
   }
 
   private logOutage(message: string): void {
