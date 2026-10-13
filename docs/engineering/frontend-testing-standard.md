@@ -6,7 +6,7 @@ covers:
   - apps/pure-web/e2e/
   - .github/workflows/ci.yml
   - apps/pure-web/AGENTS.md
-last_verified: 2026-10-12
+last_verified: 2026-10-13
 ---
 
 # pure-web 前端测试评估规范

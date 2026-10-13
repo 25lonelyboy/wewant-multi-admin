@@ -18,7 +18,12 @@ FILES=(
 # 只有"确认某处 pin 已永久移除"时才下调。
 MIN_PINS=10
 
-PINS=$(grep -HnE '(^FROM[[:space:]]+|image:[[:space:]]*)[^#[:space:]]+@sha256:[0-9a-f]{64}' "${FILES[@]}" || true)
+# 匹配三处 pin 形态：Dockerfile 的 `FROM <token>`、compose/service 的 `image: <token>`、
+# 以及步骤内 `docker run ... <token>`（CI 里 redis 因 service 容器不能传启动参数而改步骤启动）。
+# 第三形态用「空白前缀」兜底，会连带匹配注释行 → 再剔除以 `#` 起头的行，
+# 避免注释里记录的旧 digest（同 tag 的）被当成不一致 pin。
+PINS=$(grep -HnE '(^FROM[[:space:]]+|image:[[:space:]]*|[[:space:]])[^#[:space:]]+@sha256:[0-9a-f]{64}' "${FILES[@]}" \
+  | grep -vE '^[^:]+:[0-9]+:[[:space:]]*#' || true)
 if [[ -z "$PINS" ]]; then
   echo "[check-digests] 未发现任何 digest pin（预期至少 ${MIN_PINS} 处）" >&2
   exit 1
@@ -40,7 +45,7 @@ while IFS= read -r PIN_LINE; do
   PINNED_DIGEST="${TOKEN##*@}"
   COUNT=$((COUNT + 1))
 
-  # 同一 tag 的多处 pin 必须一致（node ×3、postgres ×3、redis ×3）
+  # 同一 tag 的多处 pin 必须一致（如 node / postgres / redis 各有若干处）
   if [[ -n "${PINNED_OF[$TAG]+x}" && "${PINNED_OF[$TAG]}" != "$PINNED_DIGEST" ]]; then
     echo "[check-digests] 同一 tag pin 不一致：${SRC}:${LINE_NO} $TAG" >&2
     echo "  当前: $PINNED_DIGEST" >&2

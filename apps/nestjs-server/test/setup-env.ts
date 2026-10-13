@@ -1,5 +1,6 @@
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { defaultRedisUrl } from './helpers/redis.js';
 
 // jest setupFiles（先于任何测试模块 import 执行）：仅在进程 env 缺失时填测试默认值，
 // 支持真机 env 覆盖（如 CI 用独立账号库）。DATABASE_URL 指向测试库 multi_admin_test，
@@ -16,7 +17,8 @@ setIfAbsent(
   'DATABASE_URL',
   'postgresql://postgres:postgres@localhost:5432/multi_admin_test?schema=public'
 );
-setIfAbsent('REDIS_URL', 'redis://localhost:6379');
+// Redis 与运行中的应用共用同一实例（非测试专用库），缺省值取自应用 .env 的连接串（含凭据）
+setIfAbsent('REDIS_URL', defaultRedisUrl());
 setIfAbsent('QUEUE_REDIS_URL', 'redis://localhost:6380');
 setIfAbsent('MQTT_URL', 'mqtt://127.0.0.1:1883');
 // 订阅端 clientId 固定 ⇒ 与开发者本机可能在跑的 dev:server 会互踢，测试用独立 id 隔离

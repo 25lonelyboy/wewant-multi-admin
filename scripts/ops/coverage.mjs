@@ -10,10 +10,14 @@ import { runSync } from '@multi-admin/node-utils';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const skipEnv = process.argv.includes('--skip-env');
 
-// 覆盖率对应的 env（与 test/setup-env.ts 默认值对齐）
-process.env.DATABASE_URL =
+// 覆盖率对应的 env：DATABASE_URL 指向测试库——**只在覆盖率子进程注入，不写进 process.env**。
+// 写进 process.env 会随 execSync 泄漏给 env-up.sh 的 `prisma db seed`（prisma.config 的 dotenv
+// 不覆盖已存在值），把超管 seed 落到测试库、口令取 dev .env；e2e 的 create-only seed 随后不会
+// 纠正 ⇒ 登录 401。
+// REDIS_URL 同样不在此设置：由 test/setup-env.ts 的缺省值取自应用 .env（含认证凭据），
+// 在此硬编码会以无凭据值覆盖它（setup-env 的 setIfAbsent 不会反向覆盖）。
+const TEST_DB_URL =
   'postgresql://postgres:postgres@localhost:5432/multi_admin_test?schema=public';
-process.env.REDIS_URL = 'redis://localhost:6379';
 
 try {
   if (!skipEnv) {
@@ -22,13 +26,17 @@ try {
   }
 
   console.log('\n▶ 运行 test:coverage...');
-  runSync('pnpm', [
-    'exec',
-    'turbo',
-    'run',
-    'test:coverage',
-    '--filter=@multi-admin/nestjs-server'
-  ]);
+  runSync(
+    'pnpm',
+    [
+      'exec',
+      'turbo',
+      'run',
+      'test:coverage',
+      '--filter=@multi-admin/nestjs-server'
+    ],
+    { env: { ...process.env, DATABASE_URL: TEST_DB_URL } }
+  );
 
   // 输出覆盖率摘要
   const summaryPath = join(
