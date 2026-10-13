@@ -36,6 +36,14 @@ const JOB_NAME = 'recompute';
 const REGISTER_RETRY_MS = 30_000;
 
 /**
+ * 读连接**连续**失败达此数即丢 reader 重连（成功清零）。
+ *
+ * ⚠️ 与写入池的 `SLOT_FAILURE_LIMIT` 同一纪律：单次读错不丢（瞬时），连中两次才丢——兜住
+ * "连接坏了但报的不是连接级码"（半开 socket）的**永久卡死**；否则失败的连接会被重试反复复用。
+ */
+const READER_FAILURE_LIMIT = 2;
+
+/**
  * 与 ingest 队列同一口径：完成即清、失败留一批待人工看。
  * ⚠️ 保留率只买可观测性与重试，**不买正确性**——即便同一段被两实例同时算，
  * `(子表, ts)` 覆盖也保证结果正确（§3.1 ⭐）。
@@ -73,6 +81,8 @@ export class DownsampleRing {
   private sql: TdSql | null = null;
   private retryTimer: NodeJS.Timeout | null = null;
   private closing = false;
+  /** 读连接连续失败计数——成功即清零；达上限就丢 reader（见 `READER_FAILURE_LIMIT`） */
+  private readerFailures = 0;
 
   constructor(
     private readonly config: WorkerConfig,
@@ -265,14 +275,23 @@ export class DownsampleRing {
    *
    * ⚠️ 连接**不自我修复** ⇒ **连接级**读错（实测：108 / 104）即作废缓存的连接，下一次重连；
    * 不作废的话，失败的连接会被重试反复复用，三级重算**永久卡死**直到进程重启。
-   * ⚠️ 但**确定性 SQL / 解析错**（如 9730 非法列名）连接是好的——不作废，否则每次尝试都白重连一次。
+   * ⚠️ **非连接级**（确定性 SQL / 解析错）单次不丢（否则每次都白重连一次）；但**连续**达
+   * `READER_FAILURE_LIMIT` 次也丢——兜住"半开连接报的不是 104/108"那类拿不到连接级码的死连接。
    */
   private async readAggregates(sqlText: string): Promise<TdRow[]> {
     try {
       const sql = await this.sqlClient();
-      return await sql.query(sqlText);
+      const rows = await sql.query(sqlText);
+      this.readerFailures = 0; // 成功即清零
+      return rows;
     } catch (error) {
-      if (isConnectionLevel(error)) this.dropReader();
+      this.readerFailures += 1;
+      if (
+        isConnectionLevel(error) ||
+        this.readerFailures >= READER_FAILURE_LIMIT
+      ) {
+        this.dropReader();
+      }
       throw error;
     }
   }
@@ -288,6 +307,7 @@ export class DownsampleRing {
   private dropReader(): void {
     const stale = this.sql;
     this.sql = null;
+    this.readerFailures = 0;
     if (stale !== null) void stale.close().catch(() => undefined);
   }
 }

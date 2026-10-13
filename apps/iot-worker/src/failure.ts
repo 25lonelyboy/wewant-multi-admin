@@ -108,6 +108,11 @@ const TABLE_MISSING_PATTERNS: readonly RegExp[] = [
  *
  * ⚠️ 105（读超时）与 110（连接数上限）**虽是 A 类却连接完好**，刻意不在列（行 5）；
  * 9731 / 566 / 65535 / 9730 之后连接实测仍健康，也不在列。
+ *
+ * ⚠️ 决策 2 §8 第 11b 项把「一次非法绑定拖进持续重连失败」归因于 `stmt2 recover exceeded max
+ * attempts`——即 **STMT2** 路径；本实现刻意强制 **STMT1**（`writer.ts` 的 `FORCE_STMT1_MIN_VERSION`），
+ * 实测四种非法绑定（行数越界 / 列数不匹配 / 类型不符 / NaN）之后连接**均健康**，与该归因一致：
+ * 那条「拖废连接」属 STMT2 形态，**不适用于本路径**。
  */
 const CONNECTION_LEVEL_CODES: ReadonlySet<number> = new Set([104, 108]);
 

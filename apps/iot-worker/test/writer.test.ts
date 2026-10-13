@@ -7,6 +7,7 @@ import {
   TdengineWriter,
   insertSql,
   MAX_BIND_ROWS,
+  MAX_CONNECTIONS,
   type WriterConnect
 } from '../src/tdengine/writer.js';
 
@@ -81,9 +82,12 @@ function codedError(name: string, code: number, message: string): Error {
   return Object.assign(error, { code });
 }
 
-/** stmt 替身：`exec` 可注入行为，`getLastAffected` 返回给定行数 */
+/** stmt 替身：`exec` 可注入行为，`getLastAffected` 返回给定值（或按调用次序算） */
 function fakeStmt(
-  options: { exec?: () => Promise<void>; affected?: number } = {}
+  options: {
+    exec?: () => Promise<void>;
+    affected?: number | (() => number);
+  } = {}
 ): unknown {
   return {
     prepare: () => Promise.resolve(),
@@ -97,19 +101,25 @@ function fakeStmt(
     bind: () => Promise.resolve(),
     batch: () => Promise.resolve(),
     exec: options.exec ?? (() => Promise.resolve()),
-    getLastAffected: () => options.affected ?? 1,
+    getLastAffected: () =>
+      typeof options.affected === 'function'
+        ? options.affected()
+        : (options.affected ?? 1),
     close: () => Promise.resolve()
   };
 }
 
 /** 一条待写行 */
-function row(ts: number): {
+function row(
+  ts: number,
+  subtable = 'aweawq05e8pf53wh_001'
+): {
   subtable: string;
   ts: number;
   metrics: { temperature: { value: number; unit: string } };
 } {
   return {
-    subtable: 'aweawq05e8pf53wh_001',
+    subtable,
     ts,
     metrics: { temperature: { value: 1, unit: '°C' } }
   };
@@ -218,5 +228,103 @@ void test('⭐ 单组行数超 32767 ⇒ 响亮失败，不发出 bind（行 2 �
   const rows = Array.from({ length: MAX_BIND_ROWS + 1 }, (_, i) => row(i));
   await assert.rejects(writer.write(rows), /32767/);
   assert.equal(connects, 0, '应在建连 / bind 之前就挡下');
+  await writer.close();
+});
+
+void test('⭐ 同一槽连续失败达上限 ⇒ 作废它重连（半开连接也能自愈）', async () => {
+  // 槽 0 的连接"坏了但不报连接级码"（9730）；第二次落到它时按上限作废，之后重连恢复正常
+  const deadish = codedError('TaosResultError', 9730, 'Invalid column name');
+  let connects = 0;
+  const closed: number[] = [];
+  const connect: WriterConnect = () => {
+    const index = connects;
+    connects += 1;
+    const dead = index === 0;
+    return Promise.resolve({
+      stmtInit: () =>
+        Promise.resolve(
+          fakeStmt(dead ? { exec: () => Promise.reject(deadish) } : {})
+        ),
+      close: () => {
+        closed.push(index);
+        return Promise.resolve();
+      }
+    } as never);
+  };
+  const writer = new TdengineWriter('ws://x', RAW_CODEC, 2, connect);
+
+  await assert.rejects(writer.write([row(1)])); // 槽 0 失败 #1（非连接级，调用方不作废）
+  assert.equal(await writer.write([row(2)]), 1); // 槽 1 成功
+  await assert.rejects(writer.write([row(3)])); // 槽 0 失败 #2 ⇒ 达上限 ⇒ 作废
+  assert.deepEqual(closed, [0], '连续失败达上限即作废该槽（不靠错误码）');
+  assert.equal(await writer.write([row(4)]), 1); // 槽 1 仍好
+  // 再落到槽 0 ⇒ 因已作废而重连（connect #2，这次是好连接）
+  assert.equal(await writer.write([row(5)]), 1);
+  assert.equal(connects, 3, '作废后下一次落到该槽时重连');
+  await writer.close();
+});
+
+void test('⭐ 交替成功 ⇒ 连续失败计数重置，好连接不被作废', async () => {
+  const timeout = codedError('TDWebSocketClientError', 105, 'timeout');
+  let connects = 0;
+  let closes = 0;
+  let n = 0;
+  const connect: WriterConnect = () => {
+    connects += 1;
+    return Promise.resolve({
+      stmtInit: () =>
+        Promise.resolve(
+          fakeStmt({
+            // 奇数调用失败、偶数调用成功 ⇒ 失败不连续，计数应被成功重置
+            exec: () => {
+              n += 1;
+              return n % 2 === 1 ? Promise.reject(timeout) : Promise.resolve();
+            }
+          })
+        ),
+      close: () => {
+        closes += 1;
+        return Promise.resolve();
+      }
+    } as never);
+  };
+  const writer = new TdengineWriter('ws://x', RAW_CODEC, 1, connect);
+
+  await assert.rejects(writer.write([row(1)])); // 失败 #1
+  assert.equal(await writer.write([row(2)]), 1); // 成功 ⇒ 重置
+  await assert.rejects(writer.write([row(3)])); // 失败 #1（重置后）
+  assert.equal(await writer.write([row(4)]), 1); // 成功 ⇒ 重置
+  assert.equal(closes, 0, '失败从不连续 ⇒ 好连接从不被作废');
+  assert.equal(connects, 1, '一直复用同一条连接');
+  await writer.close();
+});
+
+void test('连接数超出范围 ⇒ 构造即失败（有界，不静默建 N 格）', () => {
+  assert.throws(() => new TdengineWriter('ws://x', RAW_CODEC, 0));
+  assert.throws(
+    () => new TdengineWriter('ws://x', RAW_CODEC, MAX_CONNECTIONS + 1)
+  );
+  assert.throws(() => new TdengineWriter('ws://x', RAW_CODEC, 2.5));
+  // 边界内可建
+  assert.ok(new TdengineWriter('ws://x', RAW_CODEC, MAX_CONNECTIONS));
+});
+
+void test('多组写入返回各组 getLastAffected 之和（F1 部分成功不变式的算术）', async () => {
+  // 两个子表 ⇒ 两组；组的 affected 依次为 1、2 ⇒ 合计 3
+  const affects = [1, 2];
+  let i = 0;
+  const connect: WriterConnect = () =>
+    Promise.resolve({
+      stmtInit: () =>
+        Promise.resolve(fakeStmt({ affected: () => affects[i++] ?? 0 })),
+      close: () => Promise.resolve()
+    } as never);
+  const writer = new TdengineWriter('ws://x', RAW_CODEC, 1, connect);
+  const rows = [
+    row(1, 'aweawq05e8pf53wh_001'),
+    row(2, 'zzzzzzzzzzzzzzzz_001'),
+    row(3, 'zzzzzzzzzzzzzzzz_001')
+  ];
+  assert.equal(await writer.write(rows), 3, '两组 affected 应相加');
   await writer.close();
 });

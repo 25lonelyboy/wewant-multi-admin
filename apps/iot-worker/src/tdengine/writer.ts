@@ -90,7 +90,21 @@ interface WriterSlot {
   connection: TdConnection | null;
   stmt: TdStmt | null;
   preparedSql: string | null;
+  /** 连续失败计数——成功即清零；达上限就把这一格作废重连（有界自愈，见 `SLOT_FAILURE_LIMIT`） */
+  failures: number;
 }
+
+/** 连接池上限——超过不静默建格；生产经 `loadConfig` 的 2~4，直连构造也受此约束 */
+export const MAX_CONNECTIONS = 4;
+
+/**
+ * 同一格**连续失败**达此数即作废它重连（成功会清零）。
+ *
+ * ⚠️ 这是"连接坏了但报的不是连接级码"（半开 socket 报 105、或判不出形态）的兜底：那种连接若
+ * 不丢弃，会被轮转反复复用、每次失败——单次不作废、永远不作废都不是想要的，故取"有界"。
+ * ⚠️ 取 2：一次瞬时错（如单个 105）仍不作废；连中两次才作废。
+ */
+const SLOT_FAILURE_LIMIT = 2;
 
 /** 组装一条按列名写死的 INSERT（STMT1 不支持 `USING`/`tbname` 形态） */
 export function insertSql(
@@ -135,6 +149,9 @@ function bindColumn(
  * ⚠️ **`invalidate()` 必须先关旧连接再置空**——只置空会把一条**还活着的** WebSocket 泄漏掉。
  * ⚠️ **只有连接级错误才该 `invalidate()`**（调用方按 `failure.connectionLevel` 判定）：超时
  * "可能已成功"、连接数上限、判不出形态的默认桶都**不证明连接坏了**，作废它们只是白白重连。
+ * ⚠️ **连续失败有界**：同一格连中 `SLOT_FAILURE_LIMIT` 次即作废重连，成功清零——兜住"连接坏了
+ * 但报的不是连接级码"的半开连接（否则它会被轮转反复复用、每次失败；既不因一次瞬时错作废，
+ * 也不永久赖着）。
  */
 export class TdengineWriter<Row = PendingRow> {
   private readonly slots: WriterSlot[];
@@ -149,11 +166,21 @@ export class TdengineWriter<Row = PendingRow> {
     connections = 2,
     private readonly connect: WriterConnect = defaultConnect
   ) {
-    const count = Math.max(1, Math.trunc(connections));
-    this.slots = Array.from({ length: count }, () => ({
+    // 有界：连接数不是越大越好（服务端有真实会话上限），也**不静默建格**（生产经 config 的 2~4）
+    if (
+      !Number.isInteger(connections) ||
+      connections < 1 ||
+      connections > MAX_CONNECTIONS
+    ) {
+      throw new Error(
+        `连接数须为 1~${MAX_CONNECTIONS} 的整数，实际 ${connections}`
+      );
+    }
+    this.slots = Array.from({ length: connections }, () => ({
       connection: null,
       stmt: null,
-      preparedSql: null
+      preparedSql: null,
+      failures: 0
     }));
   }
 
@@ -169,15 +196,23 @@ export class TdengineWriter<Row = PendingRow> {
       }
     }
 
-    const slot = this.slots[this.cursor] ?? this.slots[0];
-    if (slot === undefined) throw new Error('TDengine 连接池为空');
+    const slot = this.slots[this.cursor];
     this.cursor = (this.cursor + 1) % this.slots.length;
     this.failedSlot = null;
     try {
-      return await this.writeGroups(slot, groups);
+      const affected = await this.writeGroups(slot, groups);
+      slot.failures = 0; // 成功即清零——单次瞬时错不该累积到作废
+      return affected;
     } catch (error) {
       // 记下失败的是哪一格——调用方按连接级判定决定是否 `invalidate()`，作废只针对它
       this.failedSlot = slot;
+      slot.failures += 1;
+      // 连续失败达上限即作废该格重连（不看错误码）⇒ 兜住半开连接。已作废则清掉 failedSlot，
+      // 调用方的 invalidate() 变成空操作。
+      if (slot.failures >= SLOT_FAILURE_LIMIT) {
+        this.failedSlot = null;
+        this.discard(slot);
+      }
       throw error;
     }
   }
