@@ -11,7 +11,7 @@ covers:
   - docker-compose.yml
   - packages/contracts/
   - turbo.json
-last_verified: 2026-10-10
+last_verified: 2026-10-13
 ---
 
 # 构建与验证
@@ -26,8 +26,8 @@ last_verified: 2026-10-10
    - **`pnpm check`**（`scripts/check.mjs`）：按序执行 Prettier 全量检查 → `turbo run typecheck / lint / stylelint` → `turbo run test` → test 覆盖显式枚举，任一失败立即非零退出。纯校验不改文件。提交前必跑。
    - **husky 钩子**：`pre-commit` 跑 lint-staged（配置在 `.lintstagedrc.json`，只处理暂存文件）；`commit-msg` 跑 commitlint（scope 强制 + 白名单，见 `commitlint.config.mjs`）。
    - **`pnpm ops:pre-push`**（`scripts/ops/pre-push.mjs`）：push 前 CI 同构校验，顺序执行 frozen-lockfile → `pnpm check` → `pnpm doc:lint` → audit（报警式）。
-   - **`pnpm doc:lint`**（`scripts/doc-lint.cjs`，零依赖纯 node）：文档一致性与新鲜度校验（可达性 / 死链 / frontmatter / covers 漂移 / 入口文件行数预算 / 终态痕迹 / 引用与定位符（含代码行号） / 索引一致性（含索引行精确计数） / 活文档体积基线），pre-push 与 CI doc-lint job 均挂载；检查项以脚本头部注释为准，终态痕迹词表在同目录 `final-state-rules.json`。副本与技能母版以 `--version` 比对，随治理任务同步。
-2. **异步兜底（入库后，push master + nightly）**：`.github/workflows/ci.yml` 八 job 并行——`gate`（frozen-lockfile 安装 + `pnpm check` 服务端重验）、`docker-build`（三镜像构建验证（web / server / iot-worker）+ web/server 双启动冒烟：web curl 200、server /health+entrypoint 三段断言，server 冒烟依赖 job services postgres/redis；不 push）、`coverage`（job services 含 postgres/redis/emqx/redis-queue/tdengine；先跑 `tdengine:init` 建库建流，再跑 server 合并覆盖率与 iot-worker 覆盖率两步，均 ≥80% 报警式硬门槛）、`coverage-web`（pure-web vitest 覆盖率报警式，全局聚合 ≥80% + crown-jewel 6 键 ≥90%）、`e2e-web`（Playwright Tier A mock 冒烟，grep `@mock-only`）、`e2e-web-real`（Tier B 真实后端冒烟，grep `@real-backend`，报警式 + nightly，双层 E2E 见 [ADR-008](../decisions/ADR-008-tiered-e2e-testing.md)）、`audit`（`pnpm audit --audit-level=high` 报警式）、`doc-lint`（文档一致性与新鲜度校验报警式）。定位与取舍见 `docs/decisions/ADR-006-github-ci.md`。
+   - **`pnpm doc:lint`**（`scripts/doc-lint.cjs`，零依赖纯 node）：文档一致性与新鲜度校验（可达性 / 死链 / frontmatter / covers 漂移（文档 last_verified 早于被覆盖路径的最后变更日）/ 入口文件行数预算 / 终态痕迹 / 引用与定位符（含代码行号） / 索引一致性（含索引行精确计数） / 活文档体积基线），pre-push 与 CI doc-lint job 均挂载；检查项以脚本头部注释为准，终态痕迹词表在同目录 `final-state-rules.json`。副本与技能母版以 `--version` 比对，随治理任务同步。
+2. **异步兜底（入库后，push master + nightly）**：`.github/workflows/ci.yml` 八 job 并行——`gate`（frozen-lockfile 安装 + `pnpm check` 服务端重验）、`docker-build`（三镜像构建验证（web / server / iot-worker）+ web/server 双启动冒烟：web curl 200、server /health+entrypoint 三段断言，server 冒烟依赖 job services postgres 与带认证的步骤容器 redis；不 push）、`coverage`（job services 含 postgres/emqx/redis-queue/tdengine，redis 以带认证的步骤容器启动；先跑 `tdengine:init` 建库建表，再跑 server 合并覆盖率、iot-worker 单测覆盖率、iot-worker e2e 三步，覆盖率两步 ≥80% 报警式硬门槛）、`coverage-web`（pure-web vitest 覆盖率报警式，全局聚合 ≥80% + crown-jewel 6 键 ≥90%）、`e2e-web`（Playwright Tier A mock 冒烟，grep `@mock-only`）、`e2e-web-real`（Tier B 真实后端冒烟，grep `@real-backend`，报警式 + nightly，双层 E2E 见 [ADR-008](../decisions/ADR-008-tiered-e2e-testing.md)）、`audit`（`pnpm audit --audit-level=high` 报警式）、`doc-lint`（文档一致性与新鲜度校验报警式）。定位与取舍见 `docs/decisions/ADR-006-github-ci.md`。⚠️ 业务缓存 Redis 在 `docker-build` / `coverage` / `e2e-web-real` 三个 job 里以**步骤容器**启动（`docker run … redis-server --requirepass "$REDIS_PASSWORD"` + 带认证的就绪等待），而非 `services:`——GH Actions service 容器不支持自定义启动参数、无法传 `--requirepass`；本地 compose 的 redis 绑全部接口，故必须认证（暴露面规则与残余风险见根 AGENTS.md）。
 3. **纪律条款**：报警式不拦截的代价是红了必须有人看——**CI 红 → 下一项工作先修 CI**；感知窗口为根 README badge 与 GitHub watch 通知。
    - **报警式的实现前提**：`continue-on-error` 标在**步骤**上，拦的是那一步的退出码；同一 job 内**其他任何步骤失败仍会把 job 打成失败、整轮随之变红**——包括 action 自身的 post 步骤。因此报警式 job 不应引入与该 job 目标无关的步骤（2026-10-05 实例：`audit` job 的 `setup-node` 配了 `cache: pnpm`，而该 job 刻意不 install、无 pnpm store 可缓存，缓存 post 步骤路径校验失败 → 整轮 CI 变红）。
 
@@ -61,8 +61,8 @@ turbo env 透传约束：`envMode` 为 strict，只有声明过的环境变量�
 
 - **构建 context 必须是仓库根**：`docker build -f apps/pure-web/Dockerfile .`（Dockerfile 内部已按 manifest 分层缓存 + `--filter @multi-admin/pure-web...` 依赖隔离安装）。构建命令用 `--filter X...`（含依赖子图拓扑），与本地任务图同源。
 - 基础镜像 `node:24-alpine`，pnpm 版本经 corepack 按 `packageManager` 字段锁定；镜像变量用 `PNPM_CONFIG_REGISTRY` / `COREPACK_NPM_REGISTRY`（`npm_config_*` 对 pnpm 无效）。
-- 本机编排：`cp .env.example .env` 填写 `POSTGRES_PASSWORD` 与 `ADMIN_INIT_PASSWORD` 后 `docker compose up`（postgres + redis + redis-queue + emqx + tdengine + server + worker + web **八服务**；server 依赖 postgres/redis 双健康，启动链 entrypoint 串 `prisma migrate deploy → prisma db seed → exec node`（幂等可重复）；worker 依赖 redis-queue/tdengine 双健康，**无 migrate / seed、不碰 PG**）。库名统一 `multi_admin`；存量旧卷（旧库名初始化）需 `docker compose down -v` 重建。tdengine 容器设 `TZ: Asia/Shanghai`——窗口对齐取服务器时区，配错不报错只会把数据分进错的窗口。
-- env 注意：根 `.env` 的 `DATABASE_URL` 若手动设置，内嵌密码须与 `POSTGRES_PASSWORD` 一致（否则 server 连库失败而 postgres 容器正常，排障困难）；根模板的 `REDIS_URL` 经 compose 插值注入 server（`${REDIS_URL:-redis://redis:6379}`）；JWT 双密钥（`JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`）必须不同，compose `:?` 强校验必填。
+- 本机编排：`cp .env.example .env` 填写 `POSTGRES_PASSWORD`、`REDIS_PASSWORD` 与 `ADMIN_INIT_PASSWORD` 后 `docker compose up`（postgres + redis + redis-queue + emqx + tdengine + server + worker + web **八服务**；server 依赖 postgres/redis 双健康，启动链 entrypoint 串 `prisma migrate deploy → prisma db seed → exec node`（幂等可重复）；worker 依赖 redis-queue/tdengine 双健康，**无 migrate / seed、不碰 PG**）。库名统一 `multi_admin`；存量旧卷（旧库名初始化）需 `docker compose down -v` 重建。tdengine 容器设 `TZ: Asia/Shanghai`——窗口对齐取服务器时区，配错不报错只会把数据分进错的窗口。暴露面：`redis-queue` / `emqx` / `tdengine` 只绑宿主回环；`postgres` / `redis` 绑全部接口，故各自带认证（`POSTGRES_PASSWORD` / `REDIS_PASSWORD`）——规则与残余风险见根 AGENTS.md。
+- env 注意：根 `.env` 的 `DATABASE_URL` 若手动设置，内嵌密码须与 `POSTGRES_PASSWORD` 一致（否则 server 连库失败而 postgres 容器正常，排障困难）；根 `.env` 的 `REDIS_URL` 须带凭据（`redis://:<REDIS_PASSWORD>@redis:6379`，空用户名落到 `default` 用户）并经 compose 插值注入 server（`${REDIS_URL:?…}`），与 redis 的 `--requirepass` 同源；JWT 双密钥（`JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`）必须不同，compose `:?` 强校验必填。
 - 镜像源参数化（`ARG PNPM_REGISTRY`），CI 通过 `build-args` 覆盖为官方源。
 - 镜像 pin 与非 root：生产镜像统一 `tag@digest`（manifest-list 层级）pin，季度 `pnpm ops:check-digests` 巡检漂移；nestjs-server prod 阶段以 `USER node`（UID 1000）运行，compose 的 server 服务带 `no-new-privileges`；nginx 保留官方镜像 master-root 形态（绑 80 需要），迁至 restricted PSA / OpenShift 时换 nginx-unprivileged。
 
@@ -77,13 +77,15 @@ turbo env 透传约束：`envMode` 为 strict，只有声明过的环境变量�
 | `pnpm ops:ci-logs` | `ci-logs.sh` | CI 失败日志导出：`.ci-failure-<id>.log`（Agent 可读取分析） |
 | `pnpm ops:env-up` | `env-up.sh` | 开发环境启动：postgres + redis + redis-queue + emqx + tdengine + migrate + seed + tdengine:init |
 | `pnpm ops:env-down` | `env-down.sh` | 开发环境停止（`--clean` 清除数据卷） |
-| `pnpm ops:tdengine-init` | 转发 `@multi-admin/iot-worker` 的 `tdengine:init`（`apps/iot-worker/scripts/tdengine-init.ts`） | 建 TDengine 库 / 超表 / 子表 / 降采样流（幂等，可反复执行）；`ops:env-up` 已串 |
+| `pnpm ops:tdengine-init` | 转发 `@multi-admin/iot-worker` 的 `tdengine:init`（`apps/iot-worker/scripts/tdengine-init.ts`） | 建 TDengine 库 / 超表 / 子表 / 降采样子表，并清理遗留的降采样流（幂等，可反复执行；只建不删库）；`ops:env-up` 已串 |
 | `pnpm ops:smoke` | `docker-smoke.sh` | 本地 Docker 冒烟（`--server` 追加构建 + 运行态冒烟） |
 | `pnpm ops:server-smoke` | `server-smoke.sh` | server 镜像运行态冒烟（/health + entrypoint 三段断言；前置：镜像已构建 + ops:env-up） |
 | `pnpm ops:coverage` | `coverage.mjs` | 本地覆盖率一键跑（`--skip-env` 跳过环境启停） |
 | `pnpm ops:check-digests` | `check-digests.sh` | 镜像 digest pin 漂移巡检（季度，`docker buildx imagetools inspect` 比对） |
 | `pnpm ops:upstream-diff` | `upstream-diff.sh` | pure-web 上游漂移报告（基线 SHA + target ref → 改动清单/变更地图/冲突面三件套；无基线参数降级仅本地侧） |
 | `pnpm ops:worktree-init` | `worktree-init.sh` | 通用仓库就绪：`.git` 类型自动判定双场景（worktree 检出后初始化：依赖安装 + 主仓库 env 类文件白名单同步 + 钩子兜底；新克隆引导：技术栈探测 + `.env.example` 生成）；零依赖单文件，可复制到其他仓库；engines 校验读目标仓库 `package.json`；Windows 下经 WSL bash 执行，调用方须自仓库根以相对路径调用 |
+
+⚠️ **降采样库一次性迁移**：降采样由 worker 侧定时重算、不用流。带旧开发卷的环境，`wewant_iot_ds` 内的聚合产自流机制、**不可信**，须手动 `DROP DATABASE wewant_iot_ds` 后重跑 `ops:tdengine-init` 重建。该 DROP 是**一次性人工动作、不进脚本**——`ops:env-up` 每次启动都调脚本，DROP 进脚本会把归档一并清掉；`wewant_iot` 原始库不受影响。
 
 前置依赖：gh CLI（ci-status / ci-logs，需首次 `gh auth login`）、Docker Desktop（env-up / smoke / coverage / check-digests）、Git Bash 或 WSL bash（shell 脚本执行；仓库 `.sh` 统一 LF 行尾，见根 `.gitattributes`）、可联网环境（upstream-diff，需 fetch github）。
 
@@ -106,10 +108,11 @@ check-digests 远端比对依赖可联网环境：本机无 Registry 直连时�
 | `tdengine-container.sh` | 起临时容器 → 等 taosAdapter 就绪 → 跑探针；`--down` 停掉 |
 | `taosdump-roundtrip.sh` | `taosdump` 备份 / 恢复往返（内容全部在容器内执行）：`-M all` 往返、`-S`/`-E` 时间范围归档、`-M ext-meta` 备份流定义、`-W` 改名恢复、**`-M` 两侧不一致时的静默失效**。⚠️ 与 `tdengine-container.sh` 共用同一个容器 |
 
-⚠️ **另有三个探针在应用目录下**，不在此目录——它们需要某个**按 catalog 判据只属于该应用**的依赖，仓库根没有，Node 从脚本所在目录向上解析依赖：
+⚠️ **另有四个探针在应用目录下**，不在此目录——它们需要某个**按 catalog 判据只属于该应用**的依赖，仓库根没有，Node 从脚本所在目录向上解析依赖：
 
 - `apps/iot-simulator/scripts/`：`mqtt-protocol-probe.mjs` / `mqtt-credential-probe.mjs`（需要 `mqtt`）。凭据探针还需一个**配了认证器的独立 Broker**（开发环境那台默认无认证，不适用）
 - `apps/nestjs-server/scripts/tdengine-stmt-probe.mjs`（需要 `@tdengine/websocket`）：TDengine STMT 写入形态——一次 exec 跨多子表、两种跨子表写法、`USING` 语法自动建表、单次 bind/exec 的行数上限。⚠️ 它建自己的库 `probe_stmt` 并反复重建超表，**不要指向有数据的实例**
+- `apps/nestjs-server/scripts/tdengine-stmt-tbname-probe.mjs`（需要 `@tdengine/websocket`）：TDengine「形态②」（`INSERT INTO <stb> (tbname, tag…, ts, …)` 且 `tbname` 作普通绑定参数）的两项行为——缺子表时**报错还是静默建表**、一次 `exec` 能否跨多个子表；**STMT2（连接器默认）与 STMT1（写入器强制）两条路径都测**。⚠️ 它建**自己的临时库** `probe_stmt_tb` 并跑完**整库删掉**，另快照 `wewant_iot` / `wewant_iot_ds` 的建表指纹验证真实库未被波及，**不要指向有数据的实例**
 
 ## 已知环境事实
 
@@ -128,7 +131,7 @@ check-digests 远端比对依赖可联网环境：本机无 Registry 直连时�
 - 限流与用例的协作约束：限流按客户端 IP 计数（supertest 全为 127.0.0.1），必须成功的登录所在套件在用例前 `flushdb` 重置计数（如 `system.e2e-spec.ts` 的 `beforeEach`）；`auth.e2e-spec.ts` 的 429/锁定用例依赖计数累积，靠自身 `beforeEach flushdb` 隔离。新增会触发登录的 e2e 用例时遵循同一模式，不要突破登录限流 5 次/分（不放宽生产限额）。
 - 前置：`docker compose up -d postgres redis`，再跑 `turbo run test:e2e --filter=@multi-admin/nestjs-server`。
 - 全局 setup（`test/global-setup.ts` → `test/e2e-env.ts`）幂等建库 `multi_admin_test` + migrate deploy + seed；全局 teardown（`test/global-teardown.ts` → `test/helpers/cleanup.ts`）全表 truncate + FLUSHDB。
-- 测试 env 默认值由 `test/setup-env.ts` 注入（DATABASE_URL / REDIS_URL / ADMIN_INIT_PASSWORD / JWT_ACCESS_SECRET / JWT_REFRESH_SECRET），支持真机 env 覆盖。
+- 测试 env 默认值由 `test/setup-env.ts` 注入（DATABASE_URL / REDIS_URL / ADMIN_INIT_PASSWORD / JWT_ACCESS_SECRET / JWT_REFRESH_SECRET），支持真机 env 覆盖。其中 `REDIS_URL` 缺省取自应用 `.env`（业务缓存已开认证，测试与运行中的应用共用同一实例）；其余为测试专用缺省值。
 
 ## nestjs-server 合并覆盖率流水线
 
@@ -140,4 +143,15 @@ check-digests 远端比对依赖可联网环境：本机无 Registry 直连时�
 ## iot-worker 测试与覆盖率
 
 - 单测 / e2e 走 Node 内建 `node --test`（`test/*.test.ts` 与 `test/*.e2e.ts`）；`test:coverage` 由 `apps/iot-worker/scripts/coverage.mjs` 驱动，只统计本应用 `src/**`，门槛行 ≥90% / 函数 ≥85% / 分支 ≥80%（用数组参数启动子进程，避免 shell 展开 `src/**` 使报告变空）。
+- ⚠️ **覆盖率度量的是"单测进程加载过并执行到"的 `src/**`，不是"被测代码运行到的全部"**：Node 的 `--test-coverage-include` 是对**已加载文件**做过滤，故门禁只跑单测（`test/*.test.ts`）、**不计入 e2e 的执行**——e2e 连真实队列 Redis 与 TDengine，收进来会让门禁必须先起这两个服务、无法独立通过；e2e 由 `test:e2e` 单独跑。由此，**此前靠 e2e 顺带计入的那些执行不再进覆盖率**，两处最容易误解的要看清：
+  - `src/index.ts`（运行时入口）**从不**在报告里——它以独立进程运行、不被任何测试 `import`，改动前后都度量不到。
+  - `src/tdengine/client.ts` **仍在报告内**（`downsample/ring.ts` 被单测加载，连带加载它），但它的连接函数（`connectTd` 等）只由 e2e 执行 ⇒ 这部分的覆盖数值下移、实际由 `test:e2e`（CI coverage job 的对应步骤）覆盖，**不**由覆盖率门禁度量。
+  即：**门禁是下限，不是运行期路径的完整度量**；消费/降采样链路的真实接线以 `test:e2e` 为准。
+- **降采样逐条对账**（判据②，`apps/iot-worker/scripts/downsample-verify.ts`）：`pnpm --filter @multi-admin/iot-worker run downsample:verify` [选项]。对最近 N 个窗口把「原始表按子表窗口聚合」与降采样表**逐字段**比对（sum/count/min/max + 单位 + deviceId 标签），差异化即报出 `(子表, 窗口, 字段, 期望, 实际)`；三条输出表存在性 + 非空一并查。窗口口径与降采样环**同源**（复用 `window.ts` / `query.ts`），默认**跳过最新一个已闭合窗口**（吸收调度触发抖动）、比对 `K-1` 个窗口；`--now <ms|iso>` 可复算历史段，`--windows` / `--skip` / `--level` 可覆盖默认。浮点列（sum/min/max）取 `1e-9` 相对容差、`count` 精确比较（见脚本注释）。
+  - **K 内 / K 外**：只有落在**环每轮重算的最近 K 个窗口**内的差异判失败、非零退出；`--windows > K` 把范围伸进「环不再维护」的窗口时，那里的差异（晚到数据造成的良性陈旧）只作 `⚠` 提示、不判失败。退出码 0 = K 契约区内无差异且三条输出表存在且非空。
+  - **一致性边界**：原始侧与降采样侧是两条独立语句。发现差异时脚本先**重读两侧**再比，只有重读后仍存的差异才报——排除「两次读之间发生一次写入」的假警报。前提是**管道相对静止**；活数据持续到达时，晚到数据造成的差异会在环下一轮重算 + 下次对账后消失。设计 §9 提出用单条 join 消除这条缝，但本机实测该 join 不受支持——约束在**形状**不在库位置：TDengine 要求 join 两侧都是合法时序输入、主时间戳在等值条件里，而**聚合 / 窗口子查询不是这样的输入**（报 `9828 Not supported join…`；纯子查询 ⋈ 同库超表、基础超表跨库 `on ts=` 均可），故用「重读两侧」这条等价做法。
 - 消费者 e2e（`test/consumer.e2e.ts`）连真实队列与 TDengine：前置 `docker compose up -d redis-queue tdengine` 并 `pnpm ops:tdengine-init`；队列与 TDengine 无假实现可用，这段接线是本应用唯一带真实外部依赖的部分，本地整体前置即 `pnpm ops:env-up`。CI coverage job 已配对应 service 并先跑 `tdengine:init`。
+- ⭐ `test:e2e` 以 `--test-concurrency=1` **串行跑各文件**：多个 e2e 共享同一队列与同一 TDengine，并行会让 `obliterate` / 计数断言互相踩（与 nestjs-server e2e 的 `maxWorkers:1` 同一原因）。三处真实依赖的用例各司其职：
+  - `consumer-kill.e2e.ts`——**判据③**：拉起**真实 worker 进程**（`node --import tsx src/index.ts`），在它把一批报文攒在内存、**尚未落库也尚未 ack** 的当口 `SIGKILL`，再起一个 worker，断言重投后**一条不丢、一条不重**（先断言杀前库里 0 行，证明报文只在内存里）。
+  - `downsample-verify.e2e.ts`——**判据②**：驱动 F6 的逐条对账脚本（`verifyLevel`）对账，并**注入一处缺失、断言脚本必须报出**（只报"干净"的脚本证明不了什么），随后还原。
+  - `downsample-worker.e2e.ts`——降采样队列的**真实 job 路径**：起真实 worker，让调度器产出的 `recompute` job 由真实 `Worker` 消费、走到 `onJob` 并落库（其余降采样 e2e 都注入 inert worker/queue，这条传导线此前只靠人工读回）。

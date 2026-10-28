@@ -5,12 +5,12 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Redis } from 'ioredis';
 import { PrismaClient } from '../../src/generated/prisma/client.js';
 import { truncateAll } from './db.js';
-import { flushTestRedis } from './redis.js';
+import { defaultRedisUrl, flushTestRedis } from './redis.js';
 
 const TEST_DB_URL =
   process.env.DATABASE_URL ??
   'postgresql://postgres:postgres@localhost:5432/multi_admin_test?schema=public';
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
+const REDIS_URL = process.env.REDIS_URL ?? defaultRedisUrl();
 
 async function cleanupDb(): Promise<void> {
   const prisma = new PrismaClient({

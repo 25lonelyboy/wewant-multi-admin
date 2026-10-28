@@ -790,17 +790,18 @@ P1：100 台设备 × 1 条/秒，每台 1 采集点
 | 8 | 队列 Redis 是否**独立实例**（ADR-010 D4 只锁了方向） | 落地时确认 |
 | 9 | 万级规模下的 **`VGROUPS`** 取值（子表 1 万~3 万） | 落地时实测（反馈第 1 项建库语句） |
 | 10 | **`@tdengine/websocket` 是否支持传输压缩**（InfluxDB 侧 gzip 实测有 5x 提速；TDengine 侧未核实） | 查连接器文档或实测 |
-| 11b | **STMT 族的错误处理**——只见到形态未取到干净样本：非法绑定触发的错误经历了一次内部恢复（`stmt2 recover exceeded max attempts (5) at step EXEC`），随后连接持续重连失败 | 实测 |
+| 11b | **STMT 族的错误处理**——只见到形态未取到干净样本：非法绑定触发的错误经历了一次内部恢复（`stmt2 recover exceeded max attempts (5) at step EXEC`），随后连接持续重连失败（**该形态属 STMT2 路径**；本实现走的 STMT1 路径另见 §10 N9） | 实测 |
 | 12 | **BullMQ exponential backoff 的 `attempts` 计数口径**——官方文档举例自身不一致（说"重试 2 次"却列了 1 s / 2 s / 4 s 三个间隔）| 实测 |
 | 14 | **客户端版本与服务端版本如何对齐**——连接器只有 `3.4.0` / `3.5.0`，服务端实测 `3.4.2.8` | 定实现形态时确认 |
 
-✅ **已结案（2026-10-09 写入形态探针，见 §10）**：
+✅ **已结案（写入形态探针，见 §10）**：
 
 - 原第 13 项「Node 侧 STMT 如何写多子表」→ **两种写法都可用**（§10 N2）
 - 原第 2 项「单次 bind/exec 的行数上限」→ **32767 行**（§10 N5）
 - 原第 11a 项「`exec(sql)` 遇 SQL 错怎么表现」→ **抛 `TaosResultError`，带 `code`**（§10 N6）
 - 原第 6 项「自动建表的表存在性检查成本」→ **已作废**：轴 4 否决自动建表（改预建）
-- 另获两条实现须知的实测事实：`getLastAffected()` 返回 **BigInt**（N8）；一次非法绑定会把连接拖进持续重连失败（N9）
+- 原第 15 项「N2 形态② 的两项关键行为」→ **字面形态（带 tags）缺子表静默建表；省略 tags 的子形态报错（`code=560`）；一次 exec 跨 100 子表（仅 STMT2）**（§10 N10 / N11）
+- 另获两条实现须知（**均以写入器强制的 STMT1 路径为准**，见 §10）：`getLastAffected()` 返回 **`number`**（N8）；非法绑定**不会**把连接拖废（N9）
 
 ---
 
@@ -813,7 +814,10 @@ P1：100 台设备 × 1 条/秒，每台 1 采集点
 ```text
 写入路径  参数绑定 STMT —— 走**不带 `USING`** 的形态（写具体子表名 + 绑参表）
           ⚠️ 带 `USING` 的 STMT 会自动建表，会顶掉"表存在 ⇔ 已注册"这条不变量（§10 N3）
-          形态：一个 stmt 句柄 + 一次 exec 覆盖整批（§10 N1）
+          代价：表名写死在 SQL 里 ⇒ **每个子表一条语句**——"一个 stmt 句柄 + 一次 exec 覆盖
+          整批"（§10 N1 实测的 5.5×）只在 `USING` / `tbname` 形态下成立，写死子表名时拿不到
+          （§10 N2 形态② 见 §10 N10 / N11：`tbname` 绑定可跨子表，但只在 STMT2、须省略 tags，
+          且其缺表报错降级为 `560`——该码在 `failure.ts` 未登记，须先补，见 backlog）
 建表      预建。增量 2 用可重复执行的脚本；增量 3 起由设备注册预建。不做自动建表
 攒批      条数 或 时间，先到先 flush
 批大小    500 条（默认，可配）；单次 bind/exec 硬上限 32767 行（§10 N5）
@@ -838,8 +842,8 @@ flush     2 秒（默认，可配）→ 交接点 250 行/秒
 | 5 | **`flush_interval = 2 s` 抬高了入库延迟下界** | 端到端延迟要求进入秒级以内时（增量 5 告警） |
 | 6 | **多子表批 + 突发**：设备整秒对齐 → 批几乎同时到期 | 万级设备下若连接数配少了 |
 | 7 | ⚠️ **误用带 `USING` 的写法 ⇒ 子表不存在时静默建表**（"表存在 ⇔ 已注册"失效，回到 §1 的头号失败模式） | 实现时照抄官方 Node 示例 |
-| 8 | ⚠️ **不带 `USING` 时的报错信息是 C 源码路径**，不带错误码 | 排查漏建表，告警分类做不出来 |
-| 9 | ⚠️ **一次非法绑定会把连接拖废**——后续操作持续重连失败 | 上游送来一个坏值，而实现把"这一批失败"与"连接已废"混成一件事 |
+| 8 | ⚠️ **缺子表的报错形态随路径而异**——**STMT2** 路径的报文是 C 源码路径（`clientStmt2.c[4946]…`，`code=555`）；本实现走的 **STMT1** 路径则是干净的 `WebSocketInterfaceError` + `code=9731` + `Table does not exist` | 排查漏建表——两条路径都带码，告警可按码分类 |
+| 9 | ⚠️ **非法绑定与"连接已废"要分开处置**——实测（STMT1）非法绑定之后连接仍健康，但连接级错误（`108` / `104`）必须作废**那一条**连接并重连 | 上游送来一个坏值，或一条连接确已半开，而实现把"这一批失败"与"连接已废"混成一件事 |
 
 **③ 退出成本（想换掉要付什么）**
 
@@ -864,7 +868,7 @@ flush     2 秒（默认，可配）→ 交接点 250 行/秒
 
 ---
 
-## 10. 写入形态探针（2026-10-09 本机实测）
+## 10. 写入形态探针（2026-10-09 / 2026-10-13 本机实测）
 
 > 探针：`apps/nestjs-server/scripts/tdengine-stmt-probe.mjs`（用仓库里真正的 `@tdengine/websocket@3.5.0`，连本机 `3.4.2.8.community`）。
 > **本节结论直接改写 §4.8 的容量口径、§6 轴 1 与轴 4 的论证、以及 §8 的待实测项**，并据此修正 §9 的选定表述。
@@ -874,15 +878,23 @@ flush     2 秒（默认，可配）→ 交接点 250 行/秒
 | **N1** | ⭐ **一次 exec 能不能跨多个子表** | ✅ **能**。100 子表 × 5 行 = 500 行，**一次 exec 21 ms**，`getLastAffected = 500`；同样数据逐子表 exec（100 次）**116 ms——慢 5.5 倍** |
 | **N2** | **跨子表的两种写法** | **两种都可用**：① `INSERT INTO ? USING stb (tags) TAGS (?,?) VALUES (…)` + **`setTableName()`**（官方 Node 示例形态）；② `INSERT INTO db.stb (tbname, tag…, ts, …) VALUES (?,…)` + **`tbname` 作普通绑定参数**（官方 Java 示例形态） |
 | **N3** | ⚠️ **带 `USING` + 子表不存在** | **自动建表**——子表被建出来、数据写进去、`getLastAffected = 1`，**不报错** |
-| **N4** | 不带 `USING` + 子表不存在 | 报错，但错误信息是 **C 源码路径**（`clientStmt2.c[4946]stmtGetStbColFields2()`），**不是带错误码的 `TaosResultError`** |
+| **N4** | 不带 `USING` + 子表不存在 | 两条路径的形态不同：本实现强制的 **STMT1** 抛 **`WebSocketInterfaceError` + `code=9731` + message `Table does not exist`**（干净、带码）；**STMT2 默认路径**（`tdengine-stmt-probe.mjs` 用连接器默认、未指定 STMT 版本）的报文是 **C 源码路径**（`clientStmt2.c[4946]stmtGetStbColFields2()`），**同样带码（`code=555`）** |
 | **N5** | ⭐ **单次 bind/exec 的行数上限** | **32767 行成功（22 ms）、32768 行失败**（`bind number out of range or not match`）。与列数无关（1 列 35000 同样失败）⇒ **是行数上限，值 = 2¹⁵−1** |
 | **N6** | `exec(sql)` 遇 SQL 错 | **抛 `TaosResultError`，带 `code`**（实测 `9730 Invalid column name`） |
 | **N7** | `setTimestamp()` 收 epoch 毫秒数字 | ✅ 可用，回读与传入一致 |
-| **N8** | `getLastAffected()` 的返回类型 | **BigInt**——实现时直接 `JSON.stringify` 会抛 `Do not know how to serialize a BigInt` |
-| **N9** | 一次非法绑定之后 | 连接被拖进"持续重连失败"（后续操作全部 `Failed to reconnect to any available address`） |
+| **N8** | `getLastAffected()` 的返回类型 | 写入器强制的 **STMT1** 路径上返回 **`number`**（实测 `value=1`、`typeof=number`）；**BigInt 形态属 STMT2 路径**（`tdengine-stmt-probe.mjs` 用连接器默认、即 STMT2），本路径不出现 |
+| **N9** | 一次非法绑定之后 | **STMT1 路径上连接仍健康**——四种绑定形态（`566` / `65535` / `9730` / 类型不符或 `NaN`）之后均以**同一条连接的下一次成功写入**（`affected=1`）证明，不只是"没抛异常"；"持续重连失败"（后续操作全部 `Failed to reconnect to any available address`）属 **STMT2** 路径（§8 第 11b 项即把该现象归因于 `stmt2 recover exceeded max attempts`） |
+| **N10** | ⭐ **形态②（`INSERT INTO <stb> (tbname, tag…, ts, …)` 且 `tbname` 作普通绑定参数）子表不存在时** | **随写法与 STMT 路径而异**（共运行 5 次、结论一致）：**带 tags** 的字面形态在 **STMT2** 上**静默建表**——子表被建出、`getLastAffected = 1`、**不报错**；**省略 tags** 的形态（`INSERT INTO <stb> (tbname, ts, …)`）在 **STMT2** 上于 **`exec` 报错**（`WebSocketInterfaceError` + `code=560` + message `Stmt cache error`），**不建表**。⚠️ **两条写法在写入器强制的 STMT1 上都在 `bind` 即失败**（`WebSocketInterfaceError` + `code=512` + `Invalid operation`）——形态② **在 STMT1 上无法表达** |
+| **N11** | ⭐ **形态② 一次 `exec` 能否覆盖多个子表** | **能，但仅 STMT2**：`tbname` 作绑定参数，**一次 bind + 一次 exec 覆盖 100 子表 × 5 行 = 500 行**（带 tags 6~7 ms、省略 tags 3~4 ms，`getLastAffected = 500`）；同数据逐子表 exec（100 次）**约 104 ms** ⇒ N1 的"单次 exec 跨多子表"在形态② 上同样成立。STMT1 上不可测（同 N10） |
+
+> N10 / N11 于 **2026-10-13** 用另一支探针 `apps/nestjs-server/scripts/tdengine-stmt-tbname-probe.mjs` 取得：它自建临时库 `probe_stmt_tb`、跑完**整库删掉**，并快照 `wewant_iot` / `wewant_iot_ds` 的建表指纹验证真实库未变（原始库 100、降采样库 100×3 前后一致）。
 
 **连接器 STMT 的实际 API 面**（`WsStmt`）：`prepare / setTableName / setTags / newStmtParam / bind / batch / exec / getLastAffected / close`。
 ⚠️ **类型映射方法挂在 `newStmtParam()` 返回的绑参对象上**（`setTimestamp` / `setFloat` / `setInt` / `setBigint` / `setVarchar` …），**不在 stmt 上**——§6 轴 1 列的那族方法名是对的，归属要说清；调用形态是 `newStmtParam()` → `setXxx([...])` → `bind()` → `batch()` → `exec()`。
+
+**N10 / N11 的结论**：形态② **不是"兼得"方案**——其**字面形态（带 tags）**缺子表时**静默建表**，与 `USING` 同病（N3），顶掉「表存在 ⇔ 已注册」这条不变量；能保住防线的是**省略 tags 的子形态**（缺表报错、一次 exec 跨 100 子表），但它**只在 STMT2 路径成立**，而写入器强制的是 STMT1（形态② 在 STMT1 上 `bind` 即 `512`），且其缺表报错是 `560 Stmt cache error`——该码**不在 `apps/iot-worker/src/failure.ts` 的码表里**（`RETRYABLE_CODES` / `UNRECOVERABLE_CODES` / `TABLE_MISSING_CODES` 与各报文 pattern 均不匹配），按现分类会落进 `basis: 'default'`、判成 **A 类可重试且不提级**，与今天（`9731` ⇒ B 类 + 提级）**相反**——**缺子表会被无限重投而非响亮失败**（该候选须先给 `failure.ts` 补 `560`）。⇒ **现有实现（写死子表名 ⇒ 每个子表一条语句的 STMT1）维持不变**；"省略 tags 的形态② + STMT2"作为一条**带前提的候选**登记进 [全局 backlog](../../governance/backlog.md)。
+
+**口径澄清（N3 / N4 的适用边界）**：⭐ **"缺子表 ⇒ 报错"这道防线只在「不带 `USING` 的写死子表名」形态下成立**——`USING` 形态（N3）会静默建表，**`tbname` 作绑定参数、且带 tags 的形态②（N10）也会**；N4 那条 `9731 Table does not exist` 同属写死子表名形态。其余写法要么静默建表，要么（STMT1 上的形态②）根本不可表达。
 
 **两条连接器质量信号**（供准入判据参考）：
 
@@ -897,7 +909,7 @@ flush     2 秒（默认，可配）→ 交接点 250 行/秒
 | §6 轴 4「预建 ⇒ STMT 在子表不存在时**报错**，这层报错是防线」 | ⛔ **只在不使用 `USING` 语法时成立**。带 `USING` 的 STMT **会自动建表**，与裸 SQL 一样——**防线不存在，且失败形式退回"静默多建一张表"**（§1 的头号失败模式）。⇒ **实现必须刻意选不带 `USING` 的写法** |
 | §6 轴 1「Node 侧用哪种写法待实测」 | ✅ **两种都可用**（N2）。选型判据变成：**要不要 `USING` 的自动建表能力**——按轴 4 的结论，**不要**，所以走不带 `USING` 的形态 |
 
-**由 N1 强化的结论**：轴 3 后半"每批多子表是高基数下的唯一形态"**成立，且实现上更干脆**——**一个 stmt 句柄 + 一次 exec 覆盖整批**，不必"每子表一个句柄"。⚠️ 但**"部分成功"的粒度仍是整批**：`getLastAffected()` 给的是总数（N1 实测 500），**不给行级定位**，§6 轴 5 与轴 8 的"整批重投"结论不变。
+**由 N1 强化的结论**：轴 3 后半"每批多子表是高基数下的唯一形态"**成立，且实现上更干脆**——**一个 stmt 句柄 + 一次 exec 覆盖整批**，不必"每子表一个句柄"（⚠️ 该形态需 `USING` / `tbname`；本实现写死子表名时拿不到，见 §9 选定与 §10 N2）。⚠️ 但**"部分成功"的粒度仍是整批**：`getLastAffected()` 给的是总数（N1 实测 500），**不给行级定位**，§6 轴 5 与轴 8 的"整批重投"结论不变。
 
 ---
 

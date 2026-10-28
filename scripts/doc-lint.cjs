@@ -21,8 +21,8 @@
  *   ② 死链：docs/ 与根入口文件内的相对 md 链接必须有效
  *   ③ frontmatter：活文档必须有 status / last_verified（scope=code 时还需 covers）；
  *      status 与 last_verified 的值必须合法
- *   ④ covers 漂移：covers 覆盖代码的最后提交晚于文档最后提交 → 疑似陈旧（需 git）；
- *      covers 路径不存在 → 报错
+ *   ④ covers 漂移：covers 覆盖代码的最后变更（提交时间戳的 UTC 日期）晚于文档
+ *      frontmatter 的 last_verified → 疑似陈旧（需 git）；covers 路径不存在 → 报错
  *   ⑤ AGENTS.md 行数预算
  *   ⑥ 终态痕迹：事实源层不得出现修订史/自我更正/删除线/免责散文/待办占位/过程阶段引用
  *      （词表见 final-state-rules.json；行内代码内的词不算，供规则文本列举禁用词）
@@ -39,7 +39,7 @@
  */
 'use strict';
 
-const VERSION = '1.4.0';
+const VERSION = '1.4.1';
 
 const fs = require('fs');
 const path = require('path');
@@ -325,6 +325,19 @@ function gitLastCommitTs(gitPath) {
   }
 }
 
+// 提交时间戳 → UTC 日期（YYYY-MM-DD）。用 UTC 而非本地时区：CI 在 UTC 运行、开发者
+// 机器多在本地时区，本地换算会让同一次提交在不同机器上落到不同日期，判定随环境漂移。
+// 在 UTC 偏移 ≥ 0 的机器上（本仓 +0800、CI 为 UTC），UTC 只会让变更日更早或相等
+// （coverDate(UTC) ≤ coverDate(local) ≤ verifiedDate），即最多漏报、绝不误报——门禁宁可漏不
+// 可冤；偏移为负时本地日期可能早于 UTC，该不等式不再成立。命令失败（null）或无提交（0）都返回 null。
+function gitLastCommitDate(gitPath) {
+  const ts = gitLastCommitTs(gitPath);
+  if (!ts) return null;
+  const d = new Date(ts * 1000);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
+}
+
 function hasGit() {
   try {
     execSync('git rev-parse --is-inside-work-tree', {
@@ -481,11 +494,14 @@ function checkFrontmatter(allDocs) {
 }
 
 // ---------- ④ covers 漂移 ----------
-// covers 路径存在性不依赖 git，无论有无 git 都检查；时间戳比对需要 git。
+// 判据：文档 frontmatter 的 last_verified 早于 covers 路径的最后变更日（提交时间戳的 UTC 日期）。
+// 不用「文档最后提交时间」——那与 AGENTS.md「信任 last_verified，不信任编辑时间」相悖，且当
+// last_verified 已是今天时无法再刷新（字符串不变 → 无 diff → 无提交），会把门禁变成逼人去改
+// 一份本来准确的文档。covers 路径存在性不依赖 git，无论有无 git 都检查。
 function checkDrift(allDocs) {
   const withGit = hasGit();
   if (!withGit)
-    warnings.push('当前目录不是 git 仓库，跳过 covers 漂移的时间戳比对');
+    warnings.push('当前目录不是 git 仓库，跳过 covers 漂移的日期比对');
   for (const f of allDocs) {
     const fm = parseFrontmatter(fs.readFileSync(f, 'utf8'));
     if (!fm) continue;
@@ -500,15 +516,17 @@ function checkDrift(allDocs) {
       issues.drift.push(`${rel(f)} covers 路径不存在：${c}`);
     }
     if (!withGit) continue;
-    const docTs = gitLastCommitTs(rel(f));
-    if (docTs === null || docTs === 0) continue;
+    // last_verified 的存在与合法性（YYYY-MM-DD、不晚于今天）由检查③保证：能走到这里的文档
+    // 都非豁免（非 README/日期前缀/tasks/ADR/snapshot/deprecated/process），③ 必已校验过它。
+    const verified = (fm.last_verified || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(verified)) continue;
     for (const c of covers) {
       if (missing.includes(c)) continue;
-      const coverTs = gitLastCommitTs(c);
-      if (coverTs === null) continue;
-      if (coverTs > docTs) {
+      const coverDate = gitLastCommitDate(c);
+      if (coverDate === null) continue;
+      if (coverDate > verified) {
         issues.drift.push(
-          `${rel(f)} 疑似陈旧：covers 的 ${c} 在文档最后提交之后有变更`
+          `${rel(f)} 疑似陈旧：covers 的 ${c} 最后变更于 ${coverDate}，晚于 last_verified ${verified}`
         );
       }
     }

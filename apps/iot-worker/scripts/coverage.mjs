@@ -1,5 +1,8 @@
 // 覆盖率门禁：用 Node 内置覆盖率，不引额外依赖；只统计本应用的 src。
 //
+// ⚠️ 只收单测（`*.test.ts`），**不收 e2e**（`*.e2e.ts`）：e2e 连真实队列 Redis 与 TDengine，
+// 收进来会让本门禁必须先起这两个服务才能跑、无法独立通过。e2e 由 `test:e2e` 单独跑。
+//
 // ⚠️ 不能写成一行 package.json 脚本：`src/**` 会被 shell 展开成一串文件路径，
 // `--test-coverage-include` 收到的就不再是模式，报告会变成空的。这里用数组参数启动子进程，
 // 不经过 shell，模式原样传下去。
@@ -11,7 +14,7 @@ import { dirname, join } from 'node:path';
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const testDir = join(appRoot, 'test');
 const testFiles = readdirSync(testDir)
-  .filter(name => name.endsWith('.ts'))
+  .filter(name => name.endsWith('.test.ts'))
   .sort()
   .map(name => join('test', name));
 

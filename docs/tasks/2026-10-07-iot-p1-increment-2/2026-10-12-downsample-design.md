@@ -13,10 +13,10 @@
 | # | 实测 |
 | --- | --- |
 | 1 | 现形态（`PERIOD` + 流级 `PARTITION BY tbname, deviceId` + 内层 `PARTITION BY tbname INTERVAL`）**每个窗口只产 1 行**，值是**最后写入那个分区**的，且**被复制到全部输出子表**。100 台设备时表现为"每个窗口 100 行、值全同" |
-| 2 | 去掉内层 `PARTITION BY` ⇒ 变成**全表聚合**，同样复制给全部子表 |
+| 2 | 去掉内层 `PARTITION BY` ⇒ 变成**全表聚合**，同样复制给全部子表（本机实测：单台真值 202 行 / 值 ~12500，落库却是 20234 / 1254819） |
 | 3 | 官方文档要求的**窗口触发** `INTERVAL(1m)`（作触发类型）在 3.4.2.8 报 `9728 syntax error` |
 | 4 | 官方最佳实践的**内层子句顺序**（`INTERVAL(...)` 在前、`PARTITION BY` 在后）报 `9728` |
-| 5 | `OUTPUT_SUBTABLE(...)` 报 `9728`；无流级分区时 `TAGS` 报 `16661`；流级只有 `tbname` 时 `TAGS` 报 `16660` |
+| 5 | `OUTPUT_SUBTABLE(...)` 报 `9728`；无流级分区时 `TAGS` 报 `16661`；流级只有 `tbname` 时 `TAGS` 报 `16660`；完全不写 `TAGS` 报「tag name mismatch」 |
 | 6 | **同一条 `SELECT tbname, _wstart, SUM(...) FROM <超表> PARTITION BY tbname INTERVAL(...)` 单独跑完全正确**（按子表分组、各值不同）⇒ 问题在流，不在查询 |
 | 7 | 最新社区版镜像就是 **3.4.2.8**（`latest` 与它 digest 相同、`docker pull` 报 `Image is up to date`；`3.4.3.0` 报 `manifest unknown`；官方版本号规则里新功能走 `Feature` 位，当前 `Feature = 2`）⇒ **没有可升级的目标** |
 
@@ -31,7 +31,7 @@
 触发        BullMQ Job Scheduler（复用队列 Redis），★ 每级一个调度
 窗口        最近 K 个**已闭合**窗口，K = 3（可配）——**每次都重算这一段**
 读          一条普通查询：WHERE 范围 + PARTITION BY tbname + INTERVAL(<窗口>)
-写          复用参数绑定 STMT（不带 USING），子表 = {deviceId}_{pointKey}（与原始库同名）
+写          复用参数绑定 STMT（不带 USING），子表 = {deviceId}_{pointKey}_{level}（折小写，级别进名）
 幂等        (子表, ts) 覆盖 —— 与原始库同一条不变量
 三级        平级：三条调度**各自从原始超表算**，互不依赖
 ```
@@ -96,9 +96,9 @@ SELECT tbname,
 ### 3.4 写
 
 - **形态**：与原始库同一套——**预建子表 + 参数绑定 STMT + 不带 `USING`**。理由是同样那条不变量：`USING` 会在子表不存在时**静默建表**，顶掉"表存在 ⇔ 已注册"（决策 2 §10 N3）
-- **子表名**：⭐ **`{deviceId}_{pointKey}`，与原始库同名**（§8.2 的规则照搬）。应用层自己写 ⇒ **不再受引擎自动命名支配**（流那套生成的是 `_t<hash>_<id>` 形态），原始库与降采样库同名子表可直接对照
+- **子表名**：⭐ **`{deviceId}_{pointKey}_{level}`**（`{deviceId}_{pointKey}` 折小写即原始库子表名；**级别进名**——三张超表同库、TDengine 子表名库内唯一，同名子表只能挂一张超表）。命名一处定义，建表端与写入端复用
 - **单位列**：取窗口内**最后一次**上报的单位（`LAST(<metric>_unit)`）——与决策 1 §4.6"归档层自描述、随数据冻结"一致
-- 建表脚本要**同时建降采样子表**（原先只建了降采样超表 + 流）
+- 建表脚本要**同时建降采样子表**。
 
 ### 3.5 顺序与并发
 
@@ -170,6 +170,8 @@ SELECT tbname,
 > **判据②（改写）**：降采样结果**逐条对账**——对每个 `(子表, 窗口)`，`telemetry_1m` 的 `sum/count/min/max` 与**原始表同子表同窗口**的聚合**逐字段相等**；三条输出表都存在且非空。
 
 - 对账本身可以就是一个脚本：把 §3.3 的查询跑一遍，与降采样表 `JOIN` 比字段
+- 落点为 `apps/iot-worker/scripts/downsample-verify.ts`：`pnpm --filter @multi-admin/iot-worker run downsample:verify`；窗口口径复用环的 `window.ts`/`query.ts`（不自算，免得在日级业务日或对齐边缘与环"算一段、比另一段"）。默认**跳过最新一个已闭合窗口**（环按周期触发，最新窗口闭合到下一位 tick 之间可能尚未重算）、比对 `K-1` 个窗口；`K` 之内的差异是真缺陷，`K` 之外可能是晚到数据造成的良性陈旧，脚本不据此判失败。见 [build-and-verify.md](../../engineering/build-and-verify.md) 的 iot-worker 段。
+- ⚠️ 上面那条「单条 `JOIN`」本机**不可行**：**外层套窗口聚合**的 join 报 `9828 Not supported join since 'Join requires valid time series input and primary timestamp equal condition'`（3.4.2.8.community 实测）。约束在**形状**不在库位置——TDengine 要求 join 两侧都是合法时序输入、主时间戳在等值条件里，而**聚合 / 窗口子查询不是这样的输入**（实测：纯子查询 ⋈ 同库超表、两张基础超表跨库 `on ts=` 均 `code 0`；聚合子查询 ⋈ 降采样表、子查询 ⋈ 子查询、`PARTITION BY tbname INTERVAL(1m)` 子查询 ⋈ 超表均报同一条 `9828`）。改走**两条独立读 + 发现差异时重读两侧再比**：只有重读后仍存的差异才报，排除「两次读之间发生一次写入」的假警报。前提是**管道相对静止**；活数据持续到达时，晚到数据造成的差异在环下一轮重算 + 下次对账后消失。
 - ⚠️ `COUNT(DISTINCT x)` 在 TDengine 里**不可信**（实测：真值 1 却返回 100）——对账脚本里**不要用它**，用 `GROUP BY` 或直接逐行比
 
 ## 10. 配置项（新增）

@@ -25,6 +25,15 @@ const JOB_OPTIONS = {
   removeOnFail: { count: 5000 }
 } as const;
 
+/**
+ * 一条报文投递后的**去向**——调用方据此计数，避免把落缓冲 / 丢弃算成"入队"。
+ *
+ * - `enqueued`：进了队列
+ * - `spilled`：队列不可达，落本地缓冲（待补投）
+ * - `dropped`：缓冲已超限、或落缓冲本身失败——这一条真的丢了
+ */
+export type SendDisposition = 'enqueued' | 'spilled' | 'dropped';
+
 /** 只用到三个方法，收窄依赖便于测试替身 */
 export interface ProducerLogger {
   info(message: string): void;
@@ -97,14 +106,18 @@ export class TelemetryProducer {
     await this.drainSpill();
   }
 
-  /** 入队；失败则落本地。**不抛**——接入热路径不该被下游异常打断 */
-  async send(raw: string): Promise<void> {
-    if (this.overflowed) return;
+  /**
+   * 入队；失败则落本地。**不抛**——接入热路径不该被下游异常打断。
+   * 返回本条的真实去向，供调用方按去向计数。
+   */
+  async send(raw: string): Promise<SendDisposition> {
+    if (this.overflowed) return 'dropped';
     try {
       await this.queue.add(JOB_NAME, raw, JOB_OPTIONS);
+      return 'enqueued';
     } catch (error) {
       this.logger.warn(`入队失败，改落本地：${String(error)}`);
-      await this.spillOnly(raw);
+      return this.spillOnly(raw);
     }
   }
 
@@ -120,8 +133,8 @@ export class TelemetryProducer {
     }
   }
 
-  private async spillOnly(raw: string): Promise<void> {
-    if (this.overflowed) return;
+  private async spillOnly(raw: string): Promise<SendDisposition> {
+    if (this.overflowed) return 'dropped';
     try {
       const withinLimit = await this.spill.append(raw);
       if (!withinLimit) {
@@ -130,10 +143,12 @@ export class TelemetryProducer {
           `本地缓冲已达上限（${this.spill.sizeBytes} ≥ ${this.options.spillMaxBytes} 字节）`
         );
       }
+      return 'spilled';
     } catch (error) {
       this.options.onSpillFailure(
         `写本地缓冲失败，这段数据会丢：${String(error)}`
       );
+      return 'dropped';
     }
   }
 

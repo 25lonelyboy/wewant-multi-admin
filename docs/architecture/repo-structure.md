@@ -5,7 +5,7 @@ covers:
   - internal/
   - packages/
   - pnpm-workspace.yaml
-last_verified: 2026-10-10
+last_verified: 2026-10-13
 ---
 
 # Monorepo 结构与边界
@@ -21,7 +21,7 @@ last_verified: 2026-10-10
 | `apps/uni-mobile`（`@multi-admin/uni-mobile`） | uni-app 多端 | Vue3；Vite 版本被 named catalog `uni-app` 隔离为 5.2.8（uni-app 编译链与主仓 Vite 8 不兼容） |
 | `apps/electron-desktop`（`@multi-admin/electron-desktop`） | 桌面端 | 无自身 UI，devDependencies 声明 `@multi-admin/pure-web: workspace:*`，打包时消费其 `dist` 产物；详见 [desktop-app.md](desktop-app.md) |
 | `apps/iot-simulator`（`@multi-admin/iot-simulator`） | 设备模拟器 | 设备侧唯一的进程：以 MQTT 上行虚拟设备遥测（缺省 100 台 1 Hz，规模与频率可调），用于打穿接入链路与后续规模压测；消费 `packages/contracts` 的 iot 段主题与载荷契约，见 [backend.md](backend.md) 设备接入链路 |
-| `apps/iot-worker`（`@multi-admin/iot-worker`） | 遥测消费者 | 与 HTTP 服务并列的第二个运行时：**不用 Nest、不开 HTTP**，从 BullMQ 队列取原始报文，解析 / 检测 / 攒批后 STMT 写入 TDengine；可独立启停 / 多实例 / 扩缩，自备 Dockerfile（**不碰 PG，无 migrate / seed**）；消费 `packages/contracts` 与 `packages/device-registry` |
+| `apps/iot-worker`（`@multi-admin/iot-worker`） | 遥测消费者 | 与 HTTP 服务并列的第二个运行时：**不用 Nest、不开 HTTP**，从 BullMQ 队列取原始报文，解析 / 检测 / 攒批后 STMT 写入 TDengine；可独立启停 / 多实例 / 扩缩，自备 Dockerfile（**不碰 PG，无 migrate / seed**）；另含建库脚本 `apps/iot-worker/scripts/tdengine-init.ts`（预建 TDengine 原始 / 降采样表，幂等，经 `pnpm ops:tdengine-init` 调用）；消费 `packages/contracts` 与 `packages/device-registry` |
 | `packages/common`（`@multi-admin/common`） | 跨端共享 TS 代码 | tsdown 构建；暂无应用引用 |
 | `packages/contracts`（`@multi-admin/contracts`） | 接口与设备接入契约 | 纯类型 + BizCode/MenuType 常量 + iot 段（主题模板、上行载荷类型、队列名与键前缀）；tsdown ESM+CJS 双格式 + 双 d.ts；nestjs-server、pure-web、iot-simulator 与 iot-worker 以 `workspace:*` 消费；见 [contracts.md](contracts.md) |
 | `packages/device-registry`（`@multi-admin/device-registry`） | 设备档案 | 两个映射：`localDeviceId → deviceId`、`(localDeviceId, localPointId) → pointKey`；对外只暴露接口（`hasDevice` / `resolve` / `allSubtables`），数据形态是实现细节。⚠️ **模拟器与 pure-web 都不依赖它**——"平台侧标识不下发"由**依赖边界**保证；依赖 `packages/contracts` |

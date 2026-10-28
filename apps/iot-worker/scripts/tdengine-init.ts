@@ -4,14 +4,13 @@ import { connectTd, destroyTd, type TdSql } from '../src/tdengine/client.js';
 import {
   DS_DATABASE,
   DS_LEVELS,
-  DS_STREAMS,
   RAW_DATABASE,
   RAW_STABLE,
   alterDsMinuteKeepStatement,
   createDatabaseStatements,
   createDsStableStatements,
+  createDsSubtableStatements,
   createRawStableStatement,
-  createStreamStatement,
   createSubtableStatement,
   dsStableName
 } from '../src/schema.js';
@@ -37,6 +36,12 @@ async function assertServerTimezone(
   }
 }
 
+/**
+ * 降采样库里已存在的流。
+ *
+ * 降采样已改为 worker 侧定时重算、不再用流；建库脚本据这份名单**清掉遗留流**——
+ * 留下来会继续往降采样表写错数据，静默抵消这次迁移。
+ */
 async function existingStreamNames(sql: TdSql): Promise<Set<string>> {
   const rows = await sql.query(
     `SELECT stream_name FROM information_schema.ins_streams WHERE db_name = '${DS_DATABASE}'`
@@ -78,15 +83,18 @@ async function main(): Promise<void> {
     await sql.exec(alterDsMinuteKeepStatement());
     console.log('  ✔ 分钟级超表级 KEEP');
 
-    const existing = await existingStreamNames(sql);
-    for (const spec of DS_STREAMS) {
-      if (existing.has(spec.name)) {
-        console.log(`  ○ 流已存在，跳过：${DS_DATABASE}.${spec.name}`);
-        continue;
-      }
-      await sql.exec(createStreamStatement(spec));
-      console.log(`  ✔ 建流：${DS_DATABASE}.${spec.name}`);
+    const streams = await existingStreamNames(sql);
+    for (const name of streams) {
+      await sql.exec(`DROP STREAM IF EXISTS ${DS_DATABASE}.${name}`);
     }
+    console.log(`  ✔ 清理遗留流：${streams.size} 条`);
+
+    for (const subtable of subtables) {
+      for (const statement of createDsSubtableStatements(subtable)) {
+        await sql.exec(statement);
+      }
+    }
+    console.log(`  ✔ 降采样子表：${subtables.length * DS_LEVELS.length} 张`);
 
     console.log(`\n✔ TDengine 初始化完成（${Date.now() - started} ms）`);
   } finally {

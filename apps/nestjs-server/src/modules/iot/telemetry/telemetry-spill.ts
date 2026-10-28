@@ -7,6 +7,15 @@ const SPILL_FILE = 'telemetry-spill.ndjson';
 /** 一条记录的成功投递动作；抛错表示投递失败，本行及其后都保留 */
 export type SpillSend = (raw: string) => Promise<void>;
 
+/** 只有"文件确实不存在"才是可接受的空；其余读错误一律照实抛出，不当作空文件 */
+function isEnoent(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: unknown }).code === 'ENOENT'
+  );
+}
+
 /**
  * 队列不可达时的本地落盘缓冲。
  *
@@ -17,6 +26,9 @@ export type SpillSend = (raw: string) => Promise<void>;
 export class TelemetrySpill {
   private readonly file: string;
   private bytes = 0;
+
+  /** append 与 drain 的"读—改—写"互斥：保证整文件重写不会覆盖并发追加的行 */
+  private critical: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly dir: string,
@@ -46,8 +58,10 @@ export class TelemetrySpill {
   /** 追加一条；返回 `false` 表示已超上限 */
   async append(raw: string): Promise<boolean> {
     const line = `${raw}\n`;
-    await appendFile(this.file, line, 'utf8');
-    this.bytes += Buffer.byteLength(line);
+    await this.exclusive(async () => {
+      await appendFile(this.file, line, 'utf8');
+      this.bytes += Buffer.byteLength(line);
+    });
     return !this.overflowed;
   }
 
@@ -55,21 +69,25 @@ export class TelemetrySpill {
    * FIFO 补投：**投成功才删**。
    *
    * 重复投是安全的（幂等键兜底），反过来会丢——所以宁可重投。
+   *
+   * ⚠️ 投递循环**不能**进临界区：`send` 里可能再触发一次 `append`（热路径并发），
+   * 若循环持锁，那个 append 只能等本循环结束 ⇒ 死锁。循环外的追加只会落在文件末尾，
+   * 由收尾时的"重读 + 截掉已确认的前缀"捕捉，不会丢。
    */
   async drain(send: SpillSend): Promise<number> {
-    let content: string;
+    let lines: string[];
     try {
-      content = await readFile(this.file, 'utf8');
-    } catch {
+      lines = (await readFile(this.file, 'utf8'))
+        .split('\n')
+        .filter(line => line !== '');
+    } catch (error) {
+      // 文件确实不存在 ⇒ 缓冲为空，回零（外部删文件后 overflowed 才能复位）；
+      // 其它读失败照实抛出——不静默当成空文件，也不写任何东西
+      if (!isEnoent(error)) throw error;
       this.bytes = 0;
       return 0;
     }
-
-    const lines = content.split('\n').filter(line => line !== '');
-    if (lines.length === 0) {
-      this.bytes = 0;
-      return 0;
-    }
+    if (lines.length === 0) return 0;
 
     let sent = 0;
     for (const line of lines) {
@@ -82,11 +100,37 @@ export class TelemetrySpill {
     }
     if (sent === 0) return 0;
 
-    // 只把**已确认投递**的那些行移出文件
-    const rest = lines.slice(sent);
-    const remaining = rest.length === 0 ? '' : `${rest.join('\n')}\n`;
-    await writeFile(this.file, remaining, 'utf8');
-    this.bytes = Buffer.byteLength(remaining);
+    // 读—改—写临界区（与 append 互斥）：**重读**当前文件——投递循环期间追加的行
+    // 已经落在旧快照之后，截去前 `sent` 行（已确认投递）即可留下它们。
+    await this.exclusive(async () => {
+      let current: string;
+      try {
+        current = await readFile(this.file, 'utf8');
+      } catch (error) {
+        // ⚠️ 只有 ENOENT 才算"文件已不在"。其它读失败（EIO/EMFILE…）若当成空，
+        // `remaining` 会变成空串、整文件重写把未投出的行全抹掉，还照样返回 sent
+        // 假装成功——那是 C10 明令禁止的"坏写报成功"。这里**不写**，抛出去让上层响亮失败。
+        if (!isEnoent(error)) throw error;
+        current = '';
+      }
+      const rest = current
+        .split('\n')
+        .filter(line => line !== '')
+        .slice(sent);
+      const remaining = rest.length === 0 ? '' : `${rest.join('\n')}\n`;
+      await writeFile(this.file, remaining, 'utf8');
+      this.bytes = Buffer.byteLength(remaining);
+    });
     return sent;
+  }
+
+  /** 串行执行"读—改—写"片段；前一环的成败不影响排队 */
+  private exclusive<T>(task: () => Promise<T>): Promise<T> {
+    const result = this.critical.then(task);
+    this.critical = result.then(
+      () => undefined,
+      () => undefined
+    );
+    return result;
   }
 }

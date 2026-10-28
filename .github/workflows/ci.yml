@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     services:
-      # 镜像沿用 coverage job 同源 digest pin（生产安全基线：全仓镜像引用必须 pin；+2 pin 后 check-digests 计数 8 → 10，见 Step 3）
+      # 镜像沿用 coverage job 同源 digest pin（生产安全基线：全仓镜像引用必须 pin；本文件与 compose / Dockerfile 的 pin 由 pnpm ops:check-digests 统一巡检）
       postgres:
         image: postgres:15-alpine@sha256:fe0737ba566a2c5b2a28f34433c0a423261900ec17b9bf7ad115e1aae7e57f1b # pin: 2026-08-27 (pnpm ops:check-digests quarterly)
         env:
@@ -49,17 +49,24 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-      redis:
-        image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf # pin: 2026-08-27 (pnpm ops:check-digests quarterly)
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+      # redis 不用 service：GH Actions service 容器不支持自定义启动参数（无法传 --requirepass），
+      # 改由步骤启动带认证的容器（见下方「启动 redis」）；镜像仍 digest pin。
     steps:
       - uses: actions/checkout@v4
+      # GH Actions service 容器不能传命令，故 redis 以步骤启动，与本地 compose 的认证姿态一致
+      - name: 启动 redis（带认证）
+        env:
+          REDIS_PASSWORD: ci-redis-password
+        run: |
+          docker run -d --name ci-redis -p 6379:6379 \
+            redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf \
+            redis-server --requirepass "$REDIS_PASSWORD"
+          for i in $(seq 1 30); do
+            PONG="$(docker exec ci-redis redis-cli -a "$REDIS_PASSWORD" --no-auth-warning ping 2>/dev/null || true)"
+            [ "$PONG" = "PONG" ] && break
+            sleep 1
+          done
+          [ "$(docker exec ci-redis redis-cli -a "$REDIS_PASSWORD" --no-auth-warning ping)" = "PONG" ]
       - uses: docker/setup-buildx-action@v3
       - name: 构建 pure-web 镜像
         uses: docker/build-push-action@v6
@@ -99,7 +106,7 @@ jobs:
         # 冒烟专用丢弃值（非生产秘密，内联安全）；Linux runner 走 --network host，容器内 localhost 即本 job services
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/multi_admin?schema=public
-          REDIS_URL: redis://localhost:6379
+          REDIS_URL: redis://:ci-redis-password@localhost:6379
           ADMIN_INIT_PASSWORD: smoke-admin-password
           JWT_ACCESS_SECRET: smoke-access-secret-000000000000000000
           JWT_REFRESH_SECRET: smoke-refresh-secret-000000000000000000
@@ -150,15 +157,8 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-      redis:
-        image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf # pin: 2026-08-27 (pnpm ops:check-digests quarterly)
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+      # redis 不用 service：GH Actions service 容器不支持自定义启动参数（无法传 --requirepass），
+      # 改由步骤启动带认证的容器（见下方「启动 redis」）。
       # 服务端 e2e 在本 job 内执行，iot 域的设备接入用真实 Broker 验证
       emqx:
         image: emqx/emqx:6.3.1@sha256:5ecbf93d04e34aaf4096af074e93b773d0838c8ea668cfabdec7976b272d9606 # pin: 2026-10-05 (pnpm ops:check-digests quarterly)
@@ -196,26 +196,44 @@ jobs:
           --health-retries 12
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/multi_admin?schema=public
-      REDIS_URL: redis://localhost:6379
+      REDIS_URL: redis://:ci-redis-password@localhost:6379
       MQTT_URL: mqtt://localhost:1883
       QUEUE_REDIS_URL: redis://localhost:6380
       TDENGINE_URL: ws://root:taosdata@localhost:6041
       IOT_SPILL_DIR: /tmp/wewant-iot-spill
     steps:
       - uses: actions/checkout@v4
+      # GH Actions service 容器不能传命令，故 redis 以步骤启动，与本地 compose 的认证姿态一致
+      - name: 启动 redis（带认证）
+        env:
+          REDIS_PASSWORD: ci-redis-password
+        run: |
+          docker run -d --name ci-redis -p 6379:6379 \
+            redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf \
+            redis-server --requirepass "$REDIS_PASSWORD"
+          for i in $(seq 1 30); do
+            PONG="$(docker exec ci-redis redis-cli -a "$REDIS_PASSWORD" --no-auth-warning ping 2>/dev/null || true)"
+            [ "$PONG" = "PONG" ] && break
+            sleep 1
+          done
+          [ "$(docker exec ci-redis redis-cli -a "$REDIS_PASSWORD" --no-auth-warning ping)" = "PONG" ]
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: 初始化 TDengine（建库 / 建表 / 建流，幂等）
+      - name: 初始化 TDengine（建库 / 建超表 / 建子表 / 降采样子表，并清理遗留降采样流，幂等）
         run: pnpm --filter @multi-admin/iot-worker run tdengine:init
       - run: pnpm exec turbo run test:coverage --filter=@multi-admin/nestjs-server
         # 报警式（ADR-006）：覆盖率不达标只报警不拦截
         continue-on-error: true
       - run: pnpm --filter @multi-admin/iot-worker run test:coverage
         # 报警式（ADR-006）：覆盖率不达标只报警不拦截
+        # 只收单测（收 e2e 会让门禁必须先起 redis-queue + tdengine，跑不独立）
+        continue-on-error: true
+      - run: pnpm --filter @multi-admin/iot-worker run test:e2e
+        # iot-worker 的 e2e 需真实队列 Redis + TDengine（本 job services 已备）；报警式，与本 job 其余步骤同姿态
         continue-on-error: true
 
   coverage-web:
@@ -267,18 +285,11 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-      redis:
-        image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf # pin: 2026-08-27
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+      # redis 不用 service：GH Actions service 容器不支持自定义启动参数（无法传 --requirepass），
+      # 改由步骤启动带认证的容器（见下方「启动 redis」）。
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/multi_admin?schema=public
-      REDIS_URL: redis://localhost:6379
+      REDIS_URL: redis://:ci-redis-password@localhost:6379
       ADMIN_INIT_PASSWORD: smoke-admin-password
       JWT_ACCESS_SECRET: smoke-access-secret-000000000000000000
       JWT_REFRESH_SECRET: smoke-refresh-secret-000000000000000000
@@ -287,6 +298,20 @@ jobs:
       E2E_ADMIN_PASS: smoke-admin-password
     steps:
       - uses: actions/checkout@v4
+      # GH Actions service 容器不能传命令，故 redis 以步骤启动，与本地 compose 的认证姿态一致
+      - name: 启动 redis（带认证）
+        env:
+          REDIS_PASSWORD: ci-redis-password
+        run: |
+          docker run -d --name ci-redis -p 6379:6379 \
+            redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf \
+            redis-server --requirepass "$REDIS_PASSWORD"
+          for i in $(seq 1 30); do
+            PONG="$(docker exec ci-redis redis-cli -a "$REDIS_PASSWORD" --no-auth-warning ping 2>/dev/null || true)"
+            [ "$PONG" = "PONG" ] && break
+            sleep 1
+          done
+          [ "$(docker exec ci-redis redis-cli -a "$REDIS_PASSWORD" --no-auth-warning ping)" = "PONG" ]
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -320,7 +345,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # ④ covers 漂移靠比对完整 git 历史的提交时间；默认 depth=1 浅克隆会让所有路径时间戳塌缩到 HEAD，漂移检测静默失效
+          fetch-depth: 0 # ④ covers 漂移靠比对完整 git 历史的提交时间的 UTC 日期；默认 depth=1 浅克隆会让所有路径时间戳塌缩到 HEAD，漂移检测静默失效
       - uses: actions/setup-node@v4
         with:
           node-version: 24

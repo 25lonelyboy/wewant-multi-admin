@@ -111,4 +111,20 @@ describe('envSchema', () => {
     delete raw.PRISMA_QUERY_LOG;
     expect(envSchema.parse(raw).PRISMA_QUERY_LOG).toBe('false');
   });
+
+  it('MQTT_CLEAN_SESSION 默认 false（生产保留持久会话）', () => {
+    const raw = validEnv();
+    delete raw.MQTT_CLEAN_SESSION;
+    expect(envSchema.parse(raw).MQTT_CLEAN_SESSION).toBe('false');
+  });
+
+  it('MQTT_CLEAN_SESSION 只认 true/false，非法值拒绝', () => {
+    expect(
+      envSchema.parse({ ...validEnv(), MQTT_CLEAN_SESSION: 'true' })
+        .MQTT_CLEAN_SESSION
+    ).toBe('true');
+    expect(
+      envSchema.safeParse({ ...validEnv(), MQTT_CLEAN_SESSION: '1' }).success
+    ).toBe(false);
+  });
 });

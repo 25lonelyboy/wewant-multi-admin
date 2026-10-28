@@ -8,6 +8,13 @@ export const DS_DATABASE = 'wewant_iot_ds';
 /** 原始超表 */
 export const RAW_STABLE = 'telemetry';
 
+/**
+ * 单次 `bind` 的行数上限 = 2¹⁵−1（本机探针实测：32767 行成功、32768 行报
+ * `bind number out of range or not match`，与列数无关）。`INGEST_BATCH_SIZE` 超出它会在
+ * 写入时才炸——故配置层据此在启动时挡下，写入层再兜一道。
+ */
+export const MAX_BIND_ROWS = 32767;
+
 /** P1 的三个测点——列名即载荷里的 `metrics[].key` */
 export const RAW_METRICS = ['temperature', 'vibration', 'current'] as const;
 export type RawMetric = (typeof RAW_METRICS)[number];
@@ -30,6 +37,21 @@ const UNIT_WIDTH = 16;
 
 export function dsStableName(level: DsLevel): string {
   return `telemetry_${level}`;
+}
+
+/** 降采样子表名的级别后缀——命名约定的唯一出处（建表端与对账报告共用，勿各处重打） */
+export function dsLevelSuffix(level: DsLevel): string {
+  return `_${level}`;
+}
+
+/**
+ * 降采样子表名：`{name}_{level}`（`name` 即原始库的子表名，折小写）。
+ *
+ * ⚠️ **级别必须进名**：三张超表同库，而 TDengine 的子表名**库内唯一**——同名子表只能挂一张
+ * 超表，否则报 `Table already exists in other stables`。建表端与写入端复用本函数，命名只此一处。
+ */
+export function dsSubtableName(name: string, level: DsLevel): string {
+  return `${name}${dsLevelSuffix(level)}`;
 }
 
 /** 建库语句——两个库，幂等 */
@@ -81,61 +103,14 @@ export function alterDsMinuteKeepStatement(): string {
   return `ALTER STABLE ${DS_DATABASE}.${dsStableName('1m')} KEEP ${DS_MINUTE_KEEP_DAYS}`;
 }
 
-export interface StreamSpec {
-  name: string;
-  level: DsLevel;
-  /** `PERIOD` 与 `INTERVAL` 共用的窗口串；日级带 8 小时位移 ⇒ 业务日从早 8 点起 */
-  window: string;
-}
-
 /**
- * 三条**平级**流：都读原始超表——不是"在上一级输出表上再建流"。
+ * 降采样子表：每采集点每级一张，表名见 `dsSubtableName`。
  *
- * 全量写法每次触发都重扫源表，链式会把重扫代价逐级放大（决策 4 §13.4）。
+ * ⚠️ 表名与标签值的写法同 `createSubtableStatement`：表名折小写，**标签值保留原样**。
  */
-export const DS_STREAMS: readonly StreamSpec[] = [
-  { name: 's_1m', level: '1m', window: '1m' },
-  { name: 's_1h', level: '1h', window: '1h' },
-  { name: 's_1d', level: '1d', window: '1d, 8h' }
-];
-
-/**
- * 建流语句。
- *
- * ⚠️ 四个必须照抄的细节，都是本机实测出来的：
- * - ⭐ **内层查询也要 `PARTITION BY tbname`**。流级 `PARTITION BY` 只管**输出路由**（一行进哪张
- *   子表），**不管聚合分组**——内层不写它，窗口聚合会跨全部子表算，每台设备都拿到**全表**的
- *   sum/count（实测：单台真值 202 行 / ~12500，落库却是 20234 / 1254819）。
- * - **流级分区写 `tbname, deviceId`**：只写 `tbname` 时标签表达式无源可用（`AS deviceId` 报
- *   16660「must use expr from partition or rollup list」），不写标签则报「tag name mismatch」。
- * - **计算子句写 `FROM <源表>`，不写 `FROM %%trows`**——后者不回填历史，且补传的数据会把
- *   已算过的窗口**静默写坏**（`v_cnt` 由 3 掉到 1，不报错）。
- * - **不加增量 `WHERE`**——`_tprev_localtime` 是**触发时刻**，拿它比数据的 `ts` 会把
- *   停机期间与补传的数据整段排除。
- */
-export function createStreamStatement(spec: StreamSpec): string {
-  const selectList = [
-    '_wstart AS ts',
-    ...RAW_METRICS.flatMap(metric => [
-      `SUM(${metric}) AS sum_${metric}`,
-      `COUNT(${metric}) AS count_${metric}`,
-      `MIN(${metric}) AS min_${metric}`,
-      `MAX(${metric}) AS max_${metric}`
-    ]),
-    // 单位随数据冻结在归档层：窗口内取最后一次上报的单位
-    ...RAW_METRICS.map(metric => `LAST(${metric}_unit) AS ${metric}_unit`)
-  ].join(',\n            ');
-
-  return [
-    `CREATE STREAM ${DS_DATABASE}.${spec.name}`,
-    `  PERIOD(${spec.window})`,
-    `  FROM ${RAW_DATABASE}.${RAW_STABLE}`,
-    `  PARTITION BY tbname, deviceId`,
-    `  INTO ${DS_DATABASE}.${dsStableName(spec.level)}`,
-    `  TAGS (deviceId VARCHAR(${DEVICE_ID_WIDTH}) AS deviceId)`,
-    `  AS SELECT ${selectList}`,
-    `     FROM ${RAW_DATABASE}.${RAW_STABLE}`,
-    `     PARTITION BY tbname`,
-    `     INTERVAL(${spec.window})`
-  ].join('\n');
+export function createDsSubtableStatements(subtable: SubtableRef): string[] {
+  return DS_LEVELS.map(
+    level =>
+      `CREATE TABLE IF NOT EXISTS ${DS_DATABASE}.${dsSubtableName(subtable.name, level)} USING ${DS_DATABASE}.${dsStableName(level)} TAGS ('${subtable.deviceId}')`
+  );
 }

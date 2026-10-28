@@ -20,7 +20,8 @@ done
 echo "  ✔ postgres 就绪"
 
 elapsed=0
-until docker compose exec -T redis redis-cli ping >/dev/null 2>&1; do
+# 业务缓存已开认证：凭据从容器环境变量取（经 sh -c 在容器内展开），未就绪 / 未认证都拿不到 PONG
+until docker compose exec -T redis sh -c 'redis-cli -a "$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG' >/dev/null 2>&1; do
   sleep 2
   elapsed=$((elapsed + 2))
   if [ "$elapsed" -ge 30 ]; then
@@ -77,7 +78,7 @@ pnpm --filter @multi-admin/nestjs-server exec prisma migrate deploy
 echo "▶ 执行 prisma db seed..."
 pnpm --filter @multi-admin/nestjs-server exec prisma db seed
 
-echo "▶ 初始化 TDengine（建库 / 建超表 / 建子表 / 建流，幂等）..."
+echo "▶ 初始化 TDengine（建库 / 建超表 / 建子表 / 降采样子表，并清理遗留降采样流，幂等）..."
 pnpm --filter @multi-admin/iot-worker run tdengine:init
 
 echo ""

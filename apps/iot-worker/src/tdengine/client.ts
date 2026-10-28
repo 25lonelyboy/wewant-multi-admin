@@ -11,6 +11,10 @@ const td = require('@tdengine/websocket') as typeof TdClient;
 // ⚠️ 连接器在加载时把 winston 的 ExceptionHandler 挂到了 `uncaughtException` 上，而它在本机栈上
 // 自己就会崩（`TypeError: stackTrace.parse is not a function`），把真正的异常盖掉、只剩 winston 的
 // 崩栈。摘掉它：异常该由本进程自己处理，不该经过一个会崩的日志器。
+//
+// ⚠️ 代价：`removeAllListeners` 摘的是**该事件上所有**处理器、不只连接器那一个——若本进程他处
+// （或将来某个依赖）也注册了 `uncaughtException`，会被一并摘掉。因此这一段应在本应用**最早**、
+// 且在任何自有处理器注册**之前**执行；此后新注册的处理器不受影响。
 process.removeAllListeners('uncaughtException');
 
 type TdConnection = Awaited<ReturnType<typeof td.sqlConnect>>;

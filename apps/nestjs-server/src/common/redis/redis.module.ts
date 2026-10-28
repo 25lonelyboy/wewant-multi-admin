@@ -12,9 +12,10 @@ import { REDIS_CLIENT } from './redis.constants.js';
 
 /**
  * 自研薄壳（设计 §5.1）：lazyConnect + 启动 ping 快速失败；
- * maxRetriesPerRequest:null 为官方 going-to-production 推荐（BullMQ 前瞻）；
+ * maxRetriesPerRequest:null —— 本实例只服务业务缓存（BullMQ 走独立的队列 Redis，
+ *   `QUEUE_REDIS_URL`，用连接参数自管连接）；此设置使连接恢复前的命令排队等待、不因重试耗尽而失败；
  * error 事件转 nestjs-pino，避免无 listener 时连接错误 crash 进程；
- * 不启用 keyPrefix（会与未来 BullMQ 键空间冲突，设计 §5.2）。
+ * 不启用 keyPrefix（键空间由各使用方自行规划，设计 §5.2）。
  */
 @Global()
 @Module({

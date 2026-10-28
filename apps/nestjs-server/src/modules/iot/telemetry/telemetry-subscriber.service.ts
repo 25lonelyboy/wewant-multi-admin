@@ -5,7 +5,10 @@ import { TELEMETRY_TOPIC_FILTER } from '@multi-admin/contracts';
 import { AppConfigService } from '../../../config/app-config.service.js';
 import { classifyMessage } from './telemetry-message.js';
 import { TelemetryProducer } from './telemetry-producer.js';
-import { TelemetryWindowCounter } from './telemetry-window.js';
+import {
+  TelemetryWindowCounter,
+  type TelemetryWindow
+} from './telemetry-window.js';
 
 /** 聚合日志窗口：逐条打印在 100 台设备下不可读 */
 const REPORT_INTERVAL_MS = 1000;
@@ -41,7 +44,7 @@ export class TelemetrySubscriberService
 
   constructor(private readonly config: AppConfigService) {}
 
-  /** 自启动以来投进队列的报文总数 */
+  /** 自启动以来**真正入队**的报文数（落缓冲与丢弃不计） */
   get receivedTotal(): number {
     return this.enqueued;
   }
@@ -63,26 +66,15 @@ export class TelemetrySubscriberService
     );
 
     // 队列生产者：构造即完成，不 ping、不 await 下游
-    this.producer = new TelemetryProducer({
-      queueRedisUrl: this.config.queueRedisUrl,
-      spillDir: this.config.iotSpillDir,
-      spillMaxBytes: this.config.iotSpillMaxBytes,
-      logger: {
-        info: message => this.logger.log(message),
-        warn: message => this.logger.warn(message),
-        error: message => this.logger.error(message)
-      },
-      onSpillOverflow: message => this.stopSubscribing(message),
-      onSpillFailure: message => this.logger.error(message)
-    });
-    void this.producer.start();
+    this.startProducer();
 
     try {
       const client = mqtt.connect(url, {
         clientId: this.config.mqttClientId,
         protocolVersion: 5,
-        // 会话跨重连保留：QoS 1 的未确认投递才可能在重连后补上
-        clean: false,
+        // 生产缺省 `clean=false`：会话跨重连保留，QoS 1 的未确认投递才可能在重连后补上。
+        // e2e 经 `MQTT_CLEAN_SESSION=true` 起干净会话，甩掉上一轮遗留的 QoS1 积压。
+        clean: this.config.mqttCleanSession,
         properties: {
           sessionExpiryInterval: this.config.mqttSessionExpirySeconds
         }
@@ -129,10 +121,39 @@ export class TelemetrySubscriberService
   }
 
   /**
+   * 装配生产者：仅在 `onModuleInit` 调一次，把生产者的创建与启动收在一处。
+   * 覆写 {@link createProducer} 返回替身后的测试可直接调用本方法，省去真实队列与 MQTT 连接。
+   */
+  protected startProducer(): void {
+    this.producer = this.createProducer();
+    void this.producer.start();
+  }
+
+  /**
+   * 生产者的构造点——覆写本方法即可注入替身（生产链路走真实实现；做成 Nest provider 会因
+   * 超限回调要绑回本实例而绕成循环依赖，故不交给容器）。
+   */
+  protected createProducer(): TelemetryProducer {
+    return new TelemetryProducer({
+      queueRedisUrl: this.config.queueRedisUrl,
+      spillDir: this.config.iotSpillDir,
+      spillMaxBytes: this.config.iotSpillMaxBytes,
+      logger: {
+        info: message => this.logger.log(message),
+        warn: message => this.logger.warn(message),
+        error: message => this.logger.error(message)
+      },
+      onSpillOverflow: message => this.stopSubscribing(message),
+      onSpillFailure: message => this.logger.error(message)
+    });
+  }
+
+  /**
    * 单条报文处理。
    *
    * **"丢弃"分两类、归属不同**：
-   * - `JSON.parse` 失败 ⇒ **原样入队**，由消费者计数与丢弃
+   * - 读不出设备编号（JSON 解析失败，或 `localDeviceId` 缺失 / 非字符串 / 空串）⇒ **原样入队**，
+   *   由消费者计数与丢弃
    * - 主题段 ≠ 载荷 `localDeviceId` ⇒ 订阅端**拦下**（主题是 ACL 的授权单位，身份却以载荷为准
    *   ⇒ 不拦的话，一个已授权设备可以在自己的主题上发别人的编号，数据落进别人的子表）
    */
@@ -150,7 +171,10 @@ export class TelemetrySubscriberService
 
     if (outcome.kind === 'accept') {
       this.seenDevices.add(outcome.localDeviceId);
-      this.counter.record(outcome.localDeviceId);
+      this.counter.recordDevice(outcome.localDeviceId);
+    } else {
+      // 读不出设备编号（JSON 坏、或缺 localDeviceId）：进不了设备视图；报文照样入队 ⇒ 单列计数
+      this.counter.recordUnreadable();
     }
 
     void this.enqueue(raw);
@@ -159,8 +183,16 @@ export class TelemetrySubscriberService
   private async enqueue(raw: string): Promise<void> {
     const producer = this.producer;
     if (producer === null) return;
-    await producer.send(raw);
-    this.enqueued += 1;
+    // 按**实际去向**计数：落缓冲 / 丢弃都不算"入队"
+    const disposition = await producer.send(raw);
+    if (disposition === 'enqueued') {
+      this.enqueued += 1;
+      this.counter.recordEnqueued();
+    } else if (disposition === 'spilled') {
+      this.counter.recordSpilled();
+    } else {
+      this.counter.recordDropped();
+    }
   }
 
   /** 本地缓冲超限：**停订阅 + 告警**。⚠️ 不自动恢复——需人工处置后重启 */
@@ -174,17 +206,30 @@ export class TelemetrySubscriberService
     });
   }
 
-  /** 每秒一行聚合，即验收证据：可 grep、可计数 */
-  private report(): void {
+  /**
+   * 每秒一行聚合，即验收证据：可 grep、可计数。**按去向分列**，因为"入队数"若把落缓冲 /
+   * 丢弃一并算进去，读数就偏高、反而误导。「无法读取编号」与去向**正交**（这类报文照样入队），
+   * 故与三个去向**并列**成列，不写成某个去向的括号附注——否则会被读成"丢弃的子集"而自相矛盾。
+   * 返回本窗口，供调用方与测试读取。
+   */
+  report(): TelemetryWindow {
     const window = this.counter.drain();
     const rejected = this.identityRejected - this.reportedRejected;
     this.reportedRejected = this.identityRejected;
-    if (window.messages === 0 && rejected === 0) return;
+    const active =
+      window.enqueued +
+      window.spilled +
+      window.dropped +
+      window.unreadable +
+      rejected;
+    if (active === 0) return window;
 
     this.logger.log(
-      `telemetry 每秒入队 ${window.messages} 条 / ${window.devices} 台设备` +
+      `telemetry 每秒：入队 ${window.enqueued} / 落缓冲 ${window.spilled} / 丢弃 ${window.dropped}` +
+        ` / 无法读取编号 ${window.unreadable} / ${window.devices} 台设备` +
         (rejected > 0 ? `（身份不一致拦截 ${rejected} 条）` : '')
     );
+    return window;
   }
 
   private logOutage(message: string): void {

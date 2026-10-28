@@ -9,6 +9,7 @@ import { loadConfig } from '../src/config.js';
 import { TelemetryConsumer } from '../src/consumer.js';
 import { createLogger } from '../src/logger.js';
 import { connectTd, destroyTd } from '../src/tdengine/client.js';
+import { TdengineWriter, type PendingRow } from '../src/tdengine/writer.js';
 import { RAW_DATABASE } from '../src/schema.js';
 
 // 连接器会把 winston 的 uncaughtException 处理器摘掉（见 client.ts），这里补上自己的：
@@ -109,6 +110,93 @@ void test('队列 → 消费者 → TDengine：合法报文落库，坏报文与
     assert.equal(stats.written, 3);
     assert.equal(stats.rejected, 1);
     assert.equal(stats.unknownMetrics, 1);
+  } finally {
+    await consumer.close();
+    await sql.close();
+    await queue.obliterate({ force: true }).catch(() => undefined);
+    await queue.close();
+    destroyTd();
+  }
+});
+
+/**
+ * 替身：每次写入自带连接、写完即关；首次只落 n-1 行、报 n-1 ⇒ 制造一次"真实的部分成功"。
+ *
+ * 每次自带连接是刻意的——连接的生命周期归 `close()`，替身不共享连接，就不会在测试进程里
+ * 留下挂住的孤儿连接。
+ */
+function partialFirstWriter(url: string): {
+  writer: TdengineWriter;
+  calls: () => number;
+} {
+  let calls = 0;
+  const writer = {
+    async write(rows: readonly PendingRow[]): Promise<number> {
+      calls += 1;
+      const real = new TdengineWriter(url);
+      try {
+        if (calls === 1 && rows.length > 1) {
+          const dropped = rows.slice(0, rows.length - 1);
+          await real.write(dropped);
+          return dropped.length;
+        }
+        return await real.write(rows);
+      } finally {
+        await real.close();
+      }
+    },
+    invalidate: (): void => undefined,
+    close: (): Promise<void> => Promise.resolve()
+  } as unknown as TdengineWriter;
+  return { writer, calls: () => calls };
+}
+
+void test('部分成功 ⇒ 整批重投：消息重试且不丢数据', async () => {
+  const partialConfig = loadConfig({
+    ...process.env,
+    LOG_LEVEL: 'silent',
+    // 条数触发即 flush，且间隔设得远大于用例时长 ⇒ 首个 flush 必是整批 3 行
+    INGEST_BATCH_SIZE: '3',
+    INGEST_FLUSH_INTERVAL_MS: '60000',
+    INGEST_CONCURRENCY: '10'
+  });
+
+  const queue = new Queue(TELEMETRY_INGEST_QUEUE, {
+    prefix: TELEMETRY_QUEUE_PREFIX,
+    connection: { url: partialConfig.queueRedisUrl }
+  });
+  await queue.obliterate({ force: true }).catch(() => undefined);
+
+  const sql = await connectTd(partialConfig.tdengineUrl, RAW_DATABASE);
+  const { writer, calls } = partialFirstWriter(partialConfig.tdengineUrl);
+  const consumer = new TelemetryConsumer(partialConfig, logger, { writer });
+  consumer.start();
+
+  try {
+    const base = Date.now();
+    for (const ts of [base, base + 1, base + 2]) {
+      await queue.add('ingest', payload('sim-001', ts), {
+        attempts: 3,
+        backoff: { type: 'fixed', delay: 100 }
+      });
+    }
+
+    // 若无重投：首次 flush 丢了 1 行并被 ack ⇒ COUNT 停在 2，这里超时
+    await waitFor(async () => {
+      const rows = await sql.query(
+        `SELECT COUNT(*) FROM ${RAW_DATABASE}.telemetry WHERE ts >= ${base}`
+      );
+      return Number(rows[0]?.[0] ?? 0) >= 3;
+    });
+
+    assert.ok(calls() >= 2, `期望至少重投一次，实际 write 调用 ${calls()} 次`);
+
+    const rows = await sql.query(
+      `SELECT ts FROM ${RAW_DATABASE}.telemetry WHERE ts >= ${base} ORDER BY ts`
+    );
+    assert.equal(rows.length, 3);
+    // 失败那轮不计数：written 只随成功那轮涨 3
+    assert.equal(consumer.stats.written, 3);
   } finally {
     await consumer.close();
     await sql.close();

@@ -1,26 +1,46 @@
 import { TelemetryWindowCounter } from './telemetry-window.js';
 
 describe('TelemetryWindowCounter', () => {
-  it('累计消息数，设备数按 localDeviceId 去重', () => {
+  it('按去向分列计数，设备数按 localDeviceId 去重', () => {
     const counter = new TelemetryWindowCounter();
-    counter.record('sim-001');
-    counter.record('sim-001');
-    counter.record('sim-002');
+    counter.recordEnqueued();
+    counter.recordEnqueued();
+    counter.recordSpilled();
+    counter.recordDropped();
+    counter.recordUnreadable();
+    counter.recordDevice('sim-001');
+    counter.recordDevice('sim-001');
+    counter.recordDevice('sim-002');
 
-    expect(counter.drain()).toEqual({ messages: 3, devices: 2 });
+    expect(counter.drain()).toEqual({
+      enqueued: 2,
+      spilled: 1,
+      dropped: 1,
+      unreadable: 1,
+      devices: 2
+    });
   });
 
   it('drain 后窗口清零', () => {
     const counter = new TelemetryWindowCounter();
-    counter.record('sim-001');
+    counter.recordEnqueued();
 
-    expect(counter.drain()).toEqual({ messages: 1, devices: 1 });
-    expect(counter.drain()).toEqual({ messages: 0, devices: 0 });
+    expect(counter.drain().enqueued).toBe(1);
+    expect(counter.drain()).toEqual({
+      enqueued: 0,
+      spilled: 0,
+      dropped: 0,
+      unreadable: 0,
+      devices: 0
+    });
   });
 
   it('空窗口 drain 全零', () => {
     expect(new TelemetryWindowCounter().drain()).toEqual({
-      messages: 0,
+      enqueued: 0,
+      spilled: 0,
+      dropped: 0,
+      unreadable: 0,
       devices: 0
     });
   });

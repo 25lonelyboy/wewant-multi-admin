@@ -11,6 +11,9 @@ set -euo pipefail
 #   JWT_ACCESS_SECRET    缺省 smoke-access-secret-000000000000000000（38 字符，过 min(32)）
 #   JWT_REFRESH_SECRET   缺省 smoke-refresh-secret-000000000000000000
 #   SMOKE_PORT           缺省 3100（仅 MINGW 分支发布用；Linux --network host 恒 3000）
+#   REDIS_URL / REDIS_PASSWORD
+#                        业务缓存已开认证：优先用显式 REDIS_URL；否则由 REDIS_PASSWORD 构造
+#                        redis://:<pw>@<HOST>:6379；二者都未给则报错（不能回落到无凭据串）
 
 IMAGE="${IMAGE:-multi-admin-server:ci}"
 SMOKE_PORT="${SMOKE_PORT:-3100}"
@@ -32,7 +35,13 @@ else
 fi
 
 DATABASE_URL="${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@${HOST}:5432/multi_admin?schema=public}"
-REDIS_URL="${REDIS_URL:-redis://${HOST}:6379}"
+# 业务缓存已开认证：优先显式 REDIS_URL（CI 由此注入）；否则由 REDIS_PASSWORD 构造宿主形态。
+# 二者都未给即报错退出，绝不回落到无凭据串——那会让 server 启动期 redis ping 因 NOAUTH 抛出、
+# 容器退出、/health 永不 code:0。
+if [ -z "${REDIS_URL:-}" ]; then
+  : "${REDIS_PASSWORD:?请导出带凭据的 REDIS_URL，或导出 REDIS_PASSWORD（业务缓存已开认证）}"
+  REDIS_URL="redis://:${REDIS_PASSWORD}@${HOST}:6379"
+fi
 export DATABASE_URL REDIS_URL ADMIN_INIT_PASSWORD JWT_ACCESS_SECRET JWT_REFRESH_SECRET
 
 echo "▶ 清理旧容器（如有）..."
