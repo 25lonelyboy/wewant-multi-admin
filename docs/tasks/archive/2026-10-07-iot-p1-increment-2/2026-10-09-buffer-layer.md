@@ -2,7 +2,7 @@
 
 - **状态**：**已定稿**（2026-10-09）——Redis 形态与队列形态**五项全部定下**
 - **日期**：2026-10-09
-- **上位**：[ADR-010](../../decisions/ADR-010-ingest-buffer-bullmq.md)（BullMQ 缓冲）——其末节把"队列命名 / 遥测消息信封 / 重试与死信策略 / worker 部署形态"这四项实施细节**移交本任务目录**
+- **上位**：[ADR-010](../../../decisions/ADR-010-ingest-buffer-bullmq.md)（BullMQ 缓冲）——其末节把"队列命名 / 遥测消息信封 / 重试与死信策略 / worker 部署形态"这四项实施细节**移交本任务目录**
 - **已定死的前置**：缓冲组件 BullMQ、位置"订阅后消费者前"、队列 Redis 必须与限流缓存分开（ADR-010 D2/D4）；重试与死信策略见 [第 2 项 §9](2026-10-07-decision-2-write-path.md)（**本文件不重复**）
 - **口径**：**【已核实】**＝官方一手或本机实测｜**【AI 判断】**＝无来源的推论，待验证
 
@@ -10,7 +10,7 @@
 
 ## 1. Redis 形态（已定）
 
-**独立 Redis 实例**——结论与理由写在 [ADR-010 D4](../../decisions/ADR-010-ingest-buffer-bullmq.md)：BullMQ 要求 `maxmemory-policy = noeviction`，而该配置是**实例级**，限流缓存恰好希望有淘汰 ⇒ 只能分实例。
+**独立 Redis 实例**——结论与理由写在 [ADR-010 D4](../../../decisions/ADR-010-ingest-buffer-bullmq.md)：BullMQ 要求 `maxmemory-policy = noeviction`，而该配置是**实例级**，限流缓存恰好希望有淘汰 ⇒ 只能分实例。
 
 **落地时一并的三条**：开 **AOF**；**两类连接的配置不同**（Queue 快速失败 / Worker 无限等待 + `maxRetriesPerRequest: null`）；compose 加服务 ⇒ `ops/check-digests.sh` 预期 pin 数 **10 → 11**。
 

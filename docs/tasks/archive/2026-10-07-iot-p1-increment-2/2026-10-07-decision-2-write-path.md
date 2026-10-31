@@ -36,8 +36,8 @@
 | **schema（第 1 项）** | 按设备功能类别分超表（宁可粗分）；子表 = 采集点；唯一标识 `(deviceId, pointKey)`（第 1 项 §8）；多列；主键 `(子表, ts)`；**类型按分档规则** | [2026-10-07-decision-1-schema.md](2026-10-07-decision-1-schema.md) |
 | **两处冻结取值（已定）** | ① 子表命名规则 `{deviceId}_{pointKey}` ② `localPointId` 缺省 `001` | 同上 §8 |
 | **对设备侧不确定性的三层对策** | 准入约束 → **检测** → 结构兜底；**7 条检测清单** | 同上 §6.6 |
-| **TDengine 客户端** | 固定 `@tdengine/websocket`（MIT）；另两个官方连接器已停止维护 | [ADR-009](../../decisions/ADR-009-iot-platform-p1-stack.md) D3 |
-| **缓冲层** | BullMQ；位于"订阅后、消费者前"；队列 Redis 与限流缓存分开 | [ADR-010](../../decisions/ADR-010-ingest-buffer-bullmq.md) |
+| **TDengine 客户端** | 固定 `@tdengine/websocket`（MIT）；另两个官方连接器已停止维护 | [ADR-009](../../../decisions/ADR-009-iot-platform-p1-stack.md) D3 |
+| **缓冲层** | BullMQ；位于"订阅后、消费者前"；队列 Redis 与限流缓存分开 | [ADR-010](../../../decisions/ADR-010-ingest-buffer-bullmq.md) |
 | **做缓冲的理由** | 解耦 + 可靠消费 + 接入层不被下游拖慢（**不是削峰**） | 同上 D3 |
 
 ⚠️ 改这里的任何一条，等于改对应决策——**不在本卡讨论**。
@@ -892,7 +892,7 @@ flush     2 秒（默认，可配）→ 交接点 250 行/秒
 **连接器 STMT 的实际 API 面**（`WsStmt`）：`prepare / setTableName / setTags / newStmtParam / bind / batch / exec / getLastAffected / close`。
 ⚠️ **类型映射方法挂在 `newStmtParam()` 返回的绑参对象上**（`setTimestamp` / `setFloat` / `setInt` / `setBigint` / `setVarchar` …），**不在 stmt 上**——§6 轴 1 列的那族方法名是对的，归属要说清；调用形态是 `newStmtParam()` → `setXxx([...])` → `bind()` → `batch()` → `exec()`。
 
-**N10 / N11 的结论**：形态② **不是"兼得"方案**——其**字面形态（带 tags）**缺子表时**静默建表**，与 `USING` 同病（N3），顶掉「表存在 ⇔ 已注册」这条不变量；能保住防线的是**省略 tags 的子形态**（缺表报错、一次 exec 跨 100 子表），但它**只在 STMT2 路径成立**，而写入器强制的是 STMT1（形态② 在 STMT1 上 `bind` 即 `512`），且其缺表报错是 `560 Stmt cache error`——该码**不在 `apps/iot-worker/src/failure.ts` 的码表里**（`RETRYABLE_CODES` / `UNRECOVERABLE_CODES` / `TABLE_MISSING_CODES` 与各报文 pattern 均不匹配），按现分类会落进 `basis: 'default'`、判成 **A 类可重试且不提级**，与今天（`9731` ⇒ B 类 + 提级）**相反**——**缺子表会被无限重投而非响亮失败**（该候选须先给 `failure.ts` 补 `560`）。⇒ **现有实现（写死子表名 ⇒ 每个子表一条语句的 STMT1）维持不变**；"省略 tags 的形态② + STMT2"作为一条**带前提的候选**登记进 [全局 backlog](../../governance/backlog.md)。
+**N10 / N11 的结论**：形态② **不是"兼得"方案**——其**字面形态（带 tags）**缺子表时**静默建表**，与 `USING` 同病（N3），顶掉「表存在 ⇔ 已注册」这条不变量；能保住防线的是**省略 tags 的子形态**（缺表报错、一次 exec 跨 100 子表），但它**只在 STMT2 路径成立**，而写入器强制的是 STMT1（形态② 在 STMT1 上 `bind` 即 `512`），且其缺表报错是 `560 Stmt cache error`——该码**不在 `apps/iot-worker/src/failure.ts` 的码表里**（`RETRYABLE_CODES` / `UNRECOVERABLE_CODES` / `TABLE_MISSING_CODES` 与各报文 pattern 均不匹配），按现分类会落进 `basis: 'default'`、判成 **A 类可重试且不提级**，与今天（`9731` ⇒ B 类 + 提级）**相反**——**缺子表会被无限重投而非响亮失败**（该候选须先给 `failure.ts` 补 `560`）。⇒ **现有实现（写死子表名 ⇒ 每个子表一条语句的 STMT1）维持不变**；"省略 tags 的形态② + STMT2"作为一条**带前提的候选**登记进 [全局 backlog](../../../governance/backlog.md)。
 
 **口径澄清（N3 / N4 的适用边界）**：⭐ **"缺子表 ⇒ 报错"这道防线只在「不带 `USING` 的写死子表名」形态下成立**——`USING` 形态（N3）会静默建表，**`tbname` 作绑定参数、且带 tags 的形态②（N10）也会**；N4 那条 `9731 Table does not exist` 同属写死子表名形态。其余写法要么静默建表，要么（STMT1 上的形态②）根本不可表达。
 
@@ -922,6 +922,6 @@ flush     2 秒（默认，可配）→ 交接点 250 行/秒
 | 3 | **错误码表**（含"可能原因 + 建议用户动作"） | `docs.tdengine.com/developer-guide/error-codes/` |
 | 4 | schema、两处冻结取值、三层对策与检测清单 | [2026-10-07-decision-1-schema.md](2026-10-07-decision-1-schema.md) |
 | 5 | 省略列＝`NONE`、`ADD COLUMN` 元数据操作、子表/主键不可改等实测 | 同上 §6.5 与知识库《增量 2 第 1 讲》附录 B |
-| 6 | 社区版镜像与版本（`3.4.2.8.community`） | 本机实测；[ADR-009](../../decisions/ADR-009-iot-platform-p1-stack.md) |
+| 6 | 社区版镜像与版本（`3.4.2.8.community`） | 本机实测；[ADR-009](../../../decisions/ADR-009-iot-platform-p1-stack.md) |
 
 > 查证状态统一维护在知识库 `iot-learning/查证台账.md`（本轮新增项见 #115 起）。

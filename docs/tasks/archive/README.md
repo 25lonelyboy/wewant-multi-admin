@@ -159,3 +159,23 @@
 结论去向：门禁与校验链速查 → [build-and-verify.md](../../engineering/build-and-verify.md)；pre-push 阻断入口 → [scripts/ops/pre-push.mjs](../../../scripts/ops/pre-push.mjs)；CI job → [.github/workflows/ci.yml](../../../.github/workflows/ci.yml)；命令登记 → [AGENTS.md](../../../AGENTS.md)。
 
 归档日期：2026-10-05（pre-push 阻断 + CI 报警 job + `doc:lint` 入口全部落地并合入 master，结论提升完毕）。
+
+## [2026-10-07-iot-p1-increment-2](2026-10-07-iot-p1-increment-2/) —— IoT 平台 P1 · 增量 2「数据链路：缓冲 + 存储」
+
+| 文件 | 说明 |
+|---|---|
+| `README.md` | 任务入口、范围、过程文件索引 |
+| `2026-10-07-decisions.md` | 决策卡总表：背景 / 前置 / 约束 / 待决策 4 项 |
+| `2026-10-07-decision-1-schema.md` | 决策 1（schema）：七轴结论 + 单位模型 + P1 超表清单（DDL 实跑复核） |
+| `2026-10-07-decision-2-write-path.md` | 决策 2（写入方式）：10 条决策轴 + 写入形态探针与 N1–N11 实测 |
+| `2026-10-08-decision-3-protocol-version.md` | 决策 3（MQTT 版本）：25 项本机实测 + 5.0 特性对照 + 混用可观测性 |
+| `2026-10-08-decision-4-lifecycle.md` | 决策 4（生命周期）：KEEP/DURATION/TTL + 删除四手段 + 两轮 32 项实测 + 备份往返 |
+| `2026-10-08-internal-scenario-review.md` | 前提复议（P2 启动输入，不在 P1 实施） |
+| `2026-10-09-buffer-layer.md` | 缓冲层五项定稿：独立 Redis 实例 / 队列命名 / worker 入口 / 保留策略 / 本地落盘 |
+| `2026-10-09-plan.md` | 实施计划 T0–T9 + 贯穿约束 C1–C9 + 三条交付判据 |
+| `2026-10-12-downsample-design.md` | 降采样设计（取代决策 4 的流计算路径）：BullMQ 调度 + 重算 K 窗口 + 三级平级 |
+| `2026-10-12-fix-plan.md` | 第二轮实施计划（收口修复）：27 条覆盖清单挂到 F1–F12 |
+
+结论去向：遥测链路与降采样环事实 → [backend.md](../../architecture/backend.md)；库表与建库 / 对账脚本 → [build-and-verify.md](../../engineering/build-and-verify.md)；选型与缓冲口径 → [ADR-009](../../decisions/ADR-009-iot-platform-p1-stack.md) / [ADR-010](../../decisions/ADR-010-ingest-buffer-bullmq.md)；待跟进项 → [backlog.md](../../governance/backlog.md)。
+
+归档日期：2026-10-31（三条交付判据验收通过，结论提升完毕）。

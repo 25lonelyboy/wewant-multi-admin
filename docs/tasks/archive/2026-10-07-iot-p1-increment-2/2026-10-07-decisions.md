@@ -12,7 +12,7 @@
 | 决策人 | 用户 |
 | 材料准备 | AI |
 | 所属 | P1 增量 2「数据链路：缓冲 + 存储」 |
-| 关联决策 | [ADR-009](../../decisions/ADR-009-iot-platform-p1-stack.md)、[ADR-010](../../decisions/ADR-010-ingest-buffer-bullmq.md) |
+| 关联决策 | [ADR-009](../../../decisions/ADR-009-iot-platform-p1-stack.md)、[ADR-010](../../../decisions/ADR-010-ingest-buffer-bullmq.md) |
 | 规划上下文 | 知识库《wewant 个人项目（AI 编程探索）》的「P1 增量计划（1-7）」节 |
 
 ## 1. 背景
@@ -45,10 +45,10 @@
 
 | 项 | 结论 | 出处 |
 | --- | --- | --- |
-| Broker | EMQX 6.3.x LTS 单节点 | [ADR-009](../../decisions/ADR-009-iot-platform-p1-stack.md) |
+| Broker | EMQX 6.3.x LTS 单节点 | [ADR-009](../../../decisions/ADR-009-iot-platform-p1-stack.md) |
 | 时序库 | TDengine 社区版（与 PG 双库分治） | 同上 |
 | TDengine 客户端 | `@tdengine/websocket`（另两个官方连接器已停止维护） | 同上 D3 |
-| 缓冲组件 | BullMQ | [ADR-010](../../decisions/ADR-010-ingest-buffer-bullmq.md) |
+| 缓冲组件 | BullMQ | [ADR-010](../../../decisions/ADR-010-ingest-buffer-bullmq.md) |
 | 缓冲位置 | 订阅后、消费者前 | 同上 D2 |
 | 队列 Redis | **必须与限流缓存分开**（e2e 的 `flushdb` 会清掉队列状态） | 同上 D4 |
 | 做缓冲的理由 | 解耦 + 可靠消费 + 接入层不被下游拖慢（**不是削峰**） | 同上 D3 |
@@ -283,7 +283,7 @@ CREATE DATABASE power PRECISION 'ms' KEEP 3650 DURATION 10 BUFFER 16;
 | 换什么 | 代价 |
 | --- | --- |
 | 时序库（TDengine） | **极高**——等于重开选型 |
-| 缓冲组件（BullMQ） | **高**——缓冲层是 [ADR-010](../../decisions/ADR-010-ingest-buffer-bullmq.md)，换它等于改 ADR |
+| 缓冲组件（BullMQ） | **高**——缓冲层是 [ADR-010](../../../decisions/ADR-010-ingest-buffer-bullmq.md)，换它等于改 ADR |
 | ⛔ 主键 / 列类型 / 子表边界 / `DURATION` | **不可改** |
 | 降采样路径（流 → 应用层自己算） | **中**——表结构可复用，流定义与窗口逻辑要重写 |
 | 备份方案（`taosdump` → 自研） | **中**——导出可平移，**恢复工具要自己写** |
@@ -299,7 +299,7 @@ CREATE DATABASE power PRECISION 'ms' KEEP 3650 DURATION 10 BUFFER 16;
 | ⭐ **接入第一台真实设备时** | 记录它的**协议版本**（进设备档案）；⚠️ 且 **P2 第 0 步＝先采效率基线**（改造后无法补救） |
 | **增量 3 设备注册落地** | 建表脚本逻辑搬进注册流程（#1/#2 的衔接点）；设备档案加**协议版本**字段 |
 | **要定凭据形态时** | 它与协议版本**同属"连上之前"的约定** ⇒ 必须在设备侧固化前定 |
-| **合规要求落到"必须有数据库级审计"** | 升级企业版；登记进 [backlog](../../governance/backlog.md) |
+| **合规要求落到"必须有数据库级审计"** | 升级企业版；登记进 [backlog](../../../governance/backlog.md) |
 | **规模进入十万级** | 重估批大小、连接数、`VGROUPS` |
 | **增量 6（可观测性与压测）** | 实测真实压缩比、`FROM <源表>` 的重扫代价、流的数量上限 |
 

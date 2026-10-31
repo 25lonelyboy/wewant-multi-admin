@@ -4,14 +4,13 @@
 
 ## 进行中
 
-| 任务 | 说明 |
-| --- | --- |
-| [IoT 平台 P1 · 增量 2「数据链路：缓冲 + 存储」](2026-10-07-iot-p1-increment-2/) | 决策卡 **4 项全部定稿** + **开工前提 9 条已清** + **实施计划已落**（T0–T9）；判据＝落库可见 / 降采样在跑 / 重投不丢 |
+热区暂无进行中任务。
 
 ## 最近已完成
 
 | 任务 | 收口说明 |
 |---|---|
+| IoT 平台 P1 · 增量 2「数据链路：缓冲 + 存储」 | 收口完成：BullMQ 缓冲层 + TDengine 超表 / 子表 + `apps/iot-worker` 消费与降采样环；三条交付判据验收通过（落库可见 426,705 行抽样可查；`telemetry_1m` 逐条对账 200 组差异 0、三级表存在且非空；强杀消费者 61.46 s 后重投一条不丢）。事实源 → [backend.md](../architecture/backend.md)、[build-and-verify.md](../engineering/build-and-verify.md)，选型与缓冲口径 → [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md) / [ADR-010](../decisions/ADR-010-ingest-buffer-bullmq.md)，过程 → [archive/2026-10-07-iot-p1-increment-2/](archive/2026-10-07-iot-p1-increment-2/) |
 | MQTT 设备接入（增量 1） | 收口完成：EMQX 进 compose（digest pin + 仅绑回环）+ 新增 `apps/iot-simulator` + nestjs-server iot 域（通配订阅 + 每秒聚合日志）；判据双证据成立（Broker 侧 101 连接 / 92 msg·s⁻¹ / 1 订阅；订阅端「每秒 100 条 / 300 测点 / 100 台设备」）；验收通过。事实源 → [backend.md](../architecture/backend.md)、[build-and-verify.md](../engineering/build-and-verify.md)，选型与许可口径 → [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md)，过程 → [2026-10-05-iot-p1-increment-1/](2026-10-05-iot-p1-increment-1/) |
 | pure-web 前端测试评估规范与覆盖缺口补齐 | Phase F 收口完成：阈值翻转（91 键 → 全局聚合 + crown-jewel 90）+ living 规范落位 + 索引与任务状态同步；规范 → [frontend-testing-standard.md](../engineering/frontend-testing-standard.md)，决策 → [ADR-008](../decisions/ADR-008-tiered-e2e-testing.md)，过程 → [2026-09-06-frontend-testing-standard/](2026-09-06-frontend-testing-standard/) |
 

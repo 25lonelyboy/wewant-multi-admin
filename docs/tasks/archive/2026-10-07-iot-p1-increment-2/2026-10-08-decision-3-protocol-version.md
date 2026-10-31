@@ -29,7 +29,7 @@
 
 | 项 | 结论 | 出处 |
 | --- | --- | --- |
-| Broker | **EMQX 6.3.x LTS**（社区版，单节点） | [ADR-009](../../decisions/ADR-009-iot-platform-p1-stack.md) |
+| Broker | **EMQX 6.3.x LTS**（社区版，单节点） | [ADR-009](../../../decisions/ADR-009-iot-platform-p1-stack.md) |
 | 客户端库 | `mqtt.js`（`mqtt@5.16.0`） | 同上 |
 | 主题结构 | `wewant/devices/{deviceId}/{channel}`（含 `telemetry` 通道） | `packages/contracts/src/iot/telemetry.ts`，增量 1 冻结 |
 | 载荷格式 | `{ deviceId, ts(epoch ms), metrics: [{key, value, unit}] }` | 同上 |

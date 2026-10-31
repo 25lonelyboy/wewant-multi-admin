@@ -31,7 +31,7 @@ CREATE DATABASE power PRECISION 'ms' KEEP 3650 DURATION 10 BUFFER 16;
 | --- | --- | --- |
 | schema | 按功能类别分超表；子表＝采集点；多列；主键 `(子表, ts)` | [第 1 项决策](2026-10-07-decision-1-schema.md) |
 | 写入方式 | 参数绑定 STMT；子表**预建**；攒批 500 条或 2 s | [第 2 项决策](2026-10-07-decision-2-write-path.md) |
-| 时序库 | TDengine 社区版（与 PG 双库分治） | [ADR-009](../../decisions/ADR-009-iot-platform-p1-stack.md) |
+| 时序库 | TDengine 社区版（与 PG 双库分治） | [ADR-009](../../../decisions/ADR-009-iot-platform-p1-stack.md) |
 | 场景与规模 | **工厂内部效率自用**；**产线级千到万级设备** | [前提复议](2026-10-08-internal-scenario-review.md) |
 
 ---
