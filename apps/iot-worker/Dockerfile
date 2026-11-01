@@ -66,6 +66,10 @@ COPY --from=build-stage /repo/apps/iot-worker/dist ./apps/iot-worker/dist
 # contracts / device-registry 的产物：以裸包名 import，pnpm 链接指向 /repo/packages，缺则 ERR_MODULE_NOT_FOUND
 COPY --from=build-stage /repo/packages ./packages
 
+# @tdengine/websocket 在 import 时就会在 cwd 建 ./logs/（无环境变量可关）；应用目录属主是 root，
+# 以 node 用户运行会 EACCES 崩溃重启 ⇒ 预建日志目录并把应用目录交给 node
+RUN mkdir -p /repo/apps/iot-worker/logs && chown -R node:node /repo/apps/iot-worker
+
 WORKDIR /repo/apps/iot-worker
 USER node
 
