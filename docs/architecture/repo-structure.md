@@ -5,7 +5,7 @@ covers:
   - internal/
   - packages/
   - pnpm-workspace.yaml
-last_verified: 2026-10-13
+last_verified: 2026-11-02
 ---
 
 # Monorepo 结构与边界

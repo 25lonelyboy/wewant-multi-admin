@@ -11,7 +11,7 @@ covers:
   - docker-compose.yml
   - packages/contracts/
   - turbo.json
-last_verified: 2026-10-13
+last_verified: 2026-11-02
 ---
 
 # 构建与验证
@@ -148,8 +148,9 @@ check-digests 远端比对依赖可联网环境：本机无 Registry 直连时�
   - `src/tdengine/client.ts` **仍在报告内**（`downsample/ring.ts` 被单测加载，连带加载它），但它的连接函数（`connectTd` 等）只由 e2e 执行 ⇒ 这部分的覆盖数值下移、实际由 `test:e2e`（CI coverage job 的对应步骤）覆盖，**不**由覆盖率门禁度量。
   即：**门禁是下限，不是运行期路径的完整度量**；消费/降采样链路的真实接线以 `test:e2e` 为准。
 - **降采样逐条对账**（判据②，`apps/iot-worker/scripts/downsample-verify.ts`）：`pnpm --filter @multi-admin/iot-worker run downsample:verify` [选项]。对最近 N 个窗口把「原始表按子表窗口聚合」与降采样表**逐字段**比对（sum/count/min/max + 单位 + deviceId 标签），差异化即报出 `(子表, 窗口, 字段, 期望, 实际)`；三条输出表存在性 + 非空一并查。窗口口径与降采样环**同源**（复用 `window.ts` / `query.ts`），默认**跳过最新一个已闭合窗口**（吸收调度触发抖动）、比对 `K-1` 个窗口；`--now <ms|iso>` 可复算历史段，`--windows` / `--skip` / `--level` 可覆盖默认。浮点列（sum/min/max）取 `1e-9` 相对容差、`count` 精确比较（见脚本注释）。
-  - **K 内 / K 外**：只有落在**环每轮重算的最近 K 个窗口**内的差异判失败、非零退出；`--windows > K` 把范围伸进「环不再维护」的窗口时，那里的差异（晚到数据造成的良性陈旧）只作 `⚠` 提示、不判失败。退出码 0 = K 契约区内无差异且三条输出表存在且非空。
+  - **K 内 / K 外**：只有落在**环每轮重算的最近 K 个窗口**内的差异判失败、非零退出；`--windows > K` 把范围伸进「环不再维护」的窗口时，那里的差异（晚到数据造成的良性陈旧）只作 `⚠` 提示、不判失败。退出码 0 = K 契约区内无差异、**两侧计数均非 0**（原始侧 0 个 `(子表, 窗口)` 或降采样侧 0 行即判失败：「空对账不构成证据」，无 `--allow-empty` 逃生口）、三条输出表存在且非空。
   - **一致性边界**：原始侧与降采样侧是两条独立语句。发现差异时脚本先**重读两侧**再比，只有重读后仍存的差异才报——排除「两次读之间发生一次写入」的假警报。前提是**管道相对静止**；活数据持续到达时，晚到数据造成的差异会在环下一轮重算 + 下次对账后消失。设计 §9 提出用单条 join 消除这条缝，但本机实测该 join 不受支持——约束在**形状**不在库位置：TDengine 要求 join 两侧都是合法时序输入、主时间戳在等值条件里，而**聚合 / 窗口子查询不是这样的输入**（报 `9828 Not supported join…`；纯子查询 ⋈ 同库超表、基础超表跨库 `on ts=` 均可），故用「重读两侧」这条等价做法。
+- **只读子表审计**（`apps/iot-worker/scripts/subtable-audit.ts`）：`pnpm --filter @multi-admin/iot-worker run subtable:audit` [选项]。比对「库内子表」与「注册表期望」的四桶（孤儿 / 缺失 × 原始 / 降采样），任一非空退出码 1；`--json` 输出机器可读报告、`--list-all` 打全量名单（默认每桶最多列 20 张）。只读，**不含删除能力**——开发环境清库用重建卷，正式删除归注销流程。⚠️ 期望集为空（注册表加载失败 / 读到 0 个采集点）时**拒绝判定**，否则整库都会被误报成孤儿。
 - 消费者 e2e（`test/consumer.e2e.ts`）连真实队列与 TDengine：前置 `docker compose up -d redis-queue tdengine` 并 `pnpm ops:tdengine-init`；队列与 TDengine 无假实现可用，这段接线是本应用唯一带真实外部依赖的部分，本地整体前置即 `pnpm ops:env-up`。CI coverage job 已配对应 service 并先跑 `tdengine:init`。
 - ⭐ `test:e2e` 以 `--test-concurrency=1` **串行跑各文件**：多个 e2e 共享同一队列与同一 TDengine，并行会让 `obliterate` / 计数断言互相踩（与 nestjs-server e2e 的 `maxWorkers:1` 同一原因）。三处真实依赖的用例各司其职：
   - `consumer-kill.e2e.ts`——**判据③**：拉起**真实 worker 进程**（`node --import tsx src/index.ts`），在它把一批报文攒在内存、**尚未落库也尚未 ack** 的当口 `SIGKILL`，再起一个 worker，断言重投后**一条不丢、一条不重**（先断言杀前库里 0 行，证明报文只在内存里）。
