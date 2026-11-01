@@ -11,6 +11,7 @@ import {
   checkedWindowRange,
   compareAggregates,
   dsSelectColumns,
+  emptySideFailures,
   expectedRows,
   parseDsRows,
   partitionMismatches,
@@ -508,4 +509,19 @@ void test('降采样读列序与原始聚合读列序对齐（与 query.ts 的�
   assert.equal(DS_DEVICE_ID_INDEX, dsCols.length - 1);
   // 与 dsSelectColumns 同源
   assert.deepEqual(dsSelectColumns(), dsCols);
+});
+
+void test('两侧计数为 0 判失败——空对账不是证据', () => {
+  assert.equal(
+    emptySideFailures({ level: '1m', expectedCount: 0, actualCount: 0 }).length,
+    2
+  );
+  assert.equal(
+    emptySideFailures({ level: '1m', expectedCount: 5, actualCount: 0 }).length,
+    1
+  );
+  assert.equal(
+    emptySideFailures({ level: '1m', expectedCount: 5, actualCount: 5 }).length,
+    0
+  );
 });

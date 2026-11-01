@@ -4,6 +4,7 @@ import { connectTd, destroyTd } from '../src/tdengine/client.js';
 import { DS_LEVELS, RAW_DATABASE, type DsLevel } from '../src/schema.js';
 import {
   checkTablesNonEmpty,
+  emptySideFailures,
   partitionMismatches,
   verifyLevel,
   type LevelVerifyResult,
@@ -214,7 +215,9 @@ async function main(): Promise<void> {
         deviceIdFor
       );
       const counts = printLevel(result);
-      failures += counts.failures;
+      const empty = emptySideFailures(result);
+      for (const message of empty) console.log(`      ✖ ${message}`);
+      failures += counts.failures + empty.length;
       informational += counts.informational;
     }
 
@@ -235,7 +238,7 @@ async function main(): Promise<void> {
     }
     if (failed > 0) {
       console.error(
-        `\n✖ 对账失败：K 契约区内 ${failures} 处差异，${tableIssues.length} 处输出表问题（${Date.now() - started} ms）`
+        `\n✖ 对账失败：K 契约区内 ${failures} 处问题（含空对账），${tableIssues.length} 处输出表问题（${Date.now() - started} ms）`
       );
       process.exitCode = 1;
     } else {

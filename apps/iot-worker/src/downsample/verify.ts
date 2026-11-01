@@ -355,6 +355,27 @@ export interface LevelVerifyResult {
   mismatches: VerifyMismatch[];
 }
 
+/**
+ * 两侧计数为 0 的护栏。
+ *
+ * 流量停了时脚本会拿 0 组比 0 组、结论仍是"差异 0 处 · 对账通过"——0 组不是证据。
+ * 这里只提供判据，不提供 `--allow-empty` 开关：要观察空库就别跑这个脚本。
+ */
+export function emptySideFailures(
+  result: Pick<LevelVerifyResult, 'level' | 'expectedCount' | 'actualCount'>
+): string[] {
+  const failures: string[] = [];
+  if (result.expectedCount === 0) {
+    failures.push(
+      `[${result.level}] 原始侧 0 个 (子表,窗口)：空对账不构成证据——按数据最后时间戳用 --now 取窗口，或先起流量`
+    );
+  }
+  if (result.actualCount === 0) {
+    failures.push(`[${result.level}] 降采样侧 0 行：空对账不构成证据——同上`);
+  }
+  return failures;
+}
+
 /** 只读查询依赖——生产是 `TdSql`，单测注入替身以隔离 TDengine */
 export interface VerifyQuery {
   query(sql: string): Promise<TdRow[]>;
