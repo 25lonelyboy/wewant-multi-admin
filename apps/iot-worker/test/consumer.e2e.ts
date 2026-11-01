@@ -10,7 +10,43 @@ import { TelemetryConsumer } from '../src/consumer.js';
 import { createLogger } from '../src/logger.js';
 import { connectTd, destroyTd } from '../src/tdengine/client.js';
 import { TdengineWriter, type PendingRow } from '../src/tdengine/writer.js';
-import { RAW_DATABASE } from '../src/schema.js';
+import { p1DeviceRegistry } from '@multi-admin/device-registry';
+import { DS_DATABASE, RAW_DATABASE, dsSubtableName } from '../src/schema.js';
+import { LEVEL_SPECS } from '../src/downsample/level.js';
+import { lastClosedBoundary } from '../src/downsample/window.js';
+import type { TdSql } from '../src/tdengine/client.js';
+
+const SUBTABLE = ((): string => {
+  const resolved = p1DeviceRegistry.resolve('sim-001');
+  assert.ok(resolved.ok, 'sim-001 应在 P1 档案里');
+  return `${resolved.deviceId}_${resolved.pointKey}`.toLowerCase();
+})();
+
+/**
+ * 删掉这段数据在三级降采样里可能产生的窗口行。
+ *
+ * 本进程不跑降采样环，但**另一个开着环的 worker**（含 CI 的 worker 容器）会把同一段算成
+ * 1m/1h/1d 三行——只删 1m 会留下 1h/1d 的残留。
+ */
+async function deleteDsWindows(
+  sql: TdSql,
+  fromMs: number,
+  toMs: number
+): Promise<void> {
+  for (const spec of LEVEL_SPECS) {
+    const starts = new Set([
+      lastClosedBoundary(fromMs, spec),
+      lastClosedBoundary(toMs, spec)
+    ]);
+    for (const start of starts) {
+      await sql
+        .exec(
+          `DELETE FROM ${DS_DATABASE}.${dsSubtableName(SUBTABLE, spec.level)} WHERE ts = ${start}`
+        )
+        .catch(() => undefined);
+    }
+  }
+}
 
 // 连接器会把 winston 的 uncaughtException 处理器摘掉（见 client.ts），这里补上自己的：
 // 否则未捕获异常会让进程静默退出，什么也看不到。
@@ -67,8 +103,8 @@ void test('队列 → 消费者 → TDengine：合法报文落库，坏报文与
   const consumer = new TelemetryConsumer(config, logger);
   consumer.start();
 
+  const ts = Date.now();
   try {
-    const ts = Date.now();
     await queue.add('ingest', payload('sim-001', ts));
     await queue.add('ingest', payload('sim-001', ts + 1));
     // 坏 JSON：原样入队 → 消费者判 malformed，不入库
@@ -112,6 +148,12 @@ void test('队列 → 消费者 → TDengine：合法报文落库，坏报文与
     assert.equal(stats.unknownMetrics, 1);
   } finally {
     await consumer.close();
+    await deleteDsWindows(sql, ts, ts + 2);
+    await sql
+      .exec(
+        `DELETE FROM ${RAW_DATABASE}.${SUBTABLE} WHERE ts >= ${ts} AND ts < ${ts + 3}`
+      )
+      .catch(() => undefined);
     await sql.close();
     await queue.obliterate({ force: true }).catch(() => undefined);
     await queue.close();
@@ -172,8 +214,8 @@ void test('部分成功 ⇒ 整批重投：消息重试且不丢数据', async (
   const consumer = new TelemetryConsumer(partialConfig, logger, { writer });
   consumer.start();
 
+  const base = Date.now();
   try {
-    const base = Date.now();
     for (const ts of [base, base + 1, base + 2]) {
       await queue.add('ingest', payload('sim-001', ts), {
         attempts: 3,
@@ -199,6 +241,12 @@ void test('部分成功 ⇒ 整批重投：消息重试且不丢数据', async (
     assert.equal(consumer.stats.written, 3);
   } finally {
     await consumer.close();
+    await deleteDsWindows(sql, base, base + 2);
+    await sql
+      .exec(
+        `DELETE FROM ${RAW_DATABASE}.${SUBTABLE} WHERE ts >= ${base} AND ts < ${base + 3}`
+      )
+      .catch(() => undefined);
     await sql.close();
     await queue.obliterate({ force: true }).catch(() => undefined);
     await queue.close();
