@@ -24,6 +24,7 @@
     "@multi-admin/device-registry": "workspace:*",
     "@tdengine/websocket": "catalog:",
     "bullmq": "catalog:",
+    "ioredis": "catalog:",
     "pino": "catalog:",
     "zod": "catalog:"
   },

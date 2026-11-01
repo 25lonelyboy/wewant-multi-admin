@@ -1,7 +1,9 @@
 import { loadConfig } from './config.js';
 import { TelemetryConsumer } from './consumer.js';
 import { DownsampleRing } from './downsample/ring.js';
+import { startHeartbeat } from './heartbeat.js';
 import { createLogger } from './logger.js';
+import { createRedis } from './redis-store.js';
 import { destroyTd } from './tdengine/client.js';
 
 /**
@@ -15,6 +17,9 @@ const logger = createLogger(config);
 
 const consumer = new TelemetryConsumer(config, logger);
 consumer.start();
+
+// 心跳：事件环在转 + 队列 Redis 可达时定时刷新键；卡死则键过期，容器探针据此判 unhealthy
+const heartbeat = startHeartbeat(createRedis(config.queueRedisUrl), logger);
 
 // 降采样环与消费环**并列**、各自独立队列：任一条跑挂不得带走另一条（§3.5）
 const ring = config.downsampleEnabled
@@ -37,21 +42,23 @@ logger.info(
   'iot-worker 已启动'
 );
 
-const shutdown = (signal: string): void => {
+const shutdown = async (signal: string): Promise<void> => {
   logger.info({ signal }, '收到停止信号，先落库再退出');
-  Promise.all([consumer.close(), ring?.close() ?? Promise.resolve()])
-    .then(() => {
-      logger.info(consumer.stats, 'iot-worker 已停止');
-      // 释放连接器持有的全局资源（连接池 / 定时器等）——不调它进程可能停不干净
-      destroyTd();
-      process.exit(0);
-    })
-    .catch(error => {
-      logger.error({ err: String(error) }, '停机失败');
-      destroyTd();
-      process.exit(1);
-    });
+  try {
+    await Promise.all([
+      consumer.close(),
+      ring?.close() ?? Promise.resolve(),
+      heartbeat.stop()
+    ]);
+    logger.info(consumer.stats, 'iot-worker 已停止');
+    destroyTd();
+    process.exit(0);
+  } catch (error) {
+    logger.error({ err: String(error) }, '停机失败');
+    destroyTd();
+    process.exit(1);
+  }
 };
 
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));
+process.on('SIGTERM', () => void shutdown('SIGTERM'));

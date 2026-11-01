@@ -166,6 +166,12 @@ services:
       NODE_ENV: production
       QUEUE_REDIS_URL: ${QUEUE_REDIS_URL:-redis://redis-queue:6379}
       TDENGINE_URL: ${TDENGINE_URL:-ws://root:taosdata@tdengine:6041}
+    healthcheck:
+      test: ['CMD', 'node', 'dist/healthcheck.js']
+      interval: 30s
+      timeout: 5s
+      retries: 2
+      start_period: 30s
     depends_on:
       redis-queue:
         condition: service_healthy
