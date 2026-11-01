@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/require-await -- 替身按同步方式返回值，只为满足 async 接口形状 */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { runHealthcheck } from '../src/healthcheck.js';
+import { runHealthcheck } from '../src/healthcheck-core.js';
 import type { RedisLike } from '../src/redis-store.js';
 
 function storeWith(value: string | null): RedisLike {
