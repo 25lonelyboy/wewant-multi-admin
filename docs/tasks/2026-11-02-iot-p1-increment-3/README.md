@@ -1,10 +1,31 @@
 # IoT 平台 P1 · 增量 3「物模型」· L1 阶段目标
 
-- **状态**：草稿（2026-11-01），待定稿后逐项决策
+- **状态**：L1 已定稿；S0 已完成（2026-11-02）；S1 未开始
 - **时间窗**：2026-11-02 ~ 11-15（每周 8–10 h）｜下一里程碑 M2 = 2026-12-06
 - **判据**：[阶段地图](../../governance/iot-stage-map.md) §2 —— 新增设备只按物模型注册即可接入，**不改代码**
 - **覆盖层**：治理（并改存储与计算的接口面）
 - **规划上下文**：L0 阶段地图 §1–§3；缺口来源见 [backlog](../../governance/backlog.md) 中物模型相关 7 项
+
+## 当前状态（2026-11-02）
+
+**已完成**：S0「债务清理与护栏」四项落地 + 两个计划外缺陷修复（worker 镜像起不来、探针 fail-open），验收见 [S0 验收记录](2026-11-02-s0-baseline.md)。提交在 master、未推送。
+
+**下一步**：D2 决策卡——模型 → 超表的划分粒度 × 列集合（含列类型与降采样列推导）。前置材料已有 [行业输入](2026-11-01-thing-model-industry-input.md) 的矩阵与倾向；三问中「担心什么」「以前见过类似的吗」已答，第一问由 L1 判据代答。
+
+**未决**：D1–D5 全部未定；D2 定完才进 S1 → S3。
+
+**怎么验证 S0 仍然成立**：
+
+```bash
+pnpm ops:env-up
+pnpm --filter @multi-admin/iot-worker run subtable:audit     # 四桶应全空、退出 0
+pnpm --filter @multi-admin/iot-worker run downsample:verify  # 无流量时应退出 1
+pnpm check
+```
+
+**环境注意**：跑 iot-worker 的 e2e 前先 `docker compose stop worker`——两者消费同一队列，worker 会抢走测试 job。当前 worker 已停，其余服务仍在跑。
+
+**已知未修**（均有触发点，明细在 `.superpowers/sdd/progress.md`）：e2e 的降采样侧证据是构造必然；`healthcheck-core` 的重试分支无单测；审计的期望子表名未再做小写归一（**D3 换成 PG 档案时必须补**，否则整片误报）。
 
 ## 过程文件
 
