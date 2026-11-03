@@ -1,16 +1,18 @@
 # IoT 平台 P1 · 增量 3「物模型」· L1 阶段目标
 
-- **状态**：L1 已定稿；S0 已完成（2026-11-02）；D2、D4 已收口（2026-11-03）；S0.5 计划已出、未开工
+- **状态**：L1 已定稿；S0 已完成（2026-11-02）；D2、D4 已收口（2026-11-03）；S0.5 已完成（2026-11-04）
 - **时间窗**：2026-11-02 ~ 11-15（每周 8–10 h）｜下一里程碑 M2 = 2026-12-06
 - **判据**：[阶段地图](../../governance/iot-stage-map.md) §2 —— 新增设备只按物模型注册即可接入，**不改代码**
 - **覆盖层**：治理（并改存储与计算的接口面）
 - **规划上下文**：L0 阶段地图 §1–§3；缺口来源见 [backlog](../../governance/backlog.md) 中物模型相关 7 项
 
-## 当前状态（2026-11-03）
+## 当前状态（2026-11-04）
 
-**已完成**：S0「债务清理与护栏」四项 + 两个计划外缺陷修复（worker 镜像起不来、探针 fail-open）；**D2** 六个子问题全部定案；**D4** 三项全部定案；两条本机实测通过（`ADD COLUMN` 传播到已有子表、列名上限 64 / 表名上限 192）。提交在 master、未推送。
+**已完成**：S0「债务清理与护栏」四项 + 两个计划外缺陷修复（worker 镜像起不来、探针 fail-open）；**D2** 六个子问题全部定案；**D4** 三项全部定案；**S0.5「单设备单子表」** 交付完成——契约与档案去掉采集点层（`TelemetryPayload.localPointId`、`DeviceRecord.singlePoint/points`、`SubtableRef.pointKey` 均已删除，查档失败只剩 `unknown-device`），超表改 `{模型编码}`、子表改 `{模型编码}_{deviceId}`（P1 占位模型编码 `p1`），超表与降采样表的单位列全部删除（降采样行 16 → 13 列）。两条本机实测通过（`ADD COLUMN` 传播到已有子表、列名上限 64 / 表名上限 192）。提交在 master、未推送。
 
-**下一步**：S0.5「单设备单子表」已出[实施计划](2026-11-04-s05-implementation-plan.md)，尚未开工。范围四项：子表名改 `{模型编码}_{deviceId}`、载荷删 `localPointId`、档案删采集点层、超表与降采样表删单位列。需要 Docker 并重建表；P1 尚无物模型，用占位模型编码 `p1` 衔接 S3。
+**S0.5 验收证据**（2026-11-04，重建卷后取证）：`SHOW wewant_iot.STABLES` = `p1`，`SHOW wewant_iot_ds.STABLES` = `p1_1m` / `p1_1h` / `p1_1d`；`SHOW wewant_iot.TABLES` 100 张子表均为 `p1_<deviceId>`；`DESCRIBE wewant_iot.p1` 无任何 `_unit` 列，降采样超表 13 个数据列（+ `deviceId` 标签）；`tdengine:init` 连跑两次表数与名集合一致；`subtable:audit` 四桶全空、退出 0；`consumer.e2e` 所在套件 8/8 通过；`pnpm check` 与 `pnpm doc:lint` 全绿。
+
+**下一步**：执行未决决策 D3（注册原子性）→ D1（档案承载与 worker 读取）→ D5（版本边界与注销），再进入物模型本体（S1 起）。
 
 **未决**：D1（档案承载与 worker 读取）、D3（注册原子性）、D5（版本边界与注销）。执行顺序 D3 → D1 → D5。
 
@@ -23,7 +25,7 @@ pnpm --filter @multi-admin/iot-worker run downsample:verify  # 无流量时应�
 pnpm check
 ```
 
-**环境注意**：docker 当前未启动（2026-11-03 停的 tdengine）；跑 iot-worker 的 e2e 前先 `docker compose stop worker`——两者消费同一队列，worker 会抢走测试 job。
+**环境注意**：跑 iot-worker 的 e2e 前先 `docker compose stop worker`——两者消费同一队列，worker 会抢走测试 job。表结构变更后需 `docker compose down -v` 再 `pnpm ops:env-up` 重建（本地开发库可丢）。
 
 **已知未修**（均有触发点，明细在 `.superpowers/sdd/progress.md`）：e2e 的降采样侧证据是构造必然；`healthcheck-core` 的重试分支无单测；审计的期望子表名未再做小写归一（**D3 换成 PG 档案时必须补**，否则整片误报）；结构体内部字段不可查（已登记 backlog）；错钟设备的全部数据会被拒、现象与设备掉线相同（D4 代价，告警接收方缺位）。
 
