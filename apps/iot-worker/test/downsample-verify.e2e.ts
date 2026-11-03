@@ -49,7 +49,7 @@ process.on('unhandledRejection', reason => {
 const config = loadConfig({ ...process.env, LOG_LEVEL: 'silent' });
 const logger = createLogger(config);
 
-/** 挑一台**远离其它 e2e** 的采集点（其余用例用 [0..2]） */
+/** 挑一台**远离其它 e2e** 的设备（其余用例用 [0..2]） */
 const subtable = p1DeviceRegistry.allSubtables()[50];
 
 /** 选一段远离既有数据（本库数据集中在 2026-10 上旬）的整点窗口 */

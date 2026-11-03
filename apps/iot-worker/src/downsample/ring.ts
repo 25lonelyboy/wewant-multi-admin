@@ -88,6 +88,13 @@ export class DownsampleRing {
   private readonly writer: TdengineWriter<DsAggregateRow>;
   private readonly queue: Queue;
   private readonly worker: Worker;
+  /**
+   * 要重算的模型编码——**构造时快照一次**。
+   *
+   * ⚠️ 新模型加入档案后本进程不会自己发现，须重启 worker 才参与计算（今日的档案是编译期常量，
+   * 无差别）。档案改成运行期可变（S2）之后，是「重读」还是「重启」由 D3 定；不要在这里默默改成
+   * 每 tick 重读——那会把一次档案读取失败变成静默停摆。
+   */
   private readonly modelCodes: readonly string[];
 
   private sql: TdSql | null = null;

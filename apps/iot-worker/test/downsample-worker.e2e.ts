@@ -35,7 +35,7 @@ process.on('unhandledRejection', reason => {
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const config = loadConfig({ ...process.env, LOG_LEVEL: 'silent' });
 
-/** 挑一台**远离其它 e2e** 的采集点（其余用例用 [0..2]） */
+/** 挑一台**远离其它 e2e** 的设备（其余用例用 [0..2]） */
 const subtable = p1DeviceRegistry.allSubtables()[51];
 const spec = levelSpec('1m');
 

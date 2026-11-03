@@ -30,14 +30,19 @@ export const DURATION_DAYS = 10;
 /** 设备标识宽度：决策 1 §8.2 的 16 位 */
 const DEVICE_ID_WIDTH = 16;
 
-/** 原始超表名：即模型编码 */
+/**
+ * 原始超表名：即模型编码，折小写。
+ *
+ * ⚠️ **折小写必须与 `subtableName` 一致**：TDengine 存标识符时折小写，而审计拿
+ * `information_schema` 里的小写名去比这些函数算出的期望名——一边折一边不折就会整片误报。
+ */
 export function rawStableName(modelCode: string): string {
-  return modelCode;
+  return modelCode.toLowerCase();
 }
 
-/** 降采样超表名：`{模型编码}_{级别}` */
+/** 降采样超表名：`{模型编码}_{级别}`，折小写（同 `rawStableName`） */
 export function dsStableName(modelCode: string, level: DsLevel): string {
-  return `${modelCode}_${level}`;
+  return `${modelCode}_${level}`.toLowerCase();
 }
 
 /** 降采样子表名的级别后缀——命名约定的唯一出处（建表端与对账报告共用，勿各处重打） */
@@ -99,7 +104,7 @@ export function alterDsMinuteKeepStatement(modelCode: string): string {
 }
 
 /**
- * 降采样子表：每采集点每级一张，表名见 `dsSubtableName`。
+ * 降采样子表：每设备每级一张，表名见 `dsSubtableName`。
  *
  * ⚠️ 表名与标签值的写法同 `createSubtableStatement`：表名折小写，**标签值保留原样**。
  */

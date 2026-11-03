@@ -109,6 +109,14 @@ void test('降采样子表：每设备三级各一，名带级别后缀、标签
   }
 });
 
+void test('超表名与子表名一样折小写——审计拿小写名比对期望集', () => {
+  assert.equal(createRawStableStatement('P1'), createRawStableStatement('p1'));
+  assert.deepEqual(
+    createDsStableStatements('Meter'),
+    createDsStableStatements('meter')
+  );
+});
+
 void test('分钟级超表级 KEEP 小于降采样库级 KEEP', () => {
   assert.ok(DS_MINUTE_KEEP_DAYS < 3650);
   assert.equal(DS_DATABASE, 'wewant_iot_ds');

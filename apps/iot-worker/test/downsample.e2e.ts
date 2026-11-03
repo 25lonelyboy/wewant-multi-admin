@@ -53,7 +53,7 @@ process.on('unhandledRejection', reason => {
 const config = loadConfig({ ...process.env, LOG_LEVEL: 'silent' });
 const logger = createLogger(config);
 
-/** 挑一台已登记的采集点——原始子表与降采样子表都已在库里 */
+/** 挑一台已登记的设备——原始子表与降采样子表都已在库里 */
 const subtable = p1DeviceRegistry.allSubtables()[0];
 
 /**

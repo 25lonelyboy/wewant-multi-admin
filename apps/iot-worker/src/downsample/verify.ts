@@ -1,5 +1,6 @@
 import {
   DS_DATABASE,
+  DS_LEVELS,
   RAW_METRICS,
   dsLevelSuffix,
   dsStableName,
@@ -488,7 +489,7 @@ export async function checkTablesNonEmpty(
 ): Promise<TableIssue[]> {
   const issues: TableIssue[] = [];
   for (const modelCode of modelCodes) {
-    for (const level of ['1m', '1h', '1d'] as const) {
+    for (const level of DS_LEVELS) {
       const table = `${DS_DATABASE}.${dsStableName(modelCode, level)}`;
       try {
         const rows = await query.query(`SELECT ts FROM ${table} LIMIT 1`);
