@@ -48,7 +48,6 @@ wewant/devices/{localDeviceId}/telemetry
 ```
 
 - `ts` 为 epoch 毫秒：设备侧无时区上下文，毫秒数在链路上无歧义，且与 TDengine 的时间戳存储同形。
-- `localPointId`（可选）为设备自报的采集点编号，**仅多点设备需要**；单点设备可缺省。
 - `metrics` 一次携带多个测点，落库时即拆成 `(ts, deviceId, key, value)` 三元组（这里的 `deviceId` 是**平台签发**的，由档案从 `localDeviceId` 映射而来）。
 - QoS 0。投递保证（QoS 语义、持久会话、重复与幂等）属数据链路增量，不在接入增量内。
 

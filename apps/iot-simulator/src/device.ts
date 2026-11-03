@@ -14,8 +14,8 @@ export interface DeviceOptions {
  * 启动一台虚拟设备：一条 MQTT 连接 + 一个定时上行。clientId 用本地编号，
  * 与生产口径「clientId 绑定设备身份」同形。
  *
- * ⚠️ 模拟器**不读设备档案**：它只报自己编的 `localDeviceId`，平台的 `deviceId` /
- * `pointKey` 对它不可见——一旦可见，它模拟的就不再是真实链路的形态。
+ * ⚠️ 模拟器**不读设备档案**：它只报自己编的 `localDeviceId`，平台的 `deviceId` 与
+ * 设备档案对它不可见——一旦可见，它模拟的就不再是真实链路的形态。
  */
 export function startDevice({
   url,
