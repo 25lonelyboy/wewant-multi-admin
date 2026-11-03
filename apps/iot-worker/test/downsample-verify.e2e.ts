@@ -75,8 +75,8 @@ function pendingFrom(sample: (typeof RAW_ROWS)[number]): PendingRow {
 }
 
 /** 让 T0 那一段成为**最后一个已闭合窗口**：右边界越过网格 90s */
-function nowForOneMinute(): number {
-  return T0 + levelSpec('1m').windowMs + 90_000;
+function nowFor(level: '1m' | '1h' | '1d'): number {
+  return T0 + levelSpec(level).windowMs + 90_000;
 }
 
 /** 期望标签：建表端按注册表写死 ⇒ 对账的期望来源也用注册表 */
@@ -92,11 +92,13 @@ async function cleanup(sql: TdSql): Promise<void> {
       `DELETE FROM ${RAW_DATABASE}.${subtable.name} WHERE ts >= ${T0} AND ts < ${T0 + 60_000}`
     )
     .catch(() => undefined);
-  await sql
-    .exec(
-      `DELETE FROM ${DS_DATABASE}.${dsSubtableName(subtable.name, '1m')} WHERE ts = ${lastClosedBoundary(T0, levelSpec('1m'))}`
-    )
-    .catch(() => undefined);
+  for (const level of ['1m', '1h', '1d'] as const) {
+    await sql
+      .exec(
+        `DELETE FROM ${DS_DATABASE}.${dsSubtableName(subtable.name, level)} WHERE ts = ${lastClosedBoundary(T0, levelSpec(level))}`
+      )
+      .catch(() => undefined);
+  }
 }
 
 void test('判据②对账：驱动 F6 脚本逐字段比对；注入一处缺失后脚本**必须报出**', async () => {
@@ -106,7 +108,7 @@ void test('判据②对账：驱动 F6 脚本逐字段比对；注入一处缺�
     queue: inertQueue,
     worker: inertWorker
   });
-  const nowMs = nowForOneMinute();
+  const nowMs = nowFor('1m');
   const options: CheckRangeOptions = {
     lookback: config.downsampleLookbackWindows,
     // 默认 N=K-1、S=1：范围内每个窗口都被环最近一轮覆盖 ⇒ 任何差异都是真缺陷
@@ -123,6 +125,9 @@ void test('判据②对账：驱动 F6 脚本逐字段比对；注入一处缺�
       '原始行应全部落库'
     );
     assert.equal(await ring.recompute('1m', nowMs), 1, '应恰好写 1 行');
+    // 判据②的另一半要求三级输出表都非空 ⇒ 同一批原始行也各算一次 1h / 1d
+    assert.equal(await ring.recompute('1h', nowFor('1h')), 1, '1h 应写 1 行');
+    assert.equal(await ring.recompute('1d', nowFor('1d')), 1, '1d 应写 1 行');
 
     // 2) 干净对账：逐字段比，应零差异
     const clean = await verifyLevel(
