@@ -155,9 +155,9 @@ interface LevelCounts {
 }
 
 function printLevel(result: LevelVerifyResult): LevelCounts {
-  const { range, level } = result;
+  const { range, level, modelCode } = result;
   console.log(
-    `[${level}] 窗口 [${iso(range.startMs)}, ${iso(range.endMs)}) ` +
+    `[${modelCode}/${level}] 窗口 [${iso(range.startMs)}, ${iso(range.endMs)}) ` +
       `共 ${range.windows} 个（skip=${range.skip}，K=${range.lookback}，` +
       `保证被环最近一轮覆盖=${range.guaranteed}）`
   );
@@ -183,9 +183,9 @@ async function main(): Promise<void> {
   const config = loadConfig();
 
   // 期望标签：建表端按注册表写死 ⇒ 这里也用注册表作为期望来源
-  const deviceIds = new Map(
-    p1DeviceRegistry.allSubtables().map(sub => [sub.name, sub.deviceId])
-  );
+  const subtables = p1DeviceRegistry.allSubtables();
+  const modelCodes = [...new Set(subtables.map(sub => sub.modelCode))];
+  const deviceIds = new Map(subtables.map(sub => [sub.name, sub.deviceId]));
   const deviceIdFor = (rawName: string): string | null =>
     deviceIds.get(rawName) ?? null;
 
@@ -202,28 +202,31 @@ async function main(): Promise<void> {
 
     let failures = 0;
     let informational = 0;
-    for (const level of options.levels) {
-      const result = await verifyLevel(
-        sql,
-        level,
-        options.nowMs,
-        {
-          lookback,
-          windows: options.windows,
-          skip: options.skip
-        },
-        deviceIdFor
-      );
-      const counts = printLevel(result);
-      const empty = emptySideFailures(result);
-      for (const message of empty) console.log(`      ✖ ${message}`);
-      failures += counts.failures + empty.length;
-      informational += counts.informational;
+    for (const modelCode of modelCodes) {
+      for (const level of options.levels) {
+        const result = await verifyLevel(
+          sql,
+          modelCode,
+          level,
+          options.nowMs,
+          {
+            lookback,
+            windows: options.windows,
+            skip: options.skip
+          },
+          deviceIdFor
+        );
+        const counts = printLevel(result);
+        const empty = emptySideFailures(result);
+        for (const message of empty) console.log(`      ✖ ${message}`);
+        failures += counts.failures + empty.length;
+        informational += counts.informational;
+      }
     }
 
-    const tableIssues = await checkTablesNonEmpty(sql);
+    const tableIssues = await checkTablesNonEmpty(sql, modelCodes);
     if (tableIssues.length === 0) {
-      console.log('  输出表：✔ 三条存在且非空');
+      console.log('  输出表：✔ 各模型三条存在且非空');
     } else {
       for (const issue of tableIssues) {
         console.log(`  输出表：✖ ${issue.message}`);

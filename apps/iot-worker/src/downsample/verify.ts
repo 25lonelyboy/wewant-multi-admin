@@ -168,17 +168,18 @@ export function partitionMismatches(
 /**
  * 降采样表的读查询。
  *
- * ⚠️ 不复用 `query.ts` 的 `buildAggregateSql`：它写死 `FROM wewant_iot.telemetry`、取 `_wstart`，
+ * ⚠️ 不复用 `query.ts` 的 `buildAggregateSql`：它写死原始库与 `_wstart`，
  * 是给**原始侧**用的；这里读降采样侧，来源表不同。列序约定见 `dsSelectColumns`。
  */
 export function buildDsReadSql(
+  modelCode: string,
   spec: DsLevelSpec,
   startMs: number,
   endMs: number
 ): string {
   return [
     `SELECT ${dsSelectColumns().join(', ')}`,
-    `FROM ${DS_DATABASE}.${dsStableName(spec.level)}`,
+    `FROM ${DS_DATABASE}.${dsStableName(modelCode, spec.level)}`,
     `WHERE ts >= ${startMs} AND ts < ${endMs}`
   ].join(' ');
 }
@@ -346,6 +347,7 @@ export function compareAggregates(
 
 /** 单级对账结果 */
 export interface LevelVerifyResult {
+  modelCode: string;
   level: DsLevel;
   range: CheckRange;
   /** 范围内原始侧聚合出的 `(子表, 窗口)` 数 */
@@ -390,17 +392,22 @@ interface PassResult {
 /** 读两侧一次并比对——原始聚合（复用 `buildAggregateSql`）与降采样行 */
 async function readAndCompare(
   query: VerifyQuery,
+  modelCode: string,
   spec: DsLevelSpec,
   level: DsLevel,
   range: CheckRange,
   deviceIdFor: (rawName: string) => string | null
 ): Promise<PassResult> {
   const rawAggregates = parseAggregateRows(
-    await query.query(buildAggregateSql(spec, range.startMs, range.endMs)),
+    await query.query(
+      buildAggregateSql(modelCode, spec, range.startMs, range.endMs)
+    ),
     level
   );
   const dsRows = parseDsRows(
-    await query.query(buildDsReadSql(spec, range.startMs, range.endMs)),
+    await query.query(
+      buildDsReadSql(modelCode, spec, range.startMs, range.endMs)
+    ),
     level
   );
   const expected = expectedRows(rawAggregates, level);
@@ -426,6 +433,7 @@ async function readAndCompare(
  */
 export async function verifyLevel(
   query: VerifyQuery,
+  modelCode: string,
   level: DsLevel,
   nowMs: number,
   options: CheckRangeOptions,
@@ -434,13 +442,28 @@ export async function verifyLevel(
   const spec = levelSpec(level);
   const range = checkedWindowRange(nowMs, spec, options);
 
-  let pass = await readAndCompare(query, spec, level, range, deviceIdFor);
+  let pass = await readAndCompare(
+    query,
+    modelCode,
+    spec,
+    level,
+    range,
+    deviceIdFor
+  );
   if (pass.mismatches.length > 0) {
     // 有差异 ⇒ 排除"两条语句之间发生了一次写入"这类假警报：重读两侧再比，只留仍存的差异
-    pass = await readAndCompare(query, spec, level, range, deviceIdFor);
+    pass = await readAndCompare(
+      query,
+      modelCode,
+      spec,
+      level,
+      range,
+      deviceIdFor
+    );
   }
 
   return {
+    modelCode,
     level,
     range,
     expectedCount: pass.expected.length,
@@ -451,40 +474,46 @@ export async function verifyLevel(
 
 /** 输出表存在性检查结果 */
 export interface TableIssue {
+  modelCode: string;
   level: DsLevel;
   kind: 'missing' | 'empty';
   message: string;
 }
 
 /**
- * 三条输出表**都存在且非空**（判据②的另一半）。
+ * 各模型的输出表**都存在且非空**（判据②的另一半）。
  *
  * ⚠️ 用 `LIMIT 1` 取一行判空，不用 `COUNT(*)`——后者要扫全表；`COUNT(DISTINCT …)` 在 TDengine 里
  * **不可信**（实测真值 1 却返回 100，C11），本脚本任何位置都不用它。
  */
 export async function checkTablesNonEmpty(
-  query: VerifyQuery
+  query: VerifyQuery,
+  modelCodes: readonly string[]
 ): Promise<TableIssue[]> {
   const issues: TableIssue[] = [];
-  for (const level of ['1m', '1h', '1d'] as const) {
-    const table = `${DS_DATABASE}.${dsStableName(level)}`;
-    try {
-      const rows = await query.query(`SELECT ts FROM ${table} LIMIT 1`);
-      if (rows.length === 0) {
+  for (const modelCode of modelCodes) {
+    for (const level of ['1m', '1h', '1d'] as const) {
+      const table = `${DS_DATABASE}.${dsStableName(modelCode, level)}`;
+      try {
+        const rows = await query.query(`SELECT ts FROM ${table} LIMIT 1`);
+        if (rows.length === 0) {
+          issues.push({
+            modelCode,
+            level,
+            kind: 'empty',
+            message: `输出表 ${table} 存在但为空`
+          });
+        }
+      } catch (error) {
         issues.push({
+          modelCode,
           level,
-          kind: 'empty',
-          message: `输出表 ${table} 存在但为空`
+          kind: 'missing',
+          message: `输出表 ${table} 不存在或不可读：${
+            error instanceof Error ? error.message : String(error)
+          }`
         });
       }
-    } catch (error) {
-      issues.push({
-        level,
-        kind: 'missing',
-        message: `输出表 ${table} 不存在或不可读：${
-          error instanceof Error ? error.message : String(error)
-        }`
-      });
     }
   }
   return issues;

@@ -1,5 +1,6 @@
 import { Queue, UnrecoverableError, Worker, type Job } from 'bullmq';
 import { TELEMETRY_QUEUE_PREFIX } from '@multi-admin/contracts';
+import { p1DeviceRegistry } from '@multi-admin/device-registry';
 import { DS_LEVELS, RAW_DATABASE, type DsLevel } from '../schema.js';
 import type { WorkerConfig } from '../config.js';
 import {
@@ -14,6 +15,7 @@ import {
   LEVEL_SPECS,
   assertLevelCoverage,
   levelSpec,
+  type DsLevelSpec,
   type LevelSchedule
 } from './level.js';
 import { buildAggregateSql } from './query.js';
@@ -64,6 +66,15 @@ export interface RingDeps {
   writer?: TdengineWriter<DsAggregateRow>;
   queue?: Queue;
   worker?: Worker;
+  /** 要重算的模型编码；缺省从 P1 档案去重。单测注入假列表覆盖多模型分支 */
+  modelCodes?: readonly string[];
+}
+
+/** 档案里出现过的模型编码（去重）——建表与计算共用同一份来源 */
+export function registryModelCodes(): string[] {
+  return [
+    ...new Set(p1DeviceRegistry.allSubtables().map(sub => sub.modelCode))
+  ];
 }
 
 /**
@@ -77,6 +88,7 @@ export class DownsampleRing {
   private readonly writer: TdengineWriter<DsAggregateRow>;
   private readonly queue: Queue;
   private readonly worker: Worker;
+  private readonly modelCodes: readonly string[];
 
   private sql: TdSql | null = null;
   private retryTimer: NodeJS.Timeout | null = null;
@@ -93,6 +105,7 @@ export class DownsampleRing {
     assertLevelCoverage();
 
     this.connect = deps.connect ?? connectTd;
+    this.modelCodes = deps.modelCodes ?? registryModelCodes();
     this.writer =
       deps.writer ??
       new TdengineWriter<DsAggregateRow>(
@@ -156,6 +169,8 @@ export class DownsampleRing {
    * 按需重算一级的最近 K 个已闭合窗口。`nowMs` 默认取墙上时钟——**生产路径**；
    * 单测与验收可注入它复算历史段。
    *
+   * ⚠️ 每个模型编码各算一次（每条原始超表是独立输入）；**建表与计算必须同形**，
+   * 否则会「建了 N 张超表、只算 1 张」。
    * ⚠️ 任一环节失败**原样抛出**（C10）：交给 BullMQ 记入 failed/重试，绝不在此吞掉后报成功。
    */
   async recompute(level: DsLevel, nowMs: number = Date.now()): Promise<number> {
@@ -165,14 +180,38 @@ export class DownsampleRing {
       spec,
       this.config.downsampleLookbackWindows
     );
+
+    let total = 0;
+    for (const modelCode of this.modelCodes) {
+      total += await this.recomputeModel(
+        modelCode,
+        level,
+        spec,
+        startMs,
+        endMs
+      );
+    }
+    return total;
+  }
+
+  private async recomputeModel(
+    modelCode: string,
+    level: DsLevel,
+    spec: DsLevelSpec,
+    startMs: number,
+    endMs: number
+  ): Promise<number> {
     const rows = await this.readAggregates(
-      buildAggregateSql(spec, startMs, endMs)
+      buildAggregateSql(modelCode, spec, startMs, endMs)
     );
     const aggregates = parseAggregateRows(rows, level);
 
     if (aggregates.length === 0) {
       // 空窗口不是失败：这一段确实没有原始数据，落 0 行是正确结果
-      this.logger.debug({ level, startMs, endMs }, '降采样窗口无数据');
+      this.logger.debug(
+        { modelCode, level, startMs, endMs },
+        '降采样窗口无数据'
+      );
       return 0;
     }
 
@@ -186,6 +225,7 @@ export class DownsampleRing {
       if (failure.connectionLevel) this.writer.invalidate();
       this.logger.error(
         {
+          modelCode,
           level,
           startMs,
           endMs,
@@ -209,7 +249,10 @@ export class DownsampleRing {
       );
     }
 
-    this.logger.info({ level, startMs, endMs, rows: affected }, '降采样完成');
+    this.logger.info(
+      { modelCode, level, startMs, endMs, rows: affected },
+      '降采样完成'
+    );
     return affected;
   }
 

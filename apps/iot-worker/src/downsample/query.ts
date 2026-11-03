@@ -1,4 +1,4 @@
-import { RAW_DATABASE, RAW_METRICS, RAW_STABLE } from '../schema.js';
+import { RAW_DATABASE, RAW_METRICS, rawStableName } from '../schema.js';
 import { intervalClause, type DsLevelSpec } from './level.js';
 
 /**
@@ -10,6 +10,7 @@ import { intervalClause, type DsLevelSpec } from './level.js';
  * ⭐ SELECT 的列序即行映射的索引口径——改这里须同步 `rows.ts`。
  */
 export function buildAggregateSql(
+  modelCode: string,
   spec: DsLevelSpec,
   startMs: number,
   endMs: number
@@ -27,7 +28,7 @@ export function buildAggregateSql(
 
   return [
     `SELECT tbname, _wstart AS ts, ${[...aggregates, ...units].join(', ')}`,
-    `FROM ${RAW_DATABASE}.${RAW_STABLE}`,
+    `FROM ${RAW_DATABASE}.${rawStableName(modelCode)}`,
     `WHERE ts >= ${startMs} AND ts < ${endMs}`,
     `PARTITION BY tbname`,
     intervalClause(spec)

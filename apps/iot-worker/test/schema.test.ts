@@ -32,9 +32,10 @@ void test('建库语句带 KEEP 与 DURATION，且幂等', () => {
   );
 });
 
-void test('原始超表：每测点「值 + 单位」两列，标签只有 deviceId', () => {
-  const statement = createRawStableStatement();
+void test('原始超表：名为模型编码，每测点「值 + 单位」两列，标签只有 deviceId', () => {
+  const statement = createRawStableStatement('p1');
 
+  assert.match(statement, /^CREATE STABLE IF NOT EXISTS wewant_iot\.p1 /);
   for (const metric of RAW_METRICS) {
     assert.match(statement, new RegExp(`\\b${metric} FLOAT`));
     assert.match(statement, new RegExp(`\\b${metric}_unit VARCHAR\\(16\\)`));
@@ -45,21 +46,26 @@ void test('原始超表：每测点「值 + 单位」两列，标签只有 devic
 
 void test('子表名折小写、标签值保留原样', () => {
   const statement = createSubtableStatement({
-    name: 'aweawq05e8pf53wh_001',
+    name: 'p1_aweawq05e8pf53wh',
     deviceId: 'AWEAWQ05E8PF53WH',
     modelCode: 'p1'
   });
 
   assert.match(statement, /INTO|USING/);
-  assert.match(statement, /USING wewant_iot\.telemetry/);
+  assert.match(statement, /USING wewant_iot\.p1/);
   assert.match(statement, /TAGS \('AWEAWQ05E8PF53WH'\)/);
 });
 
-void test('降采样超表三级同形，共 16 列', () => {
-  const statements = createDsStableStatements();
+void test('降采样超表三级同形、名为模型编码加级别，共 16 列', () => {
+  const statements = createDsStableStatements('p1');
   assert.equal(statements.length, 3);
 
-  for (const statement of statements) {
+  for (const [index, statement] of statements.entries()) {
+    const level = DS_LEVELS[index];
+    assert.match(
+      statement,
+      new RegExp(`^CREATE STABLE IF NOT EXISTS wewant_iot_ds\\.p1_${level} `)
+    );
     for (const metric of RAW_METRICS) {
       assert.match(statement, new RegExp(`sum_${metric} DOUBLE`));
       assert.match(statement, new RegExp(`count_${metric} BIGINT`));
@@ -74,18 +80,18 @@ void test('降采样超表三级同形，共 16 列', () => {
 
 void test('降采样子表名：仅追加级别后缀，不改动原表名', () => {
   assert.equal(
-    dsSubtableName('aweawq05e8pf53wh_001', '1m'),
-    'aweawq05e8pf53wh_001_1m'
+    dsSubtableName('p1_aweawq05e8pf53wh', '1m'),
+    'p1_aweawq05e8pf53wh_1m'
   );
   assert.equal(
-    dsSubtableName('aweawq05e8pf53wh_001', '1d'),
-    'aweawq05e8pf53wh_001_1d'
+    dsSubtableName('p1_aweawq05e8pf53wh', '1d'),
+    'p1_aweawq05e8pf53wh_1d'
   );
 });
 
-void test('降采样子表：每采集点三级各一，名带级别后缀、标签值保留原样', () => {
+void test('降采样子表：每设备三级各一，名带级别后缀、标签值保留原样', () => {
   const subtable = {
-    name: 'aweawq05e8pf53wh_001',
+    name: 'p1_aweawq05e8pf53wh',
     deviceId: 'AWEAWQ05E8PF53WH',
     modelCode: 'p1'
   };
@@ -95,7 +101,7 @@ void test('降采样子表：每采集点三级各一，名带级别后缀、标
   for (const level of DS_LEVELS) {
     assert.ok(
       statements.includes(
-        `CREATE TABLE IF NOT EXISTS ${DS_DATABASE}.${subtable.name}_${level} USING ${DS_DATABASE}.telemetry_${level} TAGS ('${subtable.deviceId}')`
+        `CREATE TABLE IF NOT EXISTS ${DS_DATABASE}.${subtable.name}_${level} USING ${DS_DATABASE}.p1_${level} TAGS ('${subtable.deviceId}')`
       ),
       `缺少 ${level} 的降采样子表建表语句`
     );

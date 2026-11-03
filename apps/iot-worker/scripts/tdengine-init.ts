@@ -5,14 +5,14 @@ import {
   DS_DATABASE,
   DS_LEVELS,
   RAW_DATABASE,
-  RAW_STABLE,
   alterDsMinuteKeepStatement,
   createDatabaseStatements,
   createDsStableStatements,
   createDsSubtableStatements,
   createRawStableStatement,
   createSubtableStatement,
-  dsStableName
+  dsStableName,
+  rawStableName
 } from '../src/schema.js';
 
 /**
@@ -64,24 +64,26 @@ async function main(): Promise<void> {
     }
     console.log(`  ✔ 建库：${RAW_DATABASE} / ${DS_DATABASE}`);
 
-    await sql.exec(createRawStableStatement());
-    console.log(`  ✔ 超表：${RAW_DATABASE}.${RAW_STABLE}`);
-
     const subtables = p1DeviceRegistry.allSubtables();
+    // ⚠️ 建表与降采样计算必须同形：都按档案里出现过的模型编码逐个处理
+    const modelCodes = [...new Set(subtables.map(sub => sub.modelCode))];
+
+    for (const modelCode of modelCodes) {
+      await sql.exec(createRawStableStatement(modelCode));
+      console.log(`  ✔ 超表：${RAW_DATABASE}.${rawStableName(modelCode)}`);
+      for (const statement of createDsStableStatements(modelCode)) {
+        await sql.exec(statement);
+      }
+      await sql.exec(alterDsMinuteKeepStatement(modelCode));
+      console.log(
+        `  ✔ 降采样超表：${DS_LEVELS.map(level => `${DS_DATABASE}.${dsStableName(modelCode, level)}`).join(' / ')}`
+      );
+    }
+
     for (const subtable of subtables) {
       await sql.exec(createSubtableStatement(subtable));
     }
     console.log(`  ✔ 子表：${subtables.length} 张`);
-
-    for (const statement of createDsStableStatements()) {
-      await sql.exec(statement);
-    }
-    console.log(
-      `  ✔ 降采样超表：${DS_LEVELS.map(level => `${DS_DATABASE}.${dsStableName(level)}`).join(' / ')}`
-    );
-
-    await sql.exec(alterDsMinuteKeepStatement());
-    console.log('  ✔ 分钟级超表级 KEEP');
 
     const streams = await existingStreamNames(sql);
     for (const name of streams) {

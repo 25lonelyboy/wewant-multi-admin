@@ -132,9 +132,9 @@ void test('checkedWindowRange：S+N>K 时不保证覆盖', () => {
   assert.equal(range.guaranteed, false);
 });
 
-void test('buildDsReadSql：读降采样超表，含 deviceId，边界用 epoch 毫秒', () => {
-  const sql = buildDsReadSql(levelSpec('1m'), 1000, 2000);
-  assert.match(sql, /FROM wewant_iot_ds\.telemetry_1m/);
+void test('buildDsReadSql：读模型对应的降采样超表，含 deviceId，边界用 epoch 毫秒', () => {
+  const sql = buildDsReadSql('p1', levelSpec('1m'), 1000, 2000);
+  assert.match(sql, /FROM wewant_iot_ds\.p1_1m\b/);
   assert.match(sql, /WHERE ts >= 1000 AND ts < 2000/);
   assert.match(sql, /deviceId/);
   for (const metric of RAW_METRICS) {
@@ -335,11 +335,13 @@ void test('verifyLevel：分流读原始与降采样，逐条比后无差异', a
       [rawRow(RAW_NAME, WINDOW)],
       [dsRow(DS_1M, WINDOW, {}, 'ABCDEFGHIJKLMNOP')]
     ),
+    'p1',
     '1m',
     NOW,
     { lookback: 3 },
     () => 'ABCDEFGHIJKLMNOP'
   );
+  assert.equal(result.modelCode, 'p1');
   assert.equal(result.level, '1m');
   assert.equal(result.expectedCount, 1);
   assert.equal(result.actualCount, 1);
@@ -355,6 +357,7 @@ void test('verifyLevel：降采样值被改 ⇒ 报出该条', async () => {
       [rawRow(RAW_NAME, WINDOW)],
       [dsRow(DS_1M, WINDOW, { sum_temperature: 12345 })]
     ),
+    'p1',
     '1m',
     NOW,
     { lookback: 3 }
@@ -363,18 +366,18 @@ void test('verifyLevel：降采样值被改 ⇒ 报出该条', async () => {
   assert.equal(result.mismatches[0]?.field, 'sum_temperature');
 });
 
-void test('checkTablesNonEmpty：三条都有数据 ⇒ 无问题', async () => {
+void test('checkTablesNonEmpty：每个模型的三条表都有数据 ⇒ 无问题', async () => {
   const query: VerifyQuery = {
     query: () => Promise.resolve([[1]])
   };
-  assert.deepEqual(await checkTablesNonEmpty(query), []);
+  assert.deepEqual(await checkTablesNonEmpty(query, ['p1', 'meter']), []);
 });
 
 void test('checkTablesNonEmpty：空表 ⇒ empty', async () => {
   const query: VerifyQuery = {
     query: () => Promise.resolve([])
   };
-  const issues = await checkTablesNonEmpty(query);
+  const issues = await checkTablesNonEmpty(query, ['p1']);
   assert.equal(issues.length, 3);
   assert.ok(issues.every(issue => issue.kind === 'empty'));
 });
@@ -383,7 +386,7 @@ void test('checkTablesNonEmpty：查询抛错 ⇒ missing', async () => {
   const query: VerifyQuery = {
     query: () => Promise.reject(new Error('table not exist'))
   };
-  const issues = await checkTablesNonEmpty(query);
+  const issues = await checkTablesNonEmpty(query, ['p1']);
   assert.equal(issues.length, 3);
   assert.ok(issues.every(issue => issue.kind === 'missing'));
 });
@@ -454,7 +457,7 @@ void test('verifyLevel：首轮差异若重读后消失（跨了一次写入）�
       return Promise.resolve([rawRow(RAW_NAME, WINDOW)]);
     }
   };
-  const result = await verifyLevel(query, '1m', NOW, { lookback: 3 });
+  const result = await verifyLevel(query, 'p1', '1m', NOW, { lookback: 3 });
   assert.ok(dsCalls >= 2, '发现差异后应重读两侧');
   assert.deepEqual(result.mismatches, []);
 });
@@ -479,7 +482,7 @@ void test('verifyLevel：两侧都在两次读之间变化 ⇒ 只重读一侧�
       ]);
     }
   };
-  const result = await verifyLevel(query, '1m', NOW, { lookback: 3 });
+  const result = await verifyLevel(query, 'p1', '1m', NOW, { lookback: 3 });
   assert.ok(rawCalls >= 2, '原始侧必须重读');
   assert.ok(dsCalls >= 2, '降采样侧必须重读');
   assert.deepEqual(result.mismatches, []);
@@ -500,8 +503,8 @@ function selectColumns(sql: string): string[] {
 }
 
 void test('降采样读列序与原始聚合读列序对齐（与 query.ts 的耦合漂移即失败）', () => {
-  const rawCols = selectColumns(buildAggregateSql(levelSpec('1m'), 0, 1));
-  const dsCols = selectColumns(buildDsReadSql(levelSpec('1m'), 0, 1));
+  const rawCols = selectColumns(buildAggregateSql('p1', levelSpec('1m'), 0, 1));
+  const dsCols = selectColumns(buildDsReadSql('p1', levelSpec('1m'), 0, 1));
   // 原始侧 ['tbname','ts', 聚合…, 单位…]；降采样侧仅末尾多一列 deviceId
   assert.deepEqual(dsCols.slice(0, -1), rawCols);
   assert.equal(dsCols[dsCols.length - 1], 'deviceId');

@@ -125,7 +125,14 @@ void test('判据②对账：驱动 F6 脚本逐字段比对；注入一处缺�
     assert.equal(await ring.recompute('1m', nowMs), 1, '应恰好写 1 行');
 
     // 2) 干净对账：逐字段比，应零差异
-    const clean = await verifyLevel(sql, '1m', nowMs, options, deviceIdFor);
+    const clean = await verifyLevel(
+      sql,
+      subtable.modelCode,
+      '1m',
+      nowMs,
+      options,
+      deviceIdFor
+    );
     assert.ok(clean.expectedCount >= 1, '范围内应有原始聚合');
     assert.equal(
       clean.mismatches.length,
@@ -133,13 +140,20 @@ void test('判据②对账：驱动 F6 脚本逐字段比对；注入一处缺�
       `干净态不该有差异：${JSON.stringify(clean.mismatches)}`
     );
     // 三条输出表存在且非空（判据②的另一半）
-    assert.deepEqual(await checkTablesNonEmpty(sql), []);
+    assert.deepEqual(await checkTablesNonEmpty(sql, [subtable.modelCode]), []);
 
     // 3) ⭐ 注入一处**真差异**——删掉那一行；脚本必须报出（否则它只会"看起来通过"）
     await sql.exec(
       `DELETE FROM ${DS_DATABASE}.${dsSubtableName(subtable.name, '1m')} WHERE ts = ${windowStart}`
     );
-    const broken = await verifyLevel(sql, '1m', nowMs, options, deviceIdFor);
+    const broken = await verifyLevel(
+      sql,
+      subtable.modelCode,
+      '1m',
+      nowMs,
+      options,
+      deviceIdFor
+    );
     const mine = broken.mismatches.find(
       mismatch =>
         mismatch.subtable === subtable.name && mismatch.ts === windowStart
@@ -153,7 +167,14 @@ void test('判据②对账：驱动 F6 脚本逐字段比对；注入一处缺�
 
     // 4) 还原：把该行重算回来 ⇒ 脚本又对得上（数据库回到干净态）
     assert.equal(await ring.recompute('1m', nowMs), 1, '重算应补回那一行');
-    const restored = await verifyLevel(sql, '1m', nowMs, options, deviceIdFor);
+    const restored = await verifyLevel(
+      sql,
+      subtable.modelCode,
+      '1m',
+      nowMs,
+      options,
+      deviceIdFor
+    );
     assert.equal(
       restored.mismatches.length,
       0,

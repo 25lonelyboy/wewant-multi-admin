@@ -5,9 +5,6 @@ export const RAW_DATABASE = 'wewant_iot';
 /** 降采样库：聚合结果。库级 KEEP 10 年；分钟级再靠**超表级** KEEP 收到 3 年 */
 export const DS_DATABASE = 'wewant_iot_ds';
 
-/** 原始超表 */
-export const RAW_STABLE = 'telemetry';
-
 /**
  * 单次 `bind` 的行数上限 = 2¹⁵−1（本机探针实测：32767 行成功、32768 行报
  * `bind number out of range or not match`，与列数无关）。`INGEST_BATCH_SIZE` 超出它会在
@@ -35,8 +32,14 @@ const DEVICE_ID_WIDTH = 16;
 /** 单位列宽：原始库与降采样库同宽 */
 const UNIT_WIDTH = 16;
 
-export function dsStableName(level: DsLevel): string {
-  return `telemetry_${level}`;
+/** 原始超表名：即模型编码 */
+export function rawStableName(modelCode: string): string {
+  return modelCode;
+}
+
+/** 降采样超表名：`{模型编码}_{级别}` */
+export function dsStableName(modelCode: string, level: DsLevel): string {
+  return `${modelCode}_${level}`;
 }
 
 /** 降采样子表名的级别后缀——命名约定的唯一出处（建表端与对账报告共用，勿各处重打） */
@@ -62,26 +65,26 @@ export function createDatabaseStatements(): string[] {
   ];
 }
 
-/** 原始超表：`ts` + 每测点「值 + 单位」；标签只留 `deviceId`（决策 1 §8.7 的 P1 版） */
-export function createRawStableStatement(): string {
+/** 原始超表（一台设备对应模型一张）：`ts` + 每测点「值 + 单位」；标签只留 `deviceId` */
+export function createRawStableStatement(modelCode: string): string {
   const columns = RAW_METRICS.flatMap(metric => [
     `${metric} FLOAT`,
     `${metric}_unit VARCHAR(${UNIT_WIDTH})`
   ]).join(', ');
-  return `CREATE STABLE IF NOT EXISTS ${RAW_DATABASE}.${RAW_STABLE} (ts TIMESTAMP, ${columns}) TAGS (deviceId VARCHAR(${DEVICE_ID_WIDTH}))`;
+  return `CREATE STABLE IF NOT EXISTS ${RAW_DATABASE}.${rawStableName(modelCode)} (ts TIMESTAMP, ${columns}) TAGS (deviceId VARCHAR(${DEVICE_ID_WIDTH}))`;
 }
 
 /**
- * 子表：**一个采集点一张表**。
+ * 子表：**一台设备一张表**，挂在它模型编码对应的原始超表下。
  *
  * ⚠️ 表名用折小写形态；**标签值保留原样**——TDengine 标识符不分大小写、标签值分。
  */
 export function createSubtableStatement(subtable: SubtableRef): string {
-  return `CREATE TABLE IF NOT EXISTS ${RAW_DATABASE}.${subtable.name} USING ${RAW_DATABASE}.${RAW_STABLE} TAGS ('${subtable.deviceId}')`;
+  return `CREATE TABLE IF NOT EXISTS ${RAW_DATABASE}.${subtable.name} USING ${RAW_DATABASE}.${rawStableName(subtable.modelCode)} TAGS ('${subtable.deviceId}')`;
 }
 
 /** 降采样超表：每测点四个**可再聚合量** + 单位列 */
-export function createDsStableStatements(): string[] {
+export function createDsStableStatements(modelCode: string): string[] {
   const columns = [
     ...RAW_METRICS.flatMap(metric => [
       `sum_${metric} DOUBLE`,
@@ -94,13 +97,13 @@ export function createDsStableStatements(): string[] {
 
   return DS_LEVELS.map(
     level =>
-      `CREATE STABLE IF NOT EXISTS ${DS_DATABASE}.${dsStableName(level)} (ts TIMESTAMP, ${columns}) TAGS (deviceId VARCHAR(${DEVICE_ID_WIDTH}))`
+      `CREATE STABLE IF NOT EXISTS ${DS_DATABASE}.${dsStableName(modelCode, level)} (ts TIMESTAMP, ${columns}) TAGS (deviceId VARCHAR(${DEVICE_ID_WIDTH}))`
   );
 }
 
 /** 分钟级超表级 KEEP——重复设同一个值是空操作，可随建库脚本反复执行 */
-export function alterDsMinuteKeepStatement(): string {
-  return `ALTER STABLE ${DS_DATABASE}.${dsStableName('1m')} KEEP ${DS_MINUTE_KEEP_DAYS}`;
+export function alterDsMinuteKeepStatement(modelCode: string): string {
+  return `ALTER STABLE ${DS_DATABASE}.${dsStableName(modelCode, '1m')} KEEP ${DS_MINUTE_KEEP_DAYS}`;
 }
 
 /**
@@ -111,6 +114,6 @@ export function alterDsMinuteKeepStatement(): string {
 export function createDsSubtableStatements(subtable: SubtableRef): string[] {
   return DS_LEVELS.map(
     level =>
-      `CREATE TABLE IF NOT EXISTS ${DS_DATABASE}.${dsSubtableName(subtable.name, level)} USING ${DS_DATABASE}.${dsStableName(level)} TAGS ('${subtable.deviceId}')`
+      `CREATE TABLE IF NOT EXISTS ${DS_DATABASE}.${dsSubtableName(subtable.name, level)} USING ${DS_DATABASE}.${dsStableName(subtable.modelCode, level)} TAGS ('${subtable.deviceId}')`
   );
 }

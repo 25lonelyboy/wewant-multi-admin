@@ -139,6 +139,7 @@ function makeRing(deps: {
   writer: TdengineWriter<DsAggregateRow>;
   queue: Queue;
   worker: Worker;
+  modelCodes?: readonly string[];
 }): DownsampleRing {
   const config = loadConfig({
     ...process.env,
@@ -169,6 +170,30 @@ void test('recompute：把窗口聚合写进**带级别后缀**的降采样子�
       DS_CODEC.subtable(row),
       dsSubtableName('m5obq5cr2hcze10j_001', '1m')
     );
+  } finally {
+    await ring.close();
+  }
+});
+
+void test('⭐ 多模型：每个模型编码各跑一次聚合查询、各写一次', async () => {
+  const { connect, queries } = fakeConnect([aggRow()]);
+  const { writer, written } = fakeWriter(rows => rows.length);
+  const { queue } = fakeQueue();
+  const { worker } = fakeWorker();
+  const ring = makeRing({
+    connect,
+    writer,
+    queue,
+    worker,
+    modelCodes: ['p1', 'meter']
+  });
+  try {
+    const count = await ring.recompute('1m', NOW);
+    assert.equal(count, 2, '两个模型各写 1 行');
+    assert.equal(queries.length, 2, '每个模型编码一次聚合查询');
+    assert.ok(queries.some(sql => /FROM wewant_iot\.p1\b/.test(sql)));
+    assert.ok(queries.some(sql => /FROM wewant_iot\.meter\b/.test(sql)));
+    assert.equal(written.length, 2);
   } finally {
     await ring.close();
   }

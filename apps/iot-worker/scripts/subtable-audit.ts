@@ -73,7 +73,7 @@ async function main(): Promise<void> {
         JSON.stringify({ expected: expected.length, ...report }, null, 2)
       );
     } else {
-      console.log(`▶ 子表审计：期望 ${expected.length} 个采集点`);
+      console.log(`▶ 子表审计：期望 ${expected.length} 台设备`);
       printReport(report, options.listAll);
     }
     const total = Object.values(report).reduce(

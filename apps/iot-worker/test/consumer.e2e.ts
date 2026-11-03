@@ -11,16 +11,23 @@ import { createLogger } from '../src/logger.js';
 import { connectTd, destroyTd } from '../src/tdengine/client.js';
 import { TdengineWriter, type PendingRow } from '../src/tdengine/writer.js';
 import { p1DeviceRegistry } from '@multi-admin/device-registry';
-import { DS_DATABASE, RAW_DATABASE, dsSubtableName } from '../src/schema.js';
+import {
+  DS_DATABASE,
+  RAW_DATABASE,
+  dsSubtableName,
+  rawStableName
+} from '../src/schema.js';
 import { LEVEL_SPECS } from '../src/downsample/level.js';
 import { lastClosedBoundary } from '../src/downsample/window.js';
 import type { TdSql } from '../src/tdengine/client.js';
 
-const SUBTABLE = ((): string => {
+const RESOLVED = ((): { modelCode: string; subtable: string } => {
   const resolved = p1DeviceRegistry.resolve('sim-001');
   assert.ok(resolved.ok, 'sim-001 应在 P1 档案里');
-  return resolved.subtable;
+  return resolved;
 })();
+const SUBTABLE = RESOLVED.subtable;
+const RAW_TABLE = `${RAW_DATABASE}.${rawStableName(RESOLVED.modelCode)}`;
 
 /**
  * 删掉这段数据在三级降采样里可能产生的窗口行。
@@ -124,13 +131,13 @@ void test('队列 → 消费者 → TDengine：合法报文落库，坏报文与
 
     await waitFor(async () => {
       const rows = await sql.query(
-        `SELECT COUNT(*) FROM ${RAW_DATABASE}.telemetry WHERE ts >= ${ts}`
+        `SELECT COUNT(*) FROM ${RAW_TABLE} WHERE ts >= ${ts}`
       );
       return Number(rows[0]?.[0] ?? 0) >= 3;
     });
 
     const rows = await sql.query(
-      `SELECT ts, temperature, current FROM ${RAW_DATABASE}.telemetry WHERE ts >= ${ts} ORDER BY ts`
+      `SELECT ts, temperature, current FROM ${RAW_TABLE} WHERE ts >= ${ts} ORDER BY ts`
     );
     assert.equal(rows.length, 3);
     // 第三条只带了 temperature，current 整列不写 ⇒ 落成 NONE
@@ -226,7 +233,7 @@ void test('部分成功 ⇒ 整批重投：消息重试且不丢数据', async (
     // 若无重投：首次 flush 丢了 1 行并被 ack ⇒ COUNT 停在 2，这里超时
     await waitFor(async () => {
       const rows = await sql.query(
-        `SELECT COUNT(*) FROM ${RAW_DATABASE}.telemetry WHERE ts >= ${base}`
+        `SELECT COUNT(*) FROM ${RAW_TABLE} WHERE ts >= ${base}`
       );
       return Number(rows[0]?.[0] ?? 0) >= 3;
     });
@@ -234,7 +241,7 @@ void test('部分成功 ⇒ 整批重投：消息重试且不丢数据', async (
     assert.ok(calls() >= 2, `期望至少重投一次，实际 write 调用 ${calls()} 次`);
 
     const rows = await sql.query(
-      `SELECT ts FROM ${RAW_DATABASE}.telemetry WHERE ts >= ${base} ORDER BY ts`
+      `SELECT ts FROM ${RAW_TABLE} WHERE ts >= ${base} ORDER BY ts`
     );
     assert.equal(rows.length, 3);
     // 失败那轮不计数：written 只随成功那轮涨 3

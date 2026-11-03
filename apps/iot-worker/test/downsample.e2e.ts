@@ -4,7 +4,12 @@ import type { Queue, Worker } from 'bullmq';
 import { p1DeviceRegistry } from '@multi-admin/device-registry';
 import { loadConfig } from '../src/config.js';
 import { createLogger } from '../src/logger.js';
-import { DS_DATABASE, RAW_DATABASE, dsSubtableName } from '../src/schema.js';
+import {
+  DS_DATABASE,
+  RAW_DATABASE,
+  dsSubtableName,
+  rawStableName
+} from '../src/schema.js';
 import { connectTd, destroyTd, type TdSql } from '../src/tdengine/client.js';
 import { TdengineWriter, type PendingRow } from '../src/tdengine/writer.js';
 import { levelSpec } from '../src/downsample/level.js';
@@ -87,6 +92,7 @@ function nowFor(level: '1m' | '1h' | '1d'): number {
  * 手跑的 §3.3 查询——**独立于被测代码**（不调 `buildAggregateSql`），只为拿真值逐字段核对。
  */
 function handSql(
+  modelCode: string,
   level: '1m' | '1h' | '1d',
   startMs: number,
   endMs: number
@@ -107,7 +113,7 @@ function handSql(
   );
   return [
     `SELECT tbname, _wstart AS ts, ${[...aggregates, ...units].join(', ')}`,
-    `FROM ${RAW_DATABASE}.telemetry`,
+    `FROM ${RAW_DATABASE}.${rawStableName(modelCode)}`,
     `WHERE ts >= ${startMs} AND ts < ${endMs}`,
     `PARTITION BY tbname`,
     `INTERVAL(${interval})`
@@ -171,7 +177,9 @@ void test('降采样环：三级各自从原始表重算，落库值与手跑 §
       assert.equal(written, 1, `${level}：应恰好写 1 行（一个子表一个窗口）`);
 
       // 手跑真值
-      const handRows = await sql.query(handSql(level, startMs, endMs));
+      const handRows = await sql.query(
+        handSql(subtable.modelCode, level, startMs, endMs)
+      );
       const hand = handRows.find(row => String(row[0]) === subtable.name);
       assert.ok(hand, `${level}：手查询结果应含子表 ${subtable.name}`);
 

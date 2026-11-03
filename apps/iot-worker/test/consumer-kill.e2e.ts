@@ -11,7 +11,7 @@ import {
 import { p1DeviceRegistry } from '@multi-admin/device-registry';
 import { loadConfig } from '../src/config.js';
 import { connectTd, destroyTd, type TdSql } from '../src/tdengine/client.js';
-import { RAW_DATABASE } from '../src/schema.js';
+import { RAW_DATABASE, rawStableName } from '../src/schema.js';
 
 /**
  * 判据③——**强杀重投不丢**：拉起**真正的 worker 进程**（不是进程内 `new`），在它把一批
@@ -39,7 +39,9 @@ const appRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const config = loadConfig({ ...process.env, LOG_LEVEL: 'silent' });
 
 /** `sim-001`（`allSubtables()[0]`）——P1 档案里，查档必成 */
-const SUBTABLE = p1DeviceRegistry.allSubtables()[0].name;
+const SUBTABLE_REF = p1DeviceRegistry.allSubtables()[0];
+const SUBTABLE = SUBTABLE_REF.name;
+const RAW_TABLE = `${RAW_DATABASE}.${rawStableName(SUBTABLE_REF.modelCode)}`;
 
 /** 一批红队报文：落在远离既有数据的整点窗口内，ts 各不相同 */
 const N = 40;
@@ -58,14 +60,14 @@ function payload(ts: number): string {
 
 async function countRows(sql: TdSql): Promise<number> {
   const rows = await sql.query(
-    `SELECT COUNT(*) FROM ${RAW_DATABASE}.telemetry WHERE ts >= ${BASE} AND ts < ${BASE + N}`
+    `SELECT COUNT(*) FROM ${RAW_TABLE} WHERE ts >= ${BASE} AND ts < ${BASE + N}`
   );
   return Number(rows[0]?.[0] ?? 0);
 }
 
 async function readTsSet(sql: TdSql): Promise<number[]> {
   const rows = await sql.query(
-    `SELECT ts FROM ${RAW_DATABASE}.telemetry WHERE ts >= ${BASE} AND ts < ${BASE + N} ORDER BY ts`
+    `SELECT ts FROM ${RAW_TABLE} WHERE ts >= ${BASE} AND ts < ${BASE + N} ORDER BY ts`
   );
   return rows.map(row => Number(row[0]));
 }

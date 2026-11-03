@@ -7,7 +7,9 @@ import {
   type ExpectedSubtable
 } from '../src/subtables/audit.js';
 
-const EXPECTED: ExpectedSubtable[] = [{ name: 'abc_001', deviceId: 'ABC' }];
+const EXPECTED: ExpectedSubtable[] = [
+  { name: 'p1_abc', deviceId: 'ABC', modelCode: 'p1' }
+];
 
 function fakeQuery(rows: TdRow[]): { query(sql: string): Promise<TdRow[]> } {
   return { query: () => Promise.resolve(rows) };
@@ -19,18 +21,18 @@ void test('期望集为空时拒绝判定', async () => {
 
 void test('期望集的降采样名按三级展开', () => {
   assert.deepEqual(expectedDsNames(EXPECTED), [
-    'abc_001_1m',
-    'abc_001_1h',
-    'abc_001_1d'
+    'p1_abc_1m',
+    'p1_abc_1h',
+    'p1_abc_1d'
   ]);
 });
 
 void test('干净环境四桶全空', async () => {
   const rows: TdRow[] = [
-    ['telemetry', 'abc_001'],
-    ['telemetry_1m', 'abc_001_1m'],
-    ['telemetry_1h', 'abc_001_1h'],
-    ['telemetry_1d', 'abc_001_1d']
+    ['p1', 'p1_abc'],
+    ['p1_1m', 'p1_abc_1m'],
+    ['p1_1h', 'p1_abc_1h'],
+    ['p1_1d', 'p1_abc_1d']
   ];
   const report = await auditSubtables(fakeQuery(rows), EXPECTED);
   assert.deepEqual(report, {
@@ -41,18 +43,40 @@ void test('干净环境四桶全空', async () => {
   });
 });
 
+void test('多个模型编码各自的超表都参与归类', async () => {
+  const expected: ExpectedSubtable[] = [
+    ...EXPECTED,
+    { name: 'meter_def', deviceId: 'DEF', modelCode: 'meter' }
+  ];
+  const rows: TdRow[] = [
+    ['p1', 'p1_abc'],
+    ['meter', 'meter_def'],
+    ['p1_1m', 'p1_abc_1m'],
+    ['meter_1m', 'meter_def_1m']
+  ];
+  const report = await auditSubtables(fakeQuery(rows), expected);
+  assert.deepEqual(report.orphanRaw, []);
+  assert.deepEqual(report.missingRaw, []);
+  assert.deepEqual(report.missingDs, [
+    'meter_def_1d',
+    'meter_def_1h',
+    'p1_abc_1d',
+    'p1_abc_1h'
+  ]);
+});
+
 void test('孤儿与缺失分桶，超表自身的行被忽略', async () => {
   const rows: TdRow[] = [
-    ['telemetry', 'telemetry'],
-    ['telemetry', 'abc_001'],
-    ['telemetry', 'old_001'],
-    ['telemetry_1m', 'abc_001_1m'],
-    ['telemetry_1m', 'old_001_1m'],
-    ['telemetry_1h', 'abc_001_1h']
+    ['p1', 'p1'],
+    ['p1', 'p1_abc'],
+    ['p1', 'p1_old'],
+    ['p1_1m', 'p1_abc_1m'],
+    ['p1_1m', 'p1_old_1m'],
+    ['p1_1h', 'p1_abc_1h']
   ];
   const report = await auditSubtables(fakeQuery(rows), EXPECTED);
-  assert.deepEqual(report.orphanRaw, ['old_001']);
-  assert.deepEqual(report.orphanDs, ['old_001_1m']);
+  assert.deepEqual(report.orphanRaw, ['p1_old']);
+  assert.deepEqual(report.orphanDs, ['p1_old_1m']);
   assert.deepEqual(report.missingRaw, []);
-  assert.deepEqual(report.missingDs, ['abc_001_1d']);
+  assert.deepEqual(report.missingDs, ['p1_abc_1d']);
 });

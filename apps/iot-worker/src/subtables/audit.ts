@@ -3,9 +3,9 @@ import {
   DS_DATABASE,
   DS_LEVELS,
   RAW_DATABASE,
-  RAW_STABLE,
   dsStableName,
-  dsSubtableName
+  dsSubtableName,
+  rawStableName
 } from '../schema.js';
 
 /** 只读查询依赖——生产是 `TdSql`，单测注入替身 */
@@ -16,6 +16,7 @@ export interface AuditQuery {
 export interface ExpectedSubtable {
   name: string;
   deviceId: string;
+  modelCode: string;
 }
 
 export interface AuditReport {
@@ -27,7 +28,7 @@ export interface AuditReport {
   missingDs: string[];
 }
 
-/** 期望的降采样子表名：每个采集点按三级展开 */
+/** 期望的降采样子表名：每台设备按三级展开 */
 export function expectedDsNames(
   expected: readonly ExpectedSubtable[]
 ): string[] {
@@ -56,7 +57,7 @@ export async function auditSubtables(
 ): Promise<AuditReport> {
   if (expected.length === 0) {
     throw new Error(
-      '期望集为空：注册表没有读出任何采集点，拒绝判定（否则全库都会被判成孤儿）'
+      '期望集为空：注册表没有读出任何设备，拒绝判定（否则全库都会被判成孤儿）'
     );
   }
 
@@ -65,8 +66,12 @@ export async function auditSubtables(
       `WHERE db_name IN ('${RAW_DATABASE}', '${DS_DATABASE}')`
   );
 
-  const dsStables = new Set<string>(
-    DS_LEVELS.map(level => dsStableName(level))
+  const modelCodes = [...new Set(expected.map(sub => sub.modelCode))];
+  const rawStables = new Set(modelCodes.map(rawStableName));
+  const dsStables = new Set(
+    modelCodes.flatMap(modelCode =>
+      DS_LEVELS.map(level => dsStableName(modelCode, level))
+    )
   );
   const existingRaw = new Set<string>();
   const existingDs = new Set<string>();
@@ -76,7 +81,7 @@ export async function auditSubtables(
     const table = textCell(row[1]).toLowerCase();
     // 超表自身的行不算子表
     if (table === '' || table === stable) continue;
-    if (stable === RAW_STABLE) existingRaw.add(table);
+    if (rawStables.has(stable)) existingRaw.add(table);
     else if (dsStables.has(stable)) existingDs.add(table);
   }
 
