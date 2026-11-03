@@ -10,7 +10,7 @@ import type { TdRow, TdSql } from '../src/tdengine/client.js';
 import type { TdengineWriter } from '../src/tdengine/writer.js';
 
 /** 一行读查询结果（列序见 buildAggregateSql） */
-function aggRow(tbname = 'm5obq5cr2hcze10j_001'): TdRow {
+function aggRow(tbname = 'p1_m5obq5cr2hcze10j'): TdRow {
   return [
     tbname,
     1_791_818_580_000n,
@@ -25,10 +25,7 @@ function aggRow(tbname = 'm5obq5cr2hcze10j_001'): TdRow {
     25.86,
     6n,
     4.3,
-    4.32,
-    '°C',
-    'mm/s',
-    'A'
+    4.32
   ];
 }
 
@@ -168,7 +165,7 @@ void test('recompute：把窗口聚合写进**带级别后缀**的降采样子�
     assert.equal(row.level, '1m');
     assert.equal(
       DS_CODEC.subtable(row),
-      dsSubtableName('m5obq5cr2hcze10j_001', '1m')
+      dsSubtableName('p1_m5obq5cr2hcze10j', '1m')
     );
   } finally {
     await ring.close();

@@ -18,8 +18,6 @@ export interface DsMetricAggregate {
   min: number | null;
   /** `MAX`；缺值为空 */
   max: number | null;
-  /** 窗口内最后一次上报的单位（`LAST`）；缺值为空 */
-  unit: string | null;
 }
 
 /** 原始查询的一段窗口聚合，已解析成写入器可消费的形态 */
@@ -53,10 +51,6 @@ function toBigInt(value: unknown): bigint {
   return BigInt(value as number);
 }
 
-function toStringOrNull(value: unknown): string | null {
-  return isNull(value) ? null : String(value);
-}
-
 function toEpochMs(value: unknown): number {
   if (typeof value === 'bigint') return Number(value);
   if (typeof value === 'number') return value;
@@ -70,9 +64,6 @@ function toEpochMs(value: unknown): number {
 const AGGREGATE_OFFSET = 2;
 /** 每测点占 4 列（sum/count/min/max） */
 const AGGREGATE_COLUMNS_PER_METRIC = 4;
-/** 单位列起始下标：全部聚合列之后 */
-const UNIT_OFFSET =
-  AGGREGATE_OFFSET + RAW_METRICS.length * AGGREGATE_COLUMNS_PER_METRIC;
 
 /**
  * 把读查询的行按**固定列序**解析（列序见 `buildAggregateSql`，两处须同步）。
@@ -89,8 +80,7 @@ export function parseAggregateRows(
         sum: toNumberOrNull(row[base]),
         count: toBigInt(row[base + 1]),
         min: toNumberOrNull(row[base + 2]),
-        max: toNumberOrNull(row[base + 3]),
-        unit: toStringOrNull(row[UNIT_OFFSET + index])
+        max: toNumberOrNull(row[base + 3])
       };
     });
     return {
@@ -108,9 +98,9 @@ function toTbname(value: unknown): string {
 }
 
 /**
- * 降采样库的列描述：每测点 `sum/count/min/max` + 单位列，共 16 列（§14.1）。
+ * 降采样库的列描述：每测点 `sum/count/min/max`，共 13 列（§14.1）。
  *
- * ⚠️ **列类型按超级表定义**（sum=DOUBLE / count=BIGINT / min·max=FLOAT / unit=VARCHAR），
+ * ⚠️ **列类型按超级表定义**（sum=DOUBLE / count=BIGINT / min·max=FLOAT），
  * 不是按 JS 值类型——连接器按声明类型编码。
  * ⭐ 目标子表名由行内的 `level` 推出 ⇒ 三级**共用一个列描述**、一个写入器。
  */
@@ -143,13 +133,6 @@ export const DS_CODEC: WriteCodec<DsAggregateRow> = {
         name: `max_${metric}`,
         kind: 'float',
         value: aggregate.max
-      });
-    }
-    for (const metric of RAW_METRICS) {
-      columns.push({
-        name: `${metric}_unit`,
-        kind: 'varchar',
-        value: row.metrics[metric].unit
       });
     }
     return columns;

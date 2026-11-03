@@ -29,8 +29,6 @@ export const DURATION_DAYS = 10;
 
 /** 设备标识宽度：决策 1 §8.2 的 16 位 */
 const DEVICE_ID_WIDTH = 16;
-/** 单位列宽：原始库与降采样库同宽 */
-const UNIT_WIDTH = 16;
 
 /** 原始超表名：即模型编码 */
 export function rawStableName(modelCode: string): string {
@@ -65,12 +63,9 @@ export function createDatabaseStatements(): string[] {
   ];
 }
 
-/** 原始超表（一台设备对应模型一张）：`ts` + 每测点「值 + 单位」；标签只留 `deviceId` */
+/** 原始超表（一台设备对应模型一张）：`ts` + 每测点值列；标签只留 `deviceId` */
 export function createRawStableStatement(modelCode: string): string {
-  const columns = RAW_METRICS.flatMap(metric => [
-    `${metric} FLOAT`,
-    `${metric}_unit VARCHAR(${UNIT_WIDTH})`
-  ]).join(', ');
+  const columns = RAW_METRICS.map(metric => `${metric} FLOAT`).join(', ');
   return `CREATE STABLE IF NOT EXISTS ${RAW_DATABASE}.${rawStableName(modelCode)} (ts TIMESTAMP, ${columns}) TAGS (deviceId VARCHAR(${DEVICE_ID_WIDTH}))`;
 }
 
@@ -83,17 +78,14 @@ export function createSubtableStatement(subtable: SubtableRef): string {
   return `CREATE TABLE IF NOT EXISTS ${RAW_DATABASE}.${subtable.name} USING ${RAW_DATABASE}.${rawStableName(subtable.modelCode)} TAGS ('${subtable.deviceId}')`;
 }
 
-/** 降采样超表：每测点四个**可再聚合量** + 单位列 */
+/** 降采样超表：每测点四个**可再聚合量** */
 export function createDsStableStatements(modelCode: string): string[] {
-  const columns = [
-    ...RAW_METRICS.flatMap(metric => [
-      `sum_${metric} DOUBLE`,
-      `count_${metric} BIGINT`,
-      `min_${metric} FLOAT`,
-      `max_${metric} FLOAT`
-    ]),
-    ...RAW_METRICS.map(metric => `${metric}_unit VARCHAR(${UNIT_WIDTH})`)
-  ].join(', ');
+  const columns = RAW_METRICS.flatMap(metric => [
+    `sum_${metric} DOUBLE`,
+    `count_${metric} BIGINT`,
+    `min_${metric} FLOAT`,
+    `max_${metric} FLOAT`
+  ]).join(', ');
 
   return DS_LEVELS.map(
     level =>

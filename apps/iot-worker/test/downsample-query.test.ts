@@ -7,7 +7,7 @@ import { buildAggregateSql } from '../src/downsample/query.js';
 const START = 1_791_813_600_000;
 const END = 1_791_813_660_000;
 
-void test('每测点四个可再聚合量 + 单位列，按子表分组', () => {
+void test('每测点四个可再聚合量，按子表分组', () => {
   const sql = buildAggregateSql('p1', levelSpec('1m'), START, END);
 
   for (const metric of RAW_METRICS) {
@@ -15,8 +15,8 @@ void test('每测点四个可再聚合量 + 单位列，按子表分组', () => 
     assert.match(sql, new RegExp(`COUNT\\(${metric}\\) AS count_${metric}`));
     assert.match(sql, new RegExp(`MIN\\(${metric}\\) AS min_${metric}`));
     assert.match(sql, new RegExp(`MAX\\(${metric}\\) AS max_${metric}`));
-    assert.match(sql, new RegExp(`LAST\\(${metric}_unit\\) AS ${metric}_unit`));
   }
+  assert.doesNotMatch(sql, /_unit/);
   assert.match(sql, /SELECT tbname, _wstart AS ts,/);
   assert.match(sql, /FROM wewant_iot\.p1\b/);
   assert.match(sql, /PARTITION BY tbname/);

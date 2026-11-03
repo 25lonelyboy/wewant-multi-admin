@@ -62,7 +62,7 @@ const subtable = p1DeviceRegistry.allSubtables()[0];
  */
 const T0 = Date.parse('2026-09-15T10:00:00.000Z');
 
-/** 落在同一个 1m 窗口内的三行；三个测点都带，便于核对 16 列 */
+/** 落在同一个 1m 窗口内的三行；三个测点都带，便于核对 13 列 */
 const RAW_ROWS = [
   { ts: T0 + 5_000, temperature: 60.1, vibration: 1.8, current: 4.3 },
   { ts: T0 + 20_000, temperature: 62.2, vibration: 1.82, current: 4.31 },
@@ -108,11 +108,8 @@ function handSql(
     `MIN(${metric}) AS min_${metric}`,
     `MAX(${metric}) AS max_${metric}`
   ]);
-  const units = ['temperature', 'vibration', 'current'].map(
-    metric => `LAST(${metric}_unit) AS ${metric}_unit`
-  );
   return [
-    `SELECT tbname, _wstart AS ts, ${[...aggregates, ...units].join(', ')}`,
+    `SELECT tbname, _wstart AS ts, ${aggregates.join(', ')}`,
     `FROM ${RAW_DATABASE}.${rawStableName(modelCode)}`,
     `WHERE ts >= ${startMs} AND ts < ${endMs}`,
     `PARTITION BY tbname`,
@@ -186,8 +183,8 @@ void test('降采样环：三级各自从原始表重算，落库值与手跑 §
       // 读降采样行
       const dsRows = await sql.query(
         `SELECT ts, sum_temperature, count_temperature, min_temperature, max_temperature,` +
-          ` sum_vibration, count_vibration, sum_current, count_current,` +
-          ` temperature_unit, vibration_unit, current_unit, deviceId` +
+          ` sum_vibration, count_vibration, min_vibration, max_vibration,` +
+          ` sum_current, count_current, min_current, max_current, deviceId` +
           ` FROM ${DS_DATABASE}.${dsSubtableName(subtable.name, level)} WHERE ts = ${windowStart}`
       );
       assert.equal(dsRows.length, 1, `${level}：降采样表应有 1 行`);
@@ -221,25 +218,21 @@ void test('降采样环：三级各自从原始表重算，落库值与手跑 §
         BigInt(asNumber(hand[7])),
         `${level}.count_vibration`
       );
-      near(ds[7], hand[10], `${level}.sum_current`);
+      near(ds[7], hand[8], `${level}.min_vibration`);
+      near(ds[8], hand[9], `${level}.max_vibration`);
+
+      near(ds[9], hand[10], `${level}.sum_current`);
       assert.equal(
-        BigInt(asNumber(ds[8])),
+        BigInt(asNumber(ds[10])),
         BigInt(asNumber(hand[11])),
         `${level}.count_current`
       );
-
-      // 单位列＝窗口内最后一次上报
-      assert.equal(
-        String(ds[9]),
-        String(hand[14]),
-        `${level}.temperature_unit`
-      );
-      assert.equal(String(ds[10]), String(hand[15]), `${level}.vibration_unit`);
-      assert.equal(String(ds[11]), String(hand[16]), `${level}.current_unit`);
+      near(ds[11], hand[12], `${level}.min_current`);
+      near(ds[12], hand[13], `${level}.max_current`);
 
       // ⭐ 标签保留原样大小写（子表预建时由注册表写死，写入端不碰标签）
       assert.equal(
-        String(ds[12]),
+        String(ds[13]),
         subtable.deviceId,
         `${level}：deviceId 标签应保留原样`
       );
@@ -256,7 +249,7 @@ void test('降采样环：三级各自从原始表重算，落库值与手跑 §
 /**
  * ⭐ 窗口内**缺测点** ⇒ 降采样列落 NULL 的**真库往返**。
  *
- * 窗口里只上报 temperature ⇒ vibration / current 的 sum/min/max/unit 应为 NULL、count 为 0。
+ * 窗口里只上报 temperature ⇒ vibration / current 的 sum/min/max 应为 NULL、count 为 0。
  * 这条路径（连接器把 `null` 绑进 DOUBLE/FLOAT/VARCHAR 列）此前只由单测的**解析**覆盖，
  * 未曾在真表上写过并读回——`writer.ts` 里 `?? null` 的兜底正需要这一条来证。
  */
@@ -287,8 +280,8 @@ void test('降采样环：窗口内缺测点 ⇒ 对应列落 NULL（真库往�
     const windowStart = lastClosedBoundary(TN, spec);
     const rows = await sql.query(
       `SELECT sum_temperature, count_temperature,` +
-        ` sum_vibration, count_vibration, min_vibration, max_vibration, vibration_unit,` +
-        ` sum_current, count_current, current_unit` +
+        ` sum_vibration, count_vibration, min_vibration, max_vibration,` +
+        ` sum_current, count_current, min_current, max_current` +
         ` FROM ${DS_DATABASE}.${dsSubtableName(nullableSub.name, '1m')} WHERE ts = ${windowStart}`
     );
     assert.equal(rows.length, 1, '降采样表应有 1 行');
@@ -298,8 +291,8 @@ void test('降采样环：窗口内缺测点 ⇒ 对应列落 NULL（真库往�
     assert.equal(asNumber(row[0]), 55.5);
     assert.equal(BigInt(asNumber(row[1])), 1n);
 
-    // 缺值的测点：sum/min/max/unit 落 NULL（连接器把 SQL NULL 渲染成字符串 'NULL'，两种都认）
-    for (const index of [2, 4, 5, 6, 7, 9]) {
+    // 缺值的测点：sum/min/max 落 NULL（连接器把 SQL NULL 渲染成字符串 'NULL'，两种都认）
+    for (const index of [2, 4, 5, 6, 8, 9]) {
       const value = row[index];
       assert.ok(
         value === null || value === 'NULL',
@@ -307,7 +300,7 @@ void test('降采样环：窗口内缺测点 ⇒ 对应列落 NULL（真库往�
       );
     }
     assert.equal(BigInt(asNumber(row[3])), 0n, 'count_vibration 应为 0');
-    assert.equal(BigInt(asNumber(row[8])), 0n, 'count_current 应为 0');
+    assert.equal(BigInt(asNumber(row[7])), 0n, 'count_current 应为 0');
   } finally {
     await sql
       .exec(

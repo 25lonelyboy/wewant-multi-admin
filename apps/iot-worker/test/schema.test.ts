@@ -32,14 +32,14 @@ void test('建库语句带 KEEP 与 DURATION，且幂等', () => {
   );
 });
 
-void test('原始超表：名为模型编码，每测点「值 + 单位」两列，标签只有 deviceId', () => {
+void test('原始超表：名为模型编码，每测点只留值列，标签只有 deviceId', () => {
   const statement = createRawStableStatement('p1');
 
   assert.match(statement, /^CREATE STABLE IF NOT EXISTS wewant_iot\.p1 /);
   for (const metric of RAW_METRICS) {
     assert.match(statement, new RegExp(`\\b${metric} FLOAT`));
-    assert.match(statement, new RegExp(`\\b${metric}_unit VARCHAR\\(16\\)`));
   }
+  assert.doesNotMatch(statement, /_unit/);
   assert.match(statement, /TAGS \(deviceId VARCHAR\(16\)\)/);
   assert.doesNotMatch(statement, /location|line|area/);
 });
@@ -56,7 +56,7 @@ void test('子表名折小写、标签值保留原样', () => {
   assert.match(statement, /TAGS \('AWEAWQ05E8PF53WH'\)/);
 });
 
-void test('降采样超表三级同形、名为模型编码加级别，共 16 列', () => {
+void test('降采样超表三级同形、名为模型编码加级别，共 13 列', () => {
   const statements = createDsStableStatements('p1');
   assert.equal(statements.length, 3);
 
@@ -72,9 +72,10 @@ void test('降采样超表三级同形、名为模型编码加级别，共 16 �
       assert.match(statement, new RegExp(`min_${metric} FLOAT`));
       assert.match(statement, new RegExp(`max_${metric} FLOAT`));
     }
-    // ts + 3×(4 聚合) + 3 单位 = 16
-    const columnCount = 1 + RAW_METRICS.length * 4 + RAW_METRICS.length;
-    assert.equal(columnCount, 16);
+    assert.doesNotMatch(statement, /_unit/);
+    // ts + 3×4 聚合 = 13
+    const columnCount = 1 + RAW_METRICS.length * 4;
+    assert.equal(columnCount, 13);
   }
 });
 

@@ -21,13 +21,9 @@ export function buildAggregateSql(
     `MIN(${metric}) AS min_${metric}`,
     `MAX(${metric}) AS max_${metric}`
   ]);
-  // 单位列取窗口内**最后一次**上报：归档层自描述、随数据冻结（§3.4）
-  const units = RAW_METRICS.map(
-    metric => `LAST(${metric}_unit) AS ${metric}_unit`
-  );
 
   return [
-    `SELECT tbname, _wstart AS ts, ${[...aggregates, ...units].join(', ')}`,
+    `SELECT tbname, _wstart AS ts, ${aggregates.join(', ')}`,
     `FROM ${RAW_DATABASE}.${rawStableName(modelCode)}`,
     `WHERE ts >= ${startMs} AND ts < ${endMs}`,
     `PARTITION BY tbname`,

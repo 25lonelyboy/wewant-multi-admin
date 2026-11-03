@@ -121,9 +121,9 @@ export function checkedWindowRange(
 }
 
 /**
- * 降采样读 SELECT 的列名，**一处定义**：`tbname`、`ts`、每测点 `sum/count/min/max`、每测点 `unit`、`deviceId`。
+ * 降采样读 SELECT 的列名，**一处定义**：`tbname`、`ts`、每测点 `sum/count/min/max`、`deviceId`。
  *
- * ⭐ 前两段（聚合 + 单位）的**列序刻意与 `query.ts` 的 `buildAggregateSql` 对齐**，于是两侧可共用
+ * ⭐ 前两段的**列序刻意与 `query.ts` 的 `buildAggregateSql` 对齐**，于是两侧可共用
  * `parseAggregateRows`；`DS_DEVICE_ID_INDEX` 由本函数推导，`buildDsReadSql` 也用它拼 SELECT——
  * 三者绑在同一条列表上，改列序即同步（并有单测把与 `buildAggregateSql` 的对齐钉死，漂移即失败）。
  */
@@ -134,8 +134,7 @@ export function dsSelectColumns(): string[] {
     `min_${metric}`,
     `max_${metric}`
   ]);
-  const units = RAW_METRICS.map(metric => `${metric}_unit`);
-  return ['tbname', 'ts', ...aggregates, ...units, 'deviceId'];
+  return ['tbname', 'ts', ...aggregates, 'deviceId'];
 }
 
 /** `deviceId` 在降采样读结果里的列下标——由 `dsSelectColumns` 推导，改列序即随之改变 */
@@ -335,9 +334,6 @@ export function compareAggregates(
       }
       if (!floatEqual(e.max, a.max)) {
         push(`max_${metric}`, fmt(e.max), fmt(a.max));
-      }
-      if (!nullSafeEqual(e.unit, a.unit)) {
-        push(`${metric}_unit`, fmt(e.unit), fmt(a.unit));
       }
     }
   }

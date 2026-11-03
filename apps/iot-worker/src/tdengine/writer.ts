@@ -30,6 +30,7 @@ const FORCE_STMT1_MIN_VERSION = '99.0.0.0';
 /** 一个测点在某一行的取值 */
 export interface MetricSample {
   value: number;
+  /** 设备上报的单位：供模型声明比对，不落列 */
   unit: string;
 }
 
@@ -59,7 +60,7 @@ export interface WriteColumn {
 /**
  * 行的列描述——把"某一行怎么写"从写入器里抽出来。
  *
- * ⚠️ 原始库与降采样库的行**列不同**（前者是「测点值 + 单位」、后者是「sum/count/min/max + 单位」），
+ * ⚠️ 原始库与降采样库的行**列不同**（前者是「测点值」、后者是「sum/count/min/max」），
  * 故列描述由调用方以 codec 提供；写入器只负责按 codec 分组、建语句、绑定、exec。
  */
 export interface WriteCodec<Row> {
@@ -368,11 +369,6 @@ export const RAW_CODEC: WriteCodec<PendingRow> = {
       const sample = row.metrics[metric];
       if (sample === undefined) continue;
       columns.push({ name: metric, kind: 'float', value: sample.value });
-      columns.push({
-        name: `${metric}_unit`,
-        kind: 'varchar',
-        value: sample.unit
-      });
     }
     return columns;
   }

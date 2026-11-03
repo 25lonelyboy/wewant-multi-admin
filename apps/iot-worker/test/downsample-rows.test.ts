@@ -9,11 +9,11 @@ import {
 
 /**
  * 一行读查询结果——列序与 `buildAggregateSql` 的 SELECT 一致：
- * `tbname, ts, [每测点 sum/count/min/max]…, [每测点 unit]…`
+ * `tbname, ts, [每测点 sum/count/min/max]…`
  */
 function aggRow(): unknown[] {
   return [
-    'm5obq5cr2hcze10j_001',
+    'p1_m5obq5cr2hcze10j',
     1_791_818_580_000n, // _wstart：连接器给 BigInt
     373.1,
     6n,
@@ -26,17 +26,14 @@ function aggRow(): unknown[] {
     25.86,
     6n,
     4.3,
-    4.32, // current
-    '°C',
-    'mm/s',
-    'A' // units
+    4.32 // current
   ];
 }
 
-/** 有测点整段缺值：SUM/MIN/MAX/unit 落成字符串 'NULL'（连接器口径）、COUNT 为 0 */
+/** 有测点整段缺值：SUM/MIN/MAX 落成字符串 'NULL'（连接器口径）、COUNT 为 0 */
 function aggRowWithMissingMetric(): unknown[] {
   return [
-    'm5obq5cr2hcze10j_001',
+    'p1_m5obq5cr2hcze10j',
     1_791_818_580_000n,
     373.1,
     6n,
@@ -49,25 +46,21 @@ function aggRowWithMissingMetric(): unknown[] {
     25.86,
     6n,
     4.3,
-    4.32, // current
-    '°C',
-    'NULL',
-    'A'
+    4.32 // current
   ];
 }
 
 void test('解析：_wstart(BigInt)→epoch 毫秒，COUNT→bigint，缺值→空', () => {
   const [row] = parseAggregateRows([aggRow()], '1m');
   assert.ok(row);
-  assert.equal(row.tbname, 'm5obq5cr2hcze10j_001');
+  assert.equal(row.tbname, 'p1_m5obq5cr2hcze10j');
   assert.equal(row.ts, 1_791_818_580_000);
   assert.equal(row.level, '1m');
   assert.deepEqual(row.metrics.temperature, {
     sum: 373.1,
     count: 6n,
     min: 61.1,
-    max: 62.4,
-    unit: '°C'
+    max: 62.4
   });
 });
 
@@ -78,17 +71,16 @@ void test('解析：字符串 "NULL" 当成缺值，不当成一个叫 NULL 的�
     sum: null,
     count: 0n,
     min: null,
-    max: null,
-    unit: null
+    max: null
   });
 });
 
-void test('降采样列描述：16 列，类型按超级表定义，目标子表带级别后缀', () => {
+void test('降采样列描述：13 列，类型按超级表定义，目标子表带级别后缀', () => {
   const [row] = parseAggregateRows([aggRow()], '1d');
   assert.ok(row);
   const columns = DS_CODEC.columns(row);
 
-  assert.equal(columns.length, 16, 'ts + 3×(sum/count/min/max) + 3 单位 = 16');
+  assert.equal(columns.length, 13, 'ts + 3×(sum/count/min/max) = 13');
   assert.equal(columns[0]?.name, 'ts');
   assert.equal(columns[0]?.kind, 'timestamp');
 
@@ -98,7 +90,7 @@ void test('降采样列描述：16 列，类型按超级表定义，目标子表
     assert.equal(byName.get(`count_${metric}`), 'bigint');
     assert.equal(byName.get(`min_${metric}`), 'float');
     assert.equal(byName.get(`max_${metric}`), 'float');
-    assert.equal(byName.get(`${metric}_unit`), 'varchar');
+    assert.equal(byName.has(`${metric}_unit`), false);
   }
 });
 

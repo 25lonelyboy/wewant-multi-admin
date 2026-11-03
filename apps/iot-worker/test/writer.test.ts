@@ -13,14 +13,14 @@ import {
 } from '../src/tdengine/writer.js';
 
 void test('insertSql：库限定 + 列名写死 + 占位符', () => {
-  const sql = insertSql(RAW_DATABASE, 'aweawq05e8pf53wh_001', [
+  const sql = insertSql(RAW_DATABASE, 'p1_aweawq05e8pf53wh', [
     'ts',
     'temperature',
-    'temperature_unit'
+    'current'
   ]);
   assert.equal(
     sql,
-    `INSERT INTO ${RAW_DATABASE}.aweawq05e8pf53wh_001 (ts, temperature, temperature_unit) VALUES (?, ?, ?)`
+    `INSERT INTO ${RAW_DATABASE}.p1_aweawq05e8pf53wh (ts, temperature, current) VALUES (?, ?, ?)`
   );
   // STMT1 形态：不带 USING/tbname（那会静默建表，顶掉「表存在 ⇔ 已注册」）
   assert.doesNotMatch(sql, /USING|tbname/i);
@@ -28,7 +28,7 @@ void test('insertSql：库限定 + 列名写死 + 占位符', () => {
 
 void test('原始列描述：只写该行带了的测点，列类型随超级表', () => {
   const columns = RAW_CODEC.columns({
-    subtable: 'aweawq05e8pf53wh_001',
+    subtable: 'p1_aweawq05e8pf53wh',
     ts: 1_791_818_580_000,
     metrics: { temperature: { value: 62.4, unit: '°C' } }
   });
@@ -37,22 +37,21 @@ void test('原始列描述：只写该行带了的测点，列类型随超级表
     columns.map(column => [column.name, column.kind]),
     [
       ['ts', 'timestamp'],
-      ['temperature', 'float'],
-      ['temperature_unit', 'varchar']
+      ['temperature', 'float']
     ]
   );
 });
 
 void test('原始列描述：多测点列随之增多，签名按测点集合区分', () => {
   const row = {
-    subtable: 'aweawq05e8pf53wh_001',
+    subtable: 'p1_aweawq05e8pf53wh',
     ts: 1_791_818_580_000,
     metrics: {
       temperature: { value: 62.4, unit: '°C' },
       current: { value: 4.31, unit: 'A' }
     }
   };
-  assert.equal(RAW_CODEC.columns(row).length, 5); // ts + 2×(值+单位)
+  assert.equal(RAW_CODEC.columns(row).length, 3); // ts + 2 个测点值
   assert.equal(RAW_CODEC.signature(row), 'temperature+current');
   // 只带一个测点的行与带两个测点的行分属不同签名 ⇒ 各自一条语句
   assert.equal(
@@ -66,12 +65,12 @@ void test('原始列描述：多测点列随之增多，签名按测点集合区
 
 void test('原始列描述：库名与子表名取自行', () => {
   const row = {
-    subtable: 'aweawq05e8pf53wh_001',
+    subtable: 'p1_aweawq05e8pf53wh',
     ts: 1,
     metrics: { temperature: { value: 1, unit: '°C' } }
   };
   assert.equal(RAW_CODEC.database, RAW_DATABASE);
-  assert.equal(RAW_CODEC.subtable(row), 'aweawq05e8pf53wh_001');
+  assert.equal(RAW_CODEC.subtable(row), 'p1_aweawq05e8pf53wh');
 });
 
 // ---- 分组（(子表, 列签名) —— 同组才能共用一条 INSERT + 一次 exec）----
@@ -105,7 +104,7 @@ void test('groupRows：同 (子表, 签名) 归一组，异签名 / 异子表各
   assert.equal(merged[0]?.rows.length, 2);
   assert.deepEqual(
     merged[0]?.columns.map(column => column.name),
-    ['ts', 'temperature', 'temperature_unit']
+    ['ts', 'temperature']
   );
 });
 
@@ -148,7 +147,7 @@ function fakeStmt(
 /** 一条待写行 */
 function row(
   ts: number,
-  subtable = 'aweawq05e8pf53wh_001'
+  subtable = 'p1_aweawq05e8pf53wh'
 ): {
   subtable: string;
   ts: number;
@@ -392,7 +391,7 @@ void test('多组写入返回各组 getLastAffected 之和（F1 部分成功不�
     } as never);
   const writer = new TdengineWriter('ws://x', RAW_CODEC, 1, connect);
   const rows = [
-    row(1, 'aweawq05e8pf53wh_001'),
+    row(1, 'p1_aweawq05e8pf53wh'),
     row(2, 'zzzzzzzzzzzzzzzz_001'),
     row(3, 'zzzzzzzzzzzzzzzz_001')
   ];

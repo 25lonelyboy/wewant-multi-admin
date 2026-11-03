@@ -26,7 +26,7 @@ const NOW = 1_791_850_011_067;
 
 /**
  * 原始聚合读的一行——列序同 `buildAggregateSql`：
- * `tbname, ts, [每测点 sum/count/min/max]…, [每测点 unit]…`
+ * `tbname, ts, [每测点 sum/count/min/max]…`
  */
 function rawRow(tbname: string, ts: number, sumT = 373.1): unknown[] {
   return [
@@ -43,14 +43,11 @@ function rawRow(tbname: string, ts: number, sumT = 373.1): unknown[] {
     25.86,
     6n,
     4.3,
-    4.32, // current
-    '°C',
-    'mm/s',
-    'A'
+    4.32 // current
   ];
 }
 
-/** 降采样表读的一行——列序同 `buildDsReadSql`：原始 16 列 + `deviceId` */
+/** 降采样表读的一行——列序同 `buildDsReadSql`：原始 13 列 + `deviceId` */
 function dsRow(
   tbname: string,
   ts: number,
@@ -82,13 +79,10 @@ const DS_COLUMN_INDEX: Record<string, number> = {
   count_current: 11,
   min_current: 12,
   max_current: 13,
-  temperature_unit: 14,
-  vibration_unit: 15,
-  current_unit: 16,
-  deviceId: 17
+  deviceId: 14
 };
 
-const RAW_NAME = 'm5obq5cr2hcze10j_001';
+const RAW_NAME = 'p1_m5obq5cr2hcze10j';
 const DS_1M = dsSubtableName(RAW_NAME, '1m');
 const WINDOW = 1_791_849_780_000;
 
@@ -141,8 +135,8 @@ void test('buildDsReadSql：读模型对应的降采样超表，含 deviceId，�
     for (const agg of ['sum', 'count', 'min', 'max']) {
       assert.match(sql, new RegExp(`${agg}_${metric}`));
     }
-    assert.match(sql, new RegExp(`${metric}_unit`));
   }
+  assert.doesNotMatch(sql, /_unit/);
   assert.doesNotMatch(sql, /COUNT\(\s*DISTINCT/i);
 });
 
@@ -159,8 +153,7 @@ void test('parseDsRows：解析 deviceId 标签并还原原始子表名', () => 
     sum: 373.1,
     count: 6n,
     min: 61.1,
-    max: 62.4,
-    unit: '°C'
+    max: 62.4
   });
 });
 
@@ -246,22 +239,6 @@ void test('compareAggregates：count 精确比较（不容差）', () => {
   assert.equal(mismatches[0]?.field, 'count_temperature');
   assert.equal(mismatches[0]?.expected, '6');
   assert.equal(mismatches[0]?.actual, '7');
-});
-
-void test('compareAggregates：单位列不等即报', () => {
-  const expected = expectedRows(
-    parseAggregateRows([rawRow(RAW_NAME, WINDOW)], '1m'),
-    '1m'
-  );
-  const actual = parseDsRows(
-    [dsRow(DS_1M, WINDOW, { temperature_unit: 'K' })],
-    '1m'
-  );
-  const mismatches = compareAggregates('1m', expected, actual);
-  assert.equal(mismatches.length, 1);
-  assert.equal(mismatches[0]?.field, 'temperature_unit');
-  assert.equal(mismatches[0]?.expected, '°C');
-  assert.equal(mismatches[0]?.actual, 'K');
 });
 
 void test('compareAggregates：deviceId 标签不等即报', () => {
