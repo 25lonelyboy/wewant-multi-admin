@@ -64,6 +64,8 @@ export function subtableName(modelCode: string, deviceId: string): string {
 
 **p1.ts**：新增并导出 `P1_MODEL_CODE = 'p1'`；`p1DeviceRecords()` 每台设备返回 `{ localDeviceId, deviceId, modelCode: P1_MODEL_CODE }`。
 
+**下游字段引用**：`detection.ts` 的 `DetectedSample.localPointId` 与 `consumer.ts` 日志里的 `localPointId` 一并删除——契约去掉字段后这两处会编译失败，属于必改项，不是可选清理。
+
 ### 2.2 T2 命名
 
 `schema.ts` 的稳定名由常量改为函数：
@@ -77,7 +79,14 @@ export function dsStableName(modelCode: string, level: DsLevel): string {
 
 四个 DDL 构造函数改为接收 `modelCode`：`createRawStableStatement(modelCode)`、`createDsStableStatements(modelCode)`、`alterDsMinuteKeepStatement(modelCode)`；两个子表构造函数从 `SubtableRef` 取 `modelCode`。
 
-⚠️ **`dsStableName` 的两参形态是全仓唯一改动点**：目前它被 `audit.ts`、`verify.ts`、`tdengine-init.ts` 三处调用，全部要跟着改。
+⚠️ **超表名的来源有两处，不止 `dsStableName`**：
+
+- `dsStableName` 被 `audit.ts`、`verify.ts`、`tdengine-init.ts` 三处调用，签名加 `modelCode`
+- `downsample/query.ts:30` 的 `FROM ${RAW_DATABASE}.${RAW_STABLE}` 是**另一处**——它不经过 `dsStableName`
+
+**降采样链要一路传 `modelCode`**：`buildAggregateSql(modelCode, spec, startMs, endMs)`；`ring.ts` 每 tick 遍历模型编码列表，逐个调用。单模型时循环一次，多模型时每条超表各算一次。`verify.ts` 的读查询与超表存在性检查同理。
+
+⚠️ **建表与计算必须同形**：`tdengine-init` 按模型建表而降采样环不按模型计算，会造成「建了 N 张超表、只算 1 张」。S0.5 只有一个模型，这种不一致不会被暴露，但会留到 S4。
 
 **`consumer.ts`**：查档后直接用 `resolved.subtable`，不再自己拼字符串。
 
@@ -97,6 +106,8 @@ for (const code of modelCodes) {
 
 **`subtable-audit.ts`**：期望集从 `allSubtables()` 推导出两个集合——原始超表名 = 各 `modelCode`，降采样超表名 = 各 `modelCode × level`；分类逻辑按这两个集合判断，不再比较固定的 `RAW_STABLE`。
 
+**两个脚本的期望集反而不用改**：`downsample-verify.ts:187` 与 `subtable-audit.ts:66` 都经 `allSubtables()` 取名字（`sub.name` / `sub.deviceId`），不碰 `pointKey`——`allSubtables()` 一改它们自动跟上。审计要改的只有上面那条分类逻辑。
+
 ### 2.3 T3 删单位列
 
 四处同步，缺一处就会对不上：
@@ -115,7 +126,7 @@ for (const code of modelCodes) {
 
 | 文件 | 改什么 |
 | --- | --- |
-| `registry.spec.ts` | `points` / `singlePoint` 夹具；失败原因从四种缩为一种 |
+| `registry.spec.ts` | **整组删除**多点用例（multiPoint / missing-point / unknown-point / point-id-too-long），失败原因从四种缩为一种 |
 | `registry-cache.test.ts` | 缓存键断言 |
 | `detection.test.ts` | 删 `localPointId` 两个用例 |
 | `schema.test.ts` | 超表/子表名带模型编码；列数断言 16 → 13 |
@@ -125,7 +136,7 @@ for (const code of modelCodes) {
 
 ### 2.5 T5 文档
 
-`contracts.md`（删 `localPointId` 描述）、`backend.md`（子表命名、单位列）、`build-and-verify.md`（对账列清单去掉单位）、`AGENTS.md`（若提到子表名）、任务目录 README 的接缝与验收证据。
+`contracts.md`（删 `localPointId` 描述）、`backend.md`（子表命名、单位列）、`build-and-verify.md`（对账列清单去掉单位）、`repo-structure.md` 与 `iot-stage-map.md`（两处都写了 `pointKey`）、`AGENTS.md`（若提到子表名）、任务目录 README 的接缝与验收证据。
 
 ## 3. 顺序与验收
 
@@ -158,7 +169,35 @@ T1 → T2 → T3 → T4 → T5 → T6
 - 聚合集按属性声明（S5）
 - 结构体（S3 定义、S5 序列化）
 - 审计期望集扩成"设备 × 用过的模型"（S2 落地档案历史后才成立）
+- 多模型的**端到端验证**：S0.5 只有一个模型，循环分支靠单测用假列表覆盖，端到端不覆盖多模型
 
 ## 6. 环境前置
 
 `pnpm ops:env-up`；tdengine 当前已启动（2026-11-04 为实测 VARCHAR 上限启动过）。
+
+## 7. 改动面清单（逐个核对过）
+
+| 文件 | 改什么 |
+| --- | --- |
+| `packages/contracts/src/iot/telemetry.ts` | 删 `localPointId?` |
+| `packages/device-registry/src/types.ts` | `DeviceRecord.modelCode`；`PointResolution` 带 `subtable`；`SubtableRef.modelCode`；失败原因缩为 `unknown-device` |
+| `packages/device-registry/src/registry.ts` | `subtableName(modelCode, deviceId)`；`resolve` 简化；删 `MAX_LOCAL_POINT_ID_LENGTH` |
+| `packages/device-registry/src/p1.ts` | 导出 `P1_MODEL_CODE`；记录带 `modelCode` |
+| `packages/device-registry/src/registry.spec.ts` | 删整组多点用例 |
+| `apps/iot-worker/src/schema.ts` | 稳定名函数化；删单位列 |
+| `apps/iot-worker/src/detection.ts` | 删 `localPointId` 字段与校验 |
+| `apps/iot-worker/src/consumer.ts` | 用 `resolved.subtable`；删日志字段 |
+| `apps/iot-worker/src/registry-cache.ts` | 缓存键去掉点维 |
+| `apps/iot-worker/src/downsample/query.ts` | 传入 `modelCode`；删单位列 |
+| `apps/iot-worker/src/downsample/ring.ts` | 按模型循环 |
+| `apps/iot-worker/src/downsample/rows.ts` | 删 `UNIT_OFFSET` 与单位列 |
+| `apps/iot-worker/src/downsample/verify.ts` | 传入 `modelCode`；删单位列 |
+| `apps/iot-worker/src/tdengine/writer.ts` | 原始行去掉单位列 |
+| `apps/iot-worker/src/subtables/audit.ts` | 分类按模型编码集合 |
+| `apps/iot-worker/scripts/tdengine-init.ts` | 按模型建超表与降采样超表 |
+| `apps/iot-worker/scripts/subtable-audit.ts` | 期望集自动；分类随 `audit.ts` |
+| `apps/iot-worker/scripts/downsample-verify.ts` | 期望集自动；调 `verify` 时传 `modelCode` |
+| 测试 9 个 | `schema` / `registry-cache` / `detection` / `consumer.e2e` / `downsample-*.test` ×3 / `downsample-*.e2e` ×4 |
+| 文档 7 份 | `contracts.md` / `backend.md` / `build-and-verify.md` / `repo-structure.md` / `iot-stage-map.md` / `AGENTS.md` / 任务 README |
+
+**核对过、确认不改**：`apps/iot-simulator`（不发 `localPointId`）、`apps/pure-web`、`apps/nestjs-server` 的订阅端。
