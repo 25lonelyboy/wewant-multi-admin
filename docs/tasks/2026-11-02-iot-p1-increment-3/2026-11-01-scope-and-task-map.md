@@ -10,7 +10,7 @@
 | S0 | 债务清理与护栏 | 重建开发库卷（一次性清库）；只读子表审计（四桶、退出码）；降采样对账加"两侧计数为 0 不判过"；e2e `finally` 删行；worker 健康检查 | 库回到 400 张表基线；审计能红；对账空跑必红；e2e 不留行 |
 | S0.5 | 单设备单子表 | 子表名 `{deviceId}_{pointKey}` → `{模型编码}_{deviceId}`；载荷删 `localPointId`；档案删采集点层；契约、模拟器、测试同步 | 审计退出 0；原始子表 100 / 降采样 300；`consumer.e2e` 全过；`tdengine:init` 幂等 |
 | S1 | 契约与类型系统 | `value` 改联合类型（number/boolean/string）；属性 key 命名规则（禁分隔符/组件前缀）；`IotChannel` 扩 `service`/`event`；类型档位表（DOUBLE/FLOAT/INT/BIGINT/BOOL/NCHAR） | 契约单测；模拟器可造 BOOL 与枚举设备 |
-| S2 | 档案落 PG + 状态机 | 档案表（含协议版本、模型引用、状态 `PENDING/ACTIVE/FAILED`）；`DeviceRegistry` 接口不变 | 档案可读；消费者只认 ACTIVE |
+| S2 | 档案落 PG + 状态机 | 档案表（含协议版本、模型引用与**模型变更历史**、状态 `PENDING/ACTIVE/FAILED`）；`DeviceRegistry` 接口不变 | 档案可读；消费者只认 ACTIVE；换型号后旧模型子表仍判为合法 |
 | S3 | 物模型定义 | 模型（属性/服务/事件结构、类型、单位、量程、聚合集）；版本不可变 + ACTIVE/FAILED；声明 service/event 时报"已定义未实现" | 模型可建、可校验、可拒绝非法定义 |
 | S4 | 注册路径 | 一次注册 = 档案 + 模型 + 超表（或加列）+ 子表（1+3）+ 降采样列；失败进 FAILED；dry-run | 注册一台新类型设备，仓库无 diff |
 | S5 | 消费与降采样接线 | worker 读档案与模型；detection 取模型量程；DS 列由模型推导；`flushChain` 加失败分支 | 新属性自动出现 `sum_/count_/min_/max_` 且有值 |
