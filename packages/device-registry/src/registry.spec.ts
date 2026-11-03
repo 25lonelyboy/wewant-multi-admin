@@ -1,31 +1,21 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { createDeviceRegistry, subtableName } from './registry.js';
 import {
-  MAX_LOCAL_POINT_ID_LENGTH,
-  createDeviceRegistry,
-  subtableName
-} from './registry.js';
-import { P1_DEVICE_COUNT, p1DeviceRecords, p1DeviceRegistry } from './p1.js';
+  P1_DEVICE_COUNT,
+  P1_MODEL_CODE,
+  p1DeviceRecords,
+  p1DeviceRegistry
+} from './p1.js';
 import type { DeviceRecord } from './types.js';
 
-const singlePoint: DeviceRecord = {
+const record: DeviceRecord = {
   localDeviceId: 'sim-001',
   deviceId: 'ZZZZZZZZZZZZZZZZ',
-  singlePoint: true,
-  points: [{ localPointId: '001', pointKey: '001' }]
+  modelCode: 'p1'
 };
 
-const multiPoint: DeviceRecord = {
-  localDeviceId: 'plc-01',
-  deviceId: 'ABCDEF0123456789',
-  singlePoint: false,
-  points: [
-    { localPointId: 'motor', pointKey: '001' },
-    { localPointId: 'pump', pointKey: '002' }
-  ]
-};
-
-const registry = createDeviceRegistry([singlePoint, multiPoint]);
+const registry = createDeviceRegistry([record]);
 
 void test('已登记判定按规范化后的编号比较', () => {
   assert.equal(registry.hasDevice('sim-001'), true);
@@ -33,39 +23,19 @@ void test('已登记判定按规范化后的编号比较', () => {
   assert.equal(registry.hasDevice('sim-999'), false);
 });
 
-void test('单点设备缺省 localPointId 时补到它唯一那一点', () => {
+void test('查档成功时带出 deviceId、modelCode 与子表名', () => {
   assert.deepEqual(registry.resolve('sim-001'), {
     ok: true,
     deviceId: 'ZZZZZZZZZZZZZZZZ',
-    pointKey: '001'
-  });
-});
-
-void test('多点设备漏 localPointId 被拒（不走缺省）', () => {
-  assert.deepEqual(registry.resolve('plc-01'), {
-    ok: false,
-    reason: 'missing-point'
-  });
-});
-
-void test('多点设备给出采集点编号时解析到对应 pointKey', () => {
-  assert.deepEqual(registry.resolve('plc-01', 'pump'), {
-    ok: true,
-    deviceId: 'ABCDEF0123456789',
-    pointKey: '002'
+    modelCode: 'p1',
+    subtable: 'p1_zzzzzzzzzzzzzzzz'
   });
   // 同一台设备前后大小写/空白不一致 ⇒ 规范化后仍认
-  assert.deepEqual(registry.resolve('plc-01', '  PUMP '), {
+  assert.deepEqual(registry.resolve('  SIM-001 '), {
     ok: true,
-    deviceId: 'ABCDEF0123456789',
-    pointKey: '002'
-  });
-});
-
-void test('未登记的采集点被拒', () => {
-  assert.deepEqual(registry.resolve('plc-01', 'valve'), {
-    ok: false,
-    reason: 'unknown-point'
+    deviceId: 'ZZZZZZZZZZZZZZZZ',
+    modelCode: 'p1',
+    subtable: 'p1_zzzzzzzzzzzzzzzz'
   });
 });
 
@@ -76,34 +46,16 @@ void test('未登记的设备被拒', () => {
   });
 });
 
-void test('超长 localPointId 被拒而不是截断', () => {
-  const tooLong = 'x'.repeat(MAX_LOCAL_POINT_ID_LENGTH + 1);
-  assert.deepEqual(registry.resolve('plc-01', tooLong), {
-    ok: false,
-    reason: 'point-id-too-long'
-  });
-});
-
-void test('空白 localPointId 按缺失处理', () => {
-  assert.deepEqual(registry.resolve('plc-01', '   '), {
-    ok: false,
-    reason: 'missing-point'
-  });
-});
-
 void test('档案里 localDeviceId 规范化后重复时构造即失败', () => {
   assert.throws(
     () =>
-      createDeviceRegistry([
-        singlePoint,
-        { ...singlePoint, localDeviceId: 'SIM-001' }
-      ]),
+      createDeviceRegistry([record, { ...record, localDeviceId: 'SIM-001' }]),
     /localDeviceId 重复/
   );
 });
 
-void test('子表名折小写（TDengine 标识符不分大小写）', () => {
-  assert.equal(subtableName('ABCDEF0123456789', '001'), 'abcdef0123456789_001');
+void test('子表名：模型编码 + deviceId，折小写', () => {
+  assert.equal(subtableName('p1', 'ABCDEF0123456789'), 'p1_abcdef0123456789');
 });
 
 void test('P1 档案：台数、标识形状与唯一性', () => {
@@ -113,7 +65,7 @@ void test('P1 档案：台数、标识形状与唯一性', () => {
   const deviceIds = records.map(record => record.deviceId);
   assert.equal(new Set(deviceIds).size, P1_DEVICE_COUNT);
   for (const deviceId of deviceIds) {
-    // ⚠️ 首字符必须是字母：TDengine 标识符不能以数字开头，而它是子表名的首段
+    // 标识生成规则已冻结：16 位、首字符字母
     assert.match(deviceId, /^[A-Z][0-9A-Z]{15}$/);
   }
 
@@ -125,13 +77,15 @@ void test('P1 档案：台数、标识形状与唯一性', () => {
       (_, i) => `sim-${String(i + 1).padStart(3, '0')}`
     )
   );
+  assert.ok(records.every(record => record.modelCode === P1_MODEL_CODE));
 });
 
-void test('P1 档案：子表名全部小写且与设备数一致', () => {
+void test('P1 档案：子表名带模型编码、全部小写且与设备数一致', () => {
   const subtables = p1DeviceRegistry.allSubtables();
   assert.equal(subtables.length, P1_DEVICE_COUNT);
   for (const subtable of subtables) {
-    assert.match(subtable.name, /^[0-9a-z]+_001$/);
+    assert.match(subtable.name, /^p1_[0-9a-z]+$/);
+    assert.equal(subtable.modelCode, P1_MODEL_CODE);
     // 子表名折小写，但进标签的 deviceId 保留原样大小写
     assert.match(subtable.deviceId, /^[0-9A-Z]{16}$/);
   }

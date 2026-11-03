@@ -5,13 +5,19 @@ import type { DeviceRecord, DeviceRegistry } from './types.js';
 /** P1 的模拟设备台数——与模拟器缺省规模一致 */
 export const P1_DEVICE_COUNT = 100;
 
+/**
+ * P1 的占位模型编码。
+ *
+ * P1 尚无物模型；S3 落地物模型后由档案里的 `modelCode` 取代本常量。
+ */
+export const P1_MODEL_CODE = 'p1';
+
 const DEVICE_ID_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
 /**
  * 首位专用字母表。
  *
- * ⚠️ TDengine 的标识符**不能以数字开头**，而 `deviceId` 是子表名 `{deviceId}_{pointKey}`
- * 的首段 ⇒ 生成侧必须保证首字符是字母。
+ * 标识一旦有数据就冻结（决策 1 §8.5）——生成规则不再随命名方式调整，首字符保持字母。
  */
 const DEVICE_ID_LEAD_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -38,7 +44,7 @@ function deriveDeviceId(index: number): string {
 /**
  * P1 的设备档案数据。
  *
- * 全部登记为**单点**设备、采集点编号 `001`。增量 3 换成真设备档案后本函数退场，
+ * 全部登记为占位模型 `p1` 下的设备。增量 3 换成真设备档案后本函数退场，
  * **接口与子表名不动**。⚠️ `localDeviceId` 与模拟器共用契约里的同一个生成函数，
  * 不靠事后断言对齐。
  */
@@ -50,8 +56,7 @@ export function p1DeviceRecords(
     return {
       localDeviceId: localDeviceIdForIndex(index),
       deviceId: deriveDeviceId(index),
-      singlePoint: true,
-      points: [{ localPointId: '001', pointKey: '001' }]
+      modelCode: P1_MODEL_CODE
     };
   });
 }

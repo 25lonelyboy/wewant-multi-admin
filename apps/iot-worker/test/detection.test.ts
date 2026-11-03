@@ -62,21 +62,6 @@ void test('ts 非有限数字判为 bad-ts', () => {
   );
 });
 
-void test('localPointId 存在但非字符串判为 malformed', () => {
-  assert.deepEqual(detect(raw({ ...full, localPointId: 7 })), {
-    ok: false,
-    reason: 'malformed',
-    unknownMetricKeys: []
-  });
-});
-
-void test('localPointId 原样带出', () => {
-  const result = detect(raw({ ...full, localPointId: '002' }));
-  assert.equal(result.ok, true);
-  if (!result.ok) return;
-  assert.equal(result.sample.localPointId, '002');
-});
-
 void test('未知测点只丢那一个，同一条里合法的测点照留', () => {
   const result = detect(
     raw({

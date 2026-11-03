@@ -19,7 +19,7 @@ import type { TdSql } from '../src/tdengine/client.js';
 const SUBTABLE = ((): string => {
   const resolved = p1DeviceRegistry.resolve('sim-001');
   assert.ok(resolved.ok, 'sim-001 应在 P1 档案里');
-  return `${resolved.deviceId}_${resolved.pointKey}`.toLowerCase();
+  return resolved.subtable;
 })();
 
 /**

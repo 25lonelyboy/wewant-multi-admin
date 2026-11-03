@@ -191,16 +191,12 @@ export class TelemetryConsumer {
       );
     }
 
-    const resolved = this.cache.resolve(
-      sample.localDeviceId,
-      sample.localPointId
-    );
+    const resolved = this.cache.resolve(sample.localDeviceId);
     if (!resolved.ok) {
       this.rejected += 1;
       this.logger.warn(
         {
           localDeviceId: sample.localDeviceId,
-          localPointId: sample.localPointId,
           reason: resolved.reason
         },
         '查档失败，丢弃'
@@ -208,9 +204,8 @@ export class TelemetryConsumer {
       return null;
     }
 
-    const subtable = `${resolved.deviceId}_${resolved.pointKey}`.toLowerCase();
     return {
-      subtable,
+      subtable: resolved.subtable,
       ts: sample.ts,
       metrics: Object.fromEntries(
         sample.metrics.map(metric => [

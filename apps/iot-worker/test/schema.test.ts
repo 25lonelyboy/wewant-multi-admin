@@ -47,7 +47,7 @@ void test('子表名折小写、标签值保留原样', () => {
   const statement = createSubtableStatement({
     name: 'aweawq05e8pf53wh_001',
     deviceId: 'AWEAWQ05E8PF53WH',
-    pointKey: '001'
+    modelCode: 'p1'
   });
 
   assert.match(statement, /INTO|USING/);
@@ -87,7 +87,7 @@ void test('降采样子表：每采集点三级各一，名带级别后缀、标
   const subtable = {
     name: 'aweawq05e8pf53wh_001',
     deviceId: 'AWEAWQ05E8PF53WH',
-    pointKey: '001'
+    modelCode: 'p1'
   };
   const statements = createDsSubtableStatements(subtable);
 

@@ -65,11 +65,6 @@ export interface TelemetryMetric {
 export interface TelemetryPayload {
   /** 设备报的本地编号；与主题段同值（订阅端会拦截不一致的报文） */
   localDeviceId: string;
-  /**
-   * 设备报的采集点编号；**仅多点设备需要**。
-   * 单点设备可缺省——是否允许缺省由档案登记决定（见 `device-registry` 包）。
-   */
-  localPointId?: string;
   ts: number;
   metrics: TelemetryMetric[];
 }

@@ -2,7 +2,7 @@
   "name": "@multi-admin/device-registry",
   "version": "0.1.0",
   "private": true,
-  "description": "多端管理系统 - 设备档案：设备自报编号 ↔ 平台签发的设备标识与采集点",
+  "description": "多端管理系统 - 设备档案：设备自报编号 ↔ 平台签发的设备标识与模型编码",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",

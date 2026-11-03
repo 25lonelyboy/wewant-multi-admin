@@ -10,8 +10,7 @@ import { ResolveCache } from '../src/registry-cache.js';
 const record: DeviceRecord = {
   localDeviceId: 'sim-001',
   deviceId: 'ABCDEFGHIJKLMNOP',
-  singlePoint: true,
-  points: [{ localPointId: '001', pointKey: '001' }]
+  modelCode: 'p1'
 };
 
 function countingRegistry(): { registry: DeviceRegistry; calls: () => number } {
@@ -22,9 +21,9 @@ function countingRegistry(): { registry: DeviceRegistry; calls: () => number } {
     registry: {
       hasDevice: id => inner.hasDevice(id),
       allSubtables: () => inner.allSubtables(),
-      resolve: (id, pointId) => {
+      resolve: id => {
         calls += 1;
-        return inner.resolve(id, pointId);
+        return inner.resolve(id);
       }
     }
   };

@@ -26,8 +26,6 @@ export const DEFAULT_METRIC_RANGES: MetricRanges = {
 
 export interface DetectedSample {
   localDeviceId: string;
-  /** 设备报的采集点编号；仅多点设备会有 */
-  localPointId?: string;
   ts: number;
   /** 只保留**认得的、值合法的**测点 */
   metrics: TelemetryMetric[];
@@ -101,11 +99,6 @@ export function detect(
     return fail('missing-device');
   }
 
-  const localPointId = payload.localPointId;
-  if (localPointId !== undefined && typeof localPointId !== 'string') {
-    return fail('malformed');
-  }
-
   const ts = payload.ts;
   if (!isFiniteNumber(ts)) return fail('bad-ts');
 
@@ -141,7 +134,6 @@ export function detect(
     ok: true,
     sample: {
       localDeviceId,
-      ...(localPointId === undefined ? {} : { localPointId }),
       ts,
       metrics,
       unknownMetricKeys

@@ -4,8 +4,6 @@ import type {
   PointResolution
 } from '@multi-admin/device-registry';
 
-const SEP = '\u0000';
-
 /**
  * 查档结果的本地缓存。
  *
@@ -29,13 +27,13 @@ export class ResolveCache {
     return this.entries.size;
   }
 
-  resolve(localDeviceId: string, localPointId?: string): PointResolution {
-    const key = `${normalizeLocalId(localDeviceId)}${SEP}${normalizeLocalId(localPointId ?? '')}`;
+  resolve(localDeviceId: string): PointResolution {
+    const key = normalizeLocalId(localDeviceId);
     const at = this.now();
     const hit = this.entries.get(key);
     if (hit !== undefined && at - hit.at < this.ttlMs) return hit.result;
 
-    const result = this.registry.resolve(localDeviceId, localPointId);
+    const result = this.registry.resolve(localDeviceId);
     // 未登记的设备会不断产生新键 ⇒ 简单封顶，超了整体清空（P1 规模下够用）
     if (this.entries.size >= this.maxEntries) this.entries.clear();
     this.entries.set(key, { at, result });
