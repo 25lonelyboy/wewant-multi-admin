@@ -20,7 +20,10 @@ export const MAX_MODEL_CODE_LENGTH = 172;
  * ⚠️ 存**归一化后**的形态：比对发生在折小写之后，写驼峰 `deviceId` 等于没禁
  * （TDengine 标识符不分大小写，`deviceid` 与 `deviceId` 是同一列）。
  */
-export const RESERVED_METRIC_KEYS: readonly string[] = ['ts', 'deviceid'];
+export const RESERVED_METRIC_KEYS = ['ts', 'deviceid'] as const;
+
+/** 保留后缀：属性 key 不得以它结尾（D2 §1.4） */
+export const RESERVED_METRIC_KEY_SUFFIX = '_unit';
 
 export type IdentifierFailure =
   /** 空串，或全是空白 */
@@ -30,7 +33,9 @@ export type IdentifierFailure =
   /** 超长 */
   | 'too-long'
   /** 撞保留词 */
-  | 'reserved';
+  | 'reserved'
+  /** 以 `_unit` 结尾——旧单位列的形态，保留不用 */
+  | 'reserved-suffix';
 
 export type IdentifierCheck =
   { ok: true; value: string } | { ok: false; reason: IdentifierFailure };
@@ -56,9 +61,19 @@ function check(
   return { ok: true, value };
 }
 
-/** 属性 key：D2 §2.6 的字符集、长度与保留词 */
+/**
+ * 属性 key：D2 §2.6 的字符集、长度与保留词，外加 `_unit` 保留后缀。
+ *
+ * 后缀单独判：`<key>_unit` 是旧单位列的形态，单位列已取消、留着不用——将来回退时不必改数据
+ * （D2 §1.4 / §6 第 4 条）。模型编码没有这条——单位是属性级的，与超表名无关。
+ */
 export function checkMetricKey(raw: string): IdentifierCheck {
-  return check(raw, MAX_METRIC_KEY_LENGTH, RESERVED);
+  const result = check(raw, MAX_METRIC_KEY_LENGTH, RESERVED);
+  if (!result.ok) return result;
+  if (result.value.endsWith(RESERVED_METRIC_KEY_SUFFIX)) {
+    return { ok: false, reason: 'reserved-suffix' };
+  }
+  return result;
 }
 
 /**

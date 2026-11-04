@@ -104,9 +104,15 @@ export const MAX_VARCHAR_BYTES = 65517;
 ```ts
 export const MAX_METRIC_KEY_LENGTH = 58;
 export const MAX_MODEL_CODE_LENGTH = 172;
-export const RESERVED_METRIC_KEYS: readonly string[] = ['ts', 'deviceId'];
+export const RESERVED_METRIC_KEYS = ['ts', 'deviceid'] as const;
+export const RESERVED_METRIC_KEY_SUFFIX = '_unit';
 
-export type IdentifierFailure = 'empty' | 'charset' | 'too-long' | 'reserved';
+export type IdentifierFailure =
+  | 'empty'
+  | 'charset'
+  | 'too-long'
+  | 'reserved'
+  | 'reserved-suffix';
 
 export type IdentifierCheck =
   | { ok: true; value: string } // 已归一化为小写
@@ -122,6 +128,7 @@ export function checkModelCode(raw: string): IdentifierCheck;
 | 字符集 | `^[a-z][a-z0-9_]*$` | 同 | D2 §1 / §2.6 |
 | 长度上限 | 58 | 172 | D2 §2.6（列名 64 − `count_`；表名 192 − `_{deviceId}` 与 `_{level}`） |
 | 保留词 | `ts` / `deviceId` | 无 | D2 §2.6 |
+| 保留后缀 | 不得以 `_unit` 结尾 | 无（单位是属性级，与超表名无关） | D2 §1.4 / §6 第 4 条 |
 | 唯一性 | 模型内、大小写归一后 | 全平台 | **不在本函数**，需集合上下文，归 S3 |
 
 两个决定：

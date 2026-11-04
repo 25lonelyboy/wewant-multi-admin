@@ -69,3 +69,29 @@ void test('模型编码：字符集与归一化同属性 key', () => {
   assert.deepEqual(checkModelCode('-p1'), { ok: false, reason: 'charset' });
   assert.deepEqual(checkModelCode('   '), { ok: false, reason: 'empty' });
 });
+
+void test('属性 key：以 _unit 结尾被拒（保留后缀）', () => {
+  assert.deepEqual(checkMetricKey('temperature_unit'), {
+    ok: false,
+    reason: 'reserved-suffix'
+  });
+  assert.deepEqual(checkMetricKey('Temperature_Unit'), {
+    ok: false,
+    reason: 'reserved-suffix'
+  });
+});
+
+void test('属性 key：_unit 只在结尾被拒，出现在中间照常通过', () => {
+  assert.deepEqual(checkMetricKey('unit_state'), {
+    ok: true,
+    value: 'unit_state'
+  });
+  assert.deepEqual(checkMetricKey('temp_unit_raw'), {
+    ok: true,
+    value: 'temp_unit_raw'
+  });
+});
+
+void test('模型编码：不受 _unit 后缀限制——单位是属性级的', () => {
+  assert.deepEqual(checkModelCode('p1_unit'), { ok: true, value: 'p1_unit' });
+});
