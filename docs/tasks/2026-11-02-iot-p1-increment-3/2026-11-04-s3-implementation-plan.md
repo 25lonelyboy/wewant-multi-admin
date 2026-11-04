@@ -81,7 +81,7 @@ export const AGGREGATE_COLUMN_TYPE: Record<
 
 `array` 不在 `PropertyKind` 里，传进来即 `invalid-kind`——这是 D2 §6 第 1 条要的拒绝码。
 
-**聚合集缺省为空**：不写就是 `[]`，该属性不产生降采样列（D2 §2.5）。空集是安全缺省——忘了声明的后果是"没有降采样"，不是"多出一列没人算的值"。
+**聚合集必填**：`aggregates` 不写就编译不过。不采用"缺省为空"——空集与"忘了写"在运行时不可区分，而后者会静默地让该属性没有降采样。要空就显式写 `[]`（D2 §2.5：空集不产生降采样列）。
 
 ### 2.2 T2 声明结构与校验
 
@@ -165,14 +165,24 @@ export type ModelValidation =
   | { ok: true; declaration: ModelDeclaration; warnings: ModelWarning[] }
   | { ok: false; issues: ModelIssue[] };
 
+/** 成功时返回**归一化后的**声明，不是入参本身 */
 export function validateModel(declaration: ModelDeclaration): ModelValidation;
 ```
+
+**归一化做什么**（成功分支）：
+
+- `modelCode` 与所有 `key` 折小写——`checkModelCode` / `checkMetricKey` 内部已经是这个形态，校验器把它写回结果
+- `aggregates` 去重并按 `sum` / `count` / `min` / `max` 的固定顺序排列
+- 其余字段原样
+
+S4 拿到的就是可直接落库的形态，不必自己再处理一次大小写——两道归一化迟早会漂，而漂出来的列名 `sum_P1_Temp` 与 `sum_p1_temp` 在编解码和审计里是两个名字。
 
 几点：
 
 - **`duplicate-key` 是 S1 留下的那一条**：S1 只能做单键规则，"撞大小写"要集合上下文，落在这里
 - **属性 / 服务 / 事件的 key 共享一套命名空间**：同一个模型里 `power` 不能既是属性又是服务
 - **子字段 key 复用 `checkMetricKey`**：一套规则比两套少出错。子字段不进列名，58 字符的限制对它是宽松的
+- **`enumValues` 的规则**：非空、元素为整数、互不相同。取值表只影响校验与展示，不改存储列类型（仍是 `INT`）
 - **校验不看聚合的合法性**：那属于 S4 的接口层（见 §2.4）
 
 ### 2.3 T3 版本与状态
@@ -192,6 +202,7 @@ export interface DerivedColumn {
 }
 
 export type DerivationIssue = {
+  /** 属性下标定位，形如 `properties[2].aggregates`——S4 要回显到表单上 */
   path: string;
   code: 'no-column-type'; // 该档位 × 该聚合在 AGGREGATE_COLUMN_TYPE 里没有条目
 };
@@ -248,7 +259,7 @@ export const P1_MODEL: ModelDeclaration = {
 | 文件 | 覆盖 |
 | --- | --- |
 | `src/model-types.spec.ts` | 类型表的每一格；`array` 不在八档内；每个档位的列类型映射 |
-| `src/model-validate.spec.ts` | 每个错误码至少一例；`P1_MODEL` 通过且无 warning；声明服务 / 事件只出 warning；大小写归一后重名被拒 |
+| `src/model-validate.spec.ts` | 每个错误码至少一例；返回的声明已折小写、聚合已去重排序；`P1_MODEL` 通过且无 warning；声明服务 / 事件只出 warning；大小写归一后重名被拒 |
 | `src/model-derive.spec.ts` | 列序确定；空聚合集不产列；`sum` 配 `bool` 推导失败并指出路径；P1 三属性推出 12 列，列名以字面量断言 |
 
 文档：`docs/architecture/contracts.md` 补一句"模型定义与校验在 device-registry"；`backend.md` 的 iot 段补模型与降采样列的推导关系；任务 README 记录状态与证据。
@@ -262,6 +273,7 @@ T1 → T2 → T3 → T4 → T5 → T6
 | 验收 | 怎么证明（对得上哪条出口） |
 | --- | --- |
 | 结构非法被拒 | 每个 `ModelIssueCode` 有单测；`array` 档位、超长 VARCHAR、bool 带单位、缺 `fields`、归一后重名各一例 |
+| 归一化生效 | `validateModel` 的 ok 分支里 `P1_Temp` 是 `p1_temp`；`['max','sum','max']` 归一为 `['sum','max']` |
 | 列集合算得出来 | `dsColumnsOf(P1_MODEL.properties)` 产出 12 列；测试以**字面量**断言列名与类型，顺序一致 |
 | 算不出就响亮失败 | `sum` 配 `bool` 的推导返回 `no-column-type` 并指出属性路径 |
 | 服务 / 事件留位 | 声明后校验通过，`warnings` 含 `service-not-implemented` |
@@ -299,11 +311,12 @@ T1 → T2 → T3 → T4 → T5 → T6
 
 **核对过、确认不改**：`apps/iot-worker`（列集合仍由 `RAW_METRICS` 决定，S5 才换）、`apps/iot-simulator`、`apps/nestjs-server`、`packages/contracts`。
 
-## 7. 本计划做的四处判断（可否决）
+## 7. 本计划做的五处判断（可否决）
 
 | 判断 | 理由 | 否决的后果 |
 | --- | --- | --- |
 | S3 不落 PG | S2 定表、S4 写入；S3 先把形状与校验钉死，避免三处并行改 | S3 变大，且会与 S2 抢表设计 |
-| 聚合集缺省空 | 空集只损失降采样，不产生没人算的列 | 改为必填或默认四聚合，需同步改建模体验 |
 | `AGGREGATE_COLUMN_TYPE` 当事实表而非策略表 | 聚合由建模人选、范围由接口层收窄；S3 只回答"能不能算出列" | 改成策略表 = 把 S4 的职责提前，与你的分工相反 |
+| 聚合集必填、不用"缺省空" | 空集与忘写运行时不可分；忘写会让该属性静默地没有降采样 | 改成缺省空，需在快照里额外记"是否显式声明" |
+| 校验器顺带做归一化 | 两道归一化迟早会漂；`sum_P1_Temp` 与 `sum_p1_temp` 在编解码与审计里是两个名字 | 调用方各自归一化，S4 的每个入口都要记得 |
 | 模型代码留在 `device-registry` | 与 S1 的词汇同包，S4 直接用；不轻易新建 workspace | 包定位继续变宽，迟早要拆 |
