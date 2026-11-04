@@ -1,6 +1,6 @@
 # IoT 平台 P1 · 增量 3「物模型」· L1 阶段目标
 
-- **状态**：L1 已定稿；S0 已完成（2026-11-02）；D2、D4 已收口（2026-11-03）；S0.5 已完成（2026-11-04）；S1 实施计划已出（2026-11-04）
+- **状态**：L1 已定稿；S0 已完成（2026-11-02）；D2、D4 已收口（2026-11-03）；S0.5 已完成（2026-11-04）；S1 已完成（2026-11-04）
 - **时间窗**：2026-11-02 ~ 11-15（每周 8–10 h）｜下一里程碑 M2 = 2026-12-06
 - **判据**：[阶段地图](../../governance/iot-stage-map.md) §2 —— 新增设备只按物模型注册即可接入，**不改代码**
 - **覆盖层**：治理（并改存储与计算的接口面）
@@ -12,9 +12,13 @@
 
 **S0.5 验收证据**（2026-11-04，重建卷后取证）：`SHOW wewant_iot.STABLES` = `p1`，`SHOW wewant_iot_ds.STABLES` = `p1_1m` / `p1_1h` / `p1_1d`；`SHOW wewant_iot.TABLES` 100 张子表均为 `p1_<deviceId>`；`DESCRIBE wewant_iot.p1` 无任何 `_unit` 列，降采样超表 13 个数据列（+ `deviceId` 标签）；`tdengine:init` 连跑两次表数与名集合一致；`subtable:audit` 四桶全空、退出 0；`consumer.e2e` 所在套件 8/8 通过；`pnpm check` 与 `pnpm doc:lint` 全绿。
 
-**下一步**：S1（契约与类型系统）即可开工——前置 D2 / D4 均已定稿。S3 的硬前置是 D5（版本边界），D5 定稿后接上；S2 / S4 的前置是 D3，S5 的前置是 D1。
+**S1「契约与类型系统」** 交付完成——`TelemetryMetric.value` 改为 `MetricValue` 联合（number / boolean / string / 对象），`IotChannel` 扩出 `service` / `event`（只留位，订阅端仍只订遥测、解析函数仍只认 `telemetry`）；**类型档位表**（六档 + `VARCHAR(N)` 上限 65517 字节）与**标识符校验**（`checkMetricKey` / `checkModelCode`，覆盖字符集、长度 58 / 172、保留词与折小写归一化）落在 `packages/device-registry`——按 [contracts.md](../../architecture/contracts.md) 的包边界，它们描述列与表名的形状，不属线上契约；模拟器新增 `SIM_EXTRA_METRIC`，可造带布尔 / 枚举测点的设备。
 
-**未决**：D1（档案承载与 worker 读取）、D3（注册原子性）、D5（版本边界与注销）。执行顺序 D3 → D1 → D5。
+**S1 验收证据**（2026-11-04）：device-registry 17/17、iot-worker 149/149、iot-simulator 7/7 单测通过；`pnpm check` 与 `pnpm doc:lint` 全绿。e2e 未跑——Docker daemon 未启动，`consumer.e2e` 待环境就绪后补。
+
+**下一步**：S3（物模型定义）——硬前置是 D5 的版本边界。S2 / S4 的前置是 D3，S5 的前置是 D1。
+
+**未决**：D1（档案承载与 worker 读取）、D3（注册原子性）、D5（版本边界与注销）。按子任务前置排：D5 版本边界在 S3 前，D3 在 S2 / S4 前，D1 在 S5 前，D5 的注销与清理口径随 S6 定。
 
 **怎么验证已有结论**：
 

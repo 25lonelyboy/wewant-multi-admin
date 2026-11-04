@@ -153,6 +153,7 @@ export function checkModelCode(raw: string): IdentifierCheck;
 | --- | --- |
 | `src/identifier.spec.ts` | key 长度 58 / 59 边界、保留词、大写归一化、非法首字符、空串；模型编码 172 / 173 边界 |
 | `src/column-type.spec.ts` | 六档常量、`MAX_VARCHAR_BYTES` |
+| `apps/iot-simulator/test/telemetry.test.ts` | 追加测点的形状；`buildPayload` 透传 |
 
 ### 2.6 T6 文档与门禁
 
@@ -215,6 +216,7 @@ T1 → T2 → T3 → T4 → T5 → T6
 | `apps/iot-worker/src/detection.ts` | `DetectedMetric` 窄化，判定逻辑不变 |
 | `apps/iot-simulator/src/telemetry.ts` | `buildMetrics` 追加测点 |
 | `apps/iot-simulator/src/device.ts` / `src/index.ts` | 环境变量透传 |
+| `apps/iot-simulator/test/telemetry.test.ts` | 追加测点用例 |
 | `apps/iot-simulator/README.md` | `SIM_EXTRA_METRIC` 与环境变量表 |
 | `docs/architecture/contracts.md` | 值联合、通道、类型档位表；刷 `last_verified` |
 | `docs/architecture/repo-structure.md` | device-registry 定位；刷 `last_verified` |
