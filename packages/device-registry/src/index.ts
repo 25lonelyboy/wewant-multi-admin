@@ -3,3 +3,7 @@ export * from './registry.js';
 export * from './p1.js';
 export * from './column-type.js';
 export * from './identifier.js';
+export * from './model-types.js';
+export * from './model-validate.js';
+export * from './model-derive.js';
+export * from './p1-model.js';
