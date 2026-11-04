@@ -14,7 +14,7 @@
 
 **S1「契约与类型系统」** 交付完成——`TelemetryMetric.value` 改为 `MetricValue` 联合（number / boolean / string / 对象），`IotChannel` 扩出 `service` / `event`（只留位，订阅端仍只订遥测、解析函数仍只认 `telemetry`）；**类型档位表**（六档 + `VARCHAR(N)` 上限 65517 字节）与**标识符校验**（`checkMetricKey` / `checkModelCode`，覆盖字符集、长度 58 / 172、保留词与折小写归一化）落在 `packages/device-registry`——按 [contracts.md](../../architecture/contracts.md) 的包边界，它们描述列与表名的形状，不属线上契约；模拟器新增 `SIM_EXTRA_METRIC`，可造带布尔 / 枚举测点的设备。
 
-**S1 验收证据**（2026-11-04）：device-registry 17/17、iot-worker 149/149、iot-simulator 7/7 单测通过；`pnpm check` 与 `pnpm doc:lint` 全绿。e2e 未跑——Docker daemon 未启动，`consumer.e2e` 待环境就绪后补。
+**S1 验收证据**（2026-11-04）：device-registry 17/17、iot-worker 149/149、iot-simulator 7/7 单测通过；iot-worker e2e 8/8 通过；`pnpm check` 与 `pnpm doc:lint` 全绿；`SIM_DEVICE_COUNT=1 SIM_EXTRA_METRIC=boolean` 起一台设备，EMQX 上收到的载荷含 `power_state: true`，与三个数值测点并列。
 
 **下一步**：S3（物模型定义）——硬前置是 D5 的版本边界。S2 / S4 的前置是 D3，S5 的前置是 D1。
 
