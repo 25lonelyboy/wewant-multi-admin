@@ -20,6 +20,8 @@ import {
  */
 
 export type ModelIssueCode =
+  /** 一个属性都没有——这样的模型收不到任何数据 */
+  | 'empty-model'
   /** 模型编码不合法（复用 `checkModelCode`） */
   | 'invalid-model-code'
   /** 属性 / 服务 / 事件的 key 不合法（复用 `checkMetricKey`） */
@@ -105,6 +107,10 @@ export function validateModel(declaration: ModelDeclaration): ModelValidation {
   const modelCode = checkModelCode(declaration.modelCode);
   if (!modelCode.ok) {
     issues.push({ path: 'modelCode', code: 'invalid-model-code' });
+  }
+
+  if (declaration.properties.length === 0) {
+    issues.push({ path: 'properties', code: 'empty-model' });
   }
 
   const properties = declaration.properties.map((property, index) =>

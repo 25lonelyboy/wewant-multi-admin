@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { dsColumnsOf } from './model-derive.js';
 import { P1_MODEL } from './p1-model.js';
-import type { PropertyDecl } from './model-types.js';
+import type { PropertyDecl, PropertyKind } from './model-types.js';
 
 void test('P1 三测点推出 12 列，列名与列类型逐字一致', () => {
   const result = dsColumnsOf(P1_MODEL.properties);
@@ -72,4 +72,19 @@ void test('多处算不出 ⇒ 逐条报出，不只报第一条', () => {
     result.issues.map(issue => issue.path),
     ['properties[0].aggregates', 'properties[1].aggregates']
   );
+});
+
+void test('未经校验的非法档位 ⇒ 返回问题，不抛错', () => {
+  const result = dsColumnsOf([
+    {
+      key: 'x',
+      kind: 'array' as unknown as PropertyKind,
+      aggregates: ['count']
+    }
+  ]);
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.deepEqual(result.issues, [
+    { path: 'properties[0].kind', code: 'invalid-kind' }
+  ]);
 });

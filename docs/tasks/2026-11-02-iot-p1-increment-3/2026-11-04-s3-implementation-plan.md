@@ -145,6 +145,7 @@ export interface ModelVersion extends ModelDeclaration {
 
 ```ts
 export type ModelIssueCode =
+  | 'empty-model' // 一个属性都没有
   | 'invalid-model-code' // 用 S1 的 checkModelCode
   | 'invalid-key' // 属性 / 服务 / 事件的 key，复用 S1 的 checkMetricKey
   | 'duplicate-key' // 归一化后重复：属性 × 属性、属性 × 服务 × 事件
@@ -204,7 +205,8 @@ export interface DerivedColumn {
 export type DerivationIssue = {
   /** 属性下标定位，形如 `properties[2].aggregates`——S4 要回显到表单上 */
   path: string;
-  code: 'no-column-type'; // 该档位 × 该聚合在 AGGREGATE_COLUMN_TYPE 里没有条目
+  /** `no-column-type`：该档位 × 该聚合没有条目；`invalid-kind`：档位不在八档内（未经校验的输入） */
+  code: 'no-column-type' | 'invalid-kind';
 };
 
 export type DerivationResult =
@@ -272,10 +274,10 @@ T1 → T2 → T3 → T4 → T5 → T6
 
 | 验收 | 怎么证明（对得上哪条出口） |
 | --- | --- |
-| 结构非法被拒 | 每个 `ModelIssueCode` 有单测；`array` 档位、超长 VARCHAR、bool 带单位、缺 `fields`、归一后重名各一例 |
+| 结构非法被拒 | 每个 `ModelIssueCode` 有单测；空模型、`array` 档位、超长 VARCHAR、bool 带单位、缺 `fields`、归一后重名各一例 |
 | 归一化生效 | `validateModel` 的 ok 分支里 `P1_Temp` 是 `p1_temp`；`['max','sum','max']` 归一为 `['sum','max']` |
 | 列集合算得出来 | `dsColumnsOf(P1_MODEL.properties)` 产出 12 列；测试以**字面量**断言列名与类型，顺序一致 |
-| 算不出就响亮失败 | `sum` 配 `bool` 的推导返回 `no-column-type` 并指出属性路径 |
+| 算不出就响亮失败 | `sum` 配 `bool` 的推导返回 `no-column-type` 并指出属性路径；非法档位返回 `invalid-kind` 而不是抛错 |
 | 服务 / 事件留位 | 声明后校验通过，`warnings` 含 `service-not-implemented` |
 | P1 自洽 | `P1_MODEL` 过自己的校验器，且推导成功 |
 | 门禁 | `pnpm --filter @multi-admin/device-registry run test`、`pnpm check`、`pnpm doc:lint` 全绿 |

@@ -16,9 +16,9 @@
 
 **S1 验收证据**（2026-11-04）：device-registry 20/20、iot-worker 149/149、iot-simulator 7/7 单测通过；iot-worker e2e 8/8 通过；`pnpm check` 与 `pnpm doc:lint` 全绿；`SIM_DEVICE_COUNT=1 SIM_EXTRA_METRIC=boolean` 起一台设备，EMQX 上收到的载荷含 `power_state: true`，与三个数值测点并列。
 
-**S3「物模型定义」** 交付完成——八档声明类型与「聚合 → 列类型」事实表；`ModelDeclaration` / `ModelVersion` 两级结构，校验成功时返回**归一化后**的声明（key 折小写、聚合集去重并按固定顺序排列）；十一个结构错误码与一个不阻断的警告；降采样列推导（属性按声明顺序 × 聚合按固定顺序，某组合算不出列即整体失败）；P1 首份模型。落库与注册接口归 S2 / S4，列集合的接线归 S5。
+**S3「物模型定义」** 交付完成——八档声明类型与「聚合 → 列类型」事实表；`ModelDeclaration` / `ModelVersion` 两级结构，校验成功时返回**归一化后**的声明（key 折小写、聚合集去重并按固定顺序排列）；十二个结构错误码与一个不阻断的警告；降采样列推导（属性按声明顺序 × 聚合按固定顺序，某组合算不出列即整体失败）；P1 首份模型。落库与注册接口归 S2 / S4，列集合的接线归 S5。
 
-**S3 验收证据**（2026-11-04）：device-registry 47/47 单测通过；`P1_MODEL` 过自身校验器、推导出 12 列（`sum_temperature` … `max_current`，类型 `DOUBLE` / `BIGINT` / `FLOAT`），与 S0.5 落地的降采样超表逐列一致；`pnpm check` 与 `pnpm doc:lint` 全绿。
+**S3 验收证据**（2026-11-04）：device-registry 49/49 单测通过；`P1_MODEL` 过自身校验器、推导出 12 列（`sum_temperature` … `max_current`，类型 `DOUBLE` / `BIGINT` / `FLOAT`），与 S0.5 落地的降采样超表逐列一致；`pnpm check` 与 `pnpm doc:lint` 全绿。
 
 **下一步**：D3（注册原子性）→ S2 档案落 PG → S4 注册路径；S5 的前置是 D1。
 

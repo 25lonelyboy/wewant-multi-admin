@@ -2,6 +2,7 @@ import type { MetricColumnTypeValue } from './column-type.js';
 import {
   AGGREGATES,
   AGGREGATE_COLUMN_TYPE,
+  type Aggregate,
   type PropertyDecl
 } from './model-types.js';
 
@@ -14,8 +15,11 @@ export interface DerivedColumn {
 export interface DerivationIssue {
   /** 属性下标定位，形如 `properties[2].aggregates`——S4 要回显到表单上 */
   path: string;
-  /** 该档位 × 该聚合在 `AGGREGATE_COLUMN_TYPE` 里没有条目 */
-  code: 'no-column-type';
+  /**
+   * `no-column-type`：该档位 × 该聚合在 `AGGREGATE_COLUMN_TYPE` 里没有条目；
+   * `invalid-kind`：档位本身不在八档内（只有未经校验的属性才会走到这里）。
+   */
+  code: 'no-column-type' | 'invalid-kind';
 }
 
 export type DerivationResult =
@@ -38,7 +42,18 @@ export function dsColumnsOf(
   const issues: DerivationIssue[] = [];
 
   for (const [index, property] of properties.entries()) {
-    const table = AGGREGATE_COLUMN_TYPE[property.kind];
+    // 运行期可能收到未经校验的档位（如从库里读回的脏行）：查表按可能缺失处理。
+    // 在这里抛错与"返回问题"是两种失败形态，调用方没法统一处理。
+    const table = AGGREGATE_COLUMN_TYPE[property.kind] as
+      Readonly<Partial<Record<Aggregate, MetricColumnTypeValue>>> | undefined;
+    if (table === undefined) {
+      issues.push({
+        path: `properties[${index}].kind`,
+        code: 'invalid-kind'
+      });
+      continue;
+    }
+
     for (const aggregate of AGGREGATES) {
       if (!property.aggregates.includes(aggregate)) continue;
 

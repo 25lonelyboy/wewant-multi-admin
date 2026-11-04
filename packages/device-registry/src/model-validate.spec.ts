@@ -254,3 +254,7 @@ void test('invalid-struct-field：空字段表、嵌套结构体、子字段重�
     'invalid-struct-field'
   );
 });
+
+void test('empty-model：一个属性都没有的模型被拒', () => {
+  expectIssue(declaration(), 'empty-model');
+});
