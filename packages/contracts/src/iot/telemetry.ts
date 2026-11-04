@@ -11,9 +11,16 @@
 /** 主题顶层前缀：隔离本平台的命名空间 */
 export const IOT_TOPIC_PREFIX = 'wewant';
 
-/** 上行通道（主题最后一段）；event / service 通道在物模型增量中于此扩展 */
+/**
+ * 上行通道（主题最后一段）。
+ *
+ * `service` / `event` 只留位：三元组结构在 S3 定义，本增量只实现 `telemetry` 的通路。
+ * 订阅端只订遥测，`localDeviceIdFromTopic` 也只认 `telemetry`——放宽解析等于悄悄扩大订阅面。
+ */
 export const IotChannel = {
-  TELEMETRY: 'telemetry'
+  TELEMETRY: 'telemetry',
+  SERVICE: 'service',
+  EVENT: 'event'
 } as const;
 
 export type IotChannelValue = (typeof IotChannel)[keyof typeof IotChannel];
@@ -48,11 +55,19 @@ export function localDeviceIdFromTopic(topic: string): string | null {
 /** 订阅端通配过滤器：`+` 匹配单层，即全部设备的遥测主题 */
 export const TELEMETRY_TOPIC_FILTER = `${IOT_TOPIC_PREFIX}/${IOT_DEVICES_SEGMENT}/+/${IotChannel.TELEMETRY}`;
 
+/**
+ * 测点的值。
+ *
+ * 类型由物模型声明，载荷只保证**能表达**：数值（含枚举，线上就是数字）、布尔、字符串、
+ * 结构体（对象，平台序列化成 JSON 存一列）。深度校验（子字段、长度、数组拒绝）在模型层。
+ */
+export type MetricValue = number | boolean | string | Record<string, unknown>;
+
 /** 单个测点 */
 export interface TelemetryMetric {
   /** 测点标识（如 `temperature`）；落 TDengine 时即超级表的测点列 */
   key: string;
-  value: number;
+  value: MetricValue;
   unit: string;
 }
 

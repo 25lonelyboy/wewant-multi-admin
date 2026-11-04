@@ -24,11 +24,21 @@ export const DEFAULT_METRIC_RANGES: MetricRanges = {
   current: { min: 0, max: 100 } // A
 };
 
+/**
+ * 检测放行的测点——值已收窄为数值。
+ *
+ * S1 阶段列仍是 `FLOAT`，检测只放行数值；`MetricValue` 的布尔 / 字符串 / 对象分支要等 S5
+ * 由模型声明类型、按声明建列后才放宽。这个窄类型让 `consumer.ts` 与写入器继续按数值编译。
+ */
+export interface DetectedMetric extends TelemetryMetric {
+  value: number;
+}
+
 export interface DetectedSample {
   localDeviceId: string;
   ts: number;
   /** 只保留**认得的、值合法的**测点 */
-  metrics: TelemetryMetric[];
+  metrics: DetectedMetric[];
   /** 上报了但不在列集合里的测点 key——**丢弃但要计数与告警** */
   unknownMetricKeys: string[];
 }
@@ -104,7 +114,7 @@ export function detect(
 
   if (!Array.isArray(payload.metrics)) return fail('no-metrics');
 
-  const metrics: TelemetryMetric[] = [];
+  const metrics: DetectedMetric[] = [];
   const unknownMetricKeys: string[] = [];
   for (const item of payload.metrics) {
     if (typeof item !== 'object' || item === null) continue;
