@@ -146,7 +146,7 @@ export interface ModelVersion extends ModelDeclaration {
 ```ts
 export type ModelIssueCode =
   | 'invalid-model-code' // 用 S1 的 checkModelCode
-  | 'invalid-property-key' // 用 S1 的 checkMetricKey
+  | 'invalid-key' // 属性 / 服务 / 事件的 key，复用 S1 的 checkMetricKey
   | 'duplicate-key' // 归一化后重复：属性 × 属性、属性 × 服务 × 事件
   | 'invalid-kind' // 不在八档内，含 array
   | 'missing-field' // 该档位缺配套字段（enumValues / varcharLength / fields）
