@@ -1,6 +1,6 @@
 import mqtt, { type MqttClient } from 'mqtt';
 import { telemetryTopic } from '@multi-admin/contracts';
-import { buildPayload } from './telemetry.js';
+import { buildPayload, type ExtraMetric } from './telemetry.js';
 
 export interface DeviceOptions {
   url: string;
@@ -8,6 +8,8 @@ export interface DeviceOptions {
   intervalMs: number;
   /** MQTT 协议版本：现场同时存在 3.1.1（4）与 5.0（5）的设备，两版都要造 */
   protocolVersion: 4 | 5;
+  /** 在三个基础测点之后追加的测点；缺省不追加 */
+  extraMetric?: ExtraMetric;
 }
 
 /**
@@ -21,7 +23,8 @@ export function startDevice({
   url,
   localDeviceId,
   intervalMs,
-  protocolVersion
+  protocolVersion,
+  extraMetric = 'none'
 }: DeviceOptions): MqttClient {
   const client = mqtt.connect(url, {
     clientId: localDeviceId,
@@ -43,7 +46,9 @@ export function startDevice({
     if (!client.connected) return;
     client.publish(
       telemetryTopic(localDeviceId),
-      JSON.stringify(buildPayload(localDeviceId)),
+      JSON.stringify(
+        buildPayload(localDeviceId, Date.now(), Math.random, extraMetric)
+      ),
       { qos: 0 }
     );
   }, intervalMs);

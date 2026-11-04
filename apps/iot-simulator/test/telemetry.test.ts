@@ -43,3 +43,20 @@ void test('buildPayload 携带 localDeviceId 与时间戳', () => {
   assert.equal(payload.ts, 1759603200000);
   assert.equal(payload.metrics.length, 3);
 });
+
+void test('buildMetrics 追加布尔测点', () => {
+  const metrics = buildMetrics(() => 0.5, 'boolean');
+  assert.equal(metrics.length, 4);
+  assert.deepEqual(metrics[3], { key: 'power_state', unit: '', value: true });
+});
+
+void test('buildMetrics 追加枚举测点，线上值是数字', () => {
+  const metrics = buildMetrics(() => 0.5, 'enum');
+  assert.deepEqual(metrics[3], { key: 'run_mode', unit: '', value: 2 });
+});
+
+void test('buildPayload 透传追加测点', () => {
+  const payload = buildPayload('sim-007', 1759603200000, () => 0.5, 'boolean');
+  assert.equal(payload.metrics.length, 4);
+  assert.equal(payload.metrics[3]?.key, 'power_state');
+});

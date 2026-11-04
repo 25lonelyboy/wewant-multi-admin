@@ -10,14 +10,18 @@ IoT 平台的设备模拟器：以 MQTT 向 EMQX 上行虚拟设备遥测，用�
 pnpm dev:sim                                        # 100 台设备，1 Hz
 SIM_DEVICE_COUNT=500 pnpm dev:sim                   # 改规模
 SIM_INTERVAL_MS=200 pnpm dev:sim                    # 改频率
+SIM_EXTRA_METRIC=boolean pnpm dev:sim               # 额外带一个布尔测点
 MQTT_URL=mqtt://192.168.1.10:1883 pnpm dev:sim      # 指向别的 Broker
 ```
 
-| 环境变量           | 缺省                    | 说明                                |
-| ------------------ | ----------------------- | ----------------------------------- |
-| `MQTT_URL`         | `mqtt://127.0.0.1:1883` | Broker 地址                         |
-| `SIM_DEVICE_COUNT` | `100`                   | 虚拟设备数（`sim-001` … `sim-NNN`） |
-| `SIM_INTERVAL_MS`  | `1000`                  | 每台上行间隔                        |
+| 环境变量           | 缺省                    | 说明                                                                                                |
+| ------------------ | ----------------------- | --------------------------------------------------------------------------------------------------- |
+| `MQTT_URL`         | `mqtt://127.0.0.1:1883` | Broker 地址                                                                                         |
+| `SIM_DEVICE_COUNT` | `100`                   | 虚拟设备数（`sim-001` … `sim-NNN`）                                                                 |
+| `SIM_INTERVAL_MS`  | `1000`                  | 每台上行间隔                                                                                        |
+| `SIM_EXTRA_METRIC` | `none`                  | 在三测点后追加一个测点：`none` / `boolean`（`power_state`）/ `enum`（`run_mode`）；取值非法直接报错 |
+
+⚠️ 追加的测点**不在原始超表的列集合里，落不了库**——它的用途是验证链路对非数值测点的可见性（worker 计入 `unknownMetrics` 并打印 key）。落库要等物模型接管列集合（S5）。
 
 ## 主题与载荷契约
 

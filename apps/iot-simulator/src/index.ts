@@ -1,9 +1,26 @@
 import { localDeviceIdForIndex } from '@multi-admin/contracts';
 import { startDevice, stopDevice } from './device.js';
+import type { ExtraMetric } from './telemetry.js';
 
 const url = process.env.MQTT_URL ?? 'mqtt://127.0.0.1:1883';
 const deviceCount = Number(process.env.SIM_DEVICE_COUNT ?? 100);
 const intervalMs = Number(process.env.SIM_INTERVAL_MS ?? 1000);
+
+/**
+ * 追加测点选择。
+ *
+ * ⚠️ 非法值直接抛出，不静默回落到 `none`——验收要靠 worker 日志里出现那个 key，
+ * 悄悄退回 none 会让人以为 profile 生效了。
+ */
+function parseExtraMetric(raw: string | undefined): ExtraMetric {
+  if (raw === undefined || raw === '') return 'none';
+  if (raw === 'none' || raw === 'boolean' || raw === 'enum') return raw;
+  throw new Error(
+    `SIM_EXTRA_METRIC 取值非法：${raw}（可选 none / boolean / enum）`
+  );
+}
+
+const extraMetric = parseExtraMetric(process.env.SIM_EXTRA_METRIC);
 
 // 现场不同时期、不同厂商的设备协议版本不一致：奇偶交替造 3.1.1 与 5.0 两版
 const protocolVersionFor = (index: number): 4 | 5 => (index % 2 === 0 ? 4 : 5);
@@ -14,13 +31,20 @@ const devices = Array.from({ length: deviceCount }, (_, i) => ({
 }));
 
 const v5Count = devices.filter(d => d.protocolVersion === 5).length;
+const extraNote = extraMetric === 'none' ? '' : `｜追加测点 ${extraMetric}`;
 
 console.log(
-  `[sim] 目标 ${url}｜设备 ${deviceCount} 台（MQTT 5.0 ${v5Count} / 3.1.1 ${deviceCount - v5Count}）｜上行间隔 ${intervalMs}ms｜主题前缀 wewant/devices/`
+  `[sim] 目标 ${url}｜设备 ${deviceCount} 台（MQTT 5.0 ${v5Count} / 3.1.1 ${deviceCount - v5Count}）｜上行间隔 ${intervalMs}ms${extraNote}｜主题前缀 wewant/devices/`
 );
 
 const clients = devices.map(({ localDeviceId, protocolVersion }) =>
-  startDevice({ url, localDeviceId, intervalMs, protocolVersion })
+  startDevice({
+    url,
+    localDeviceId,
+    intervalMs,
+    protocolVersion,
+    extraMetric
+  })
 );
 
 // 逐条打印 100 台设备的发布没有可读性，改为周期性汇总
