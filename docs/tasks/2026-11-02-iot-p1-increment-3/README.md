@@ -43,7 +43,7 @@ pnpm check
 | [2026-11-03-d4-decision-card.md](2026-11-03-d4-decision-card.md) | **D4 决策卡**：时间戳边界、报文大小上限、单位换算收尾；含超界处置的四种失败行为与代价 |
 | [2026-11-04-s05-implementation-plan.md](2026-11-04-s05-implementation-plan.md) | **S0.5 实施计划**：T1–T6，逐项含类型形状、改动点、验收与危险动作 |
 | [2026-11-04-s1-implementation-plan.md](2026-11-04-s1-implementation-plan.md) | **S1 实施计划**：T1–T6，载荷值联合类型与通道扩位（contracts）、类型档位表与标识符校验（device-registry）、模拟器布尔 / 枚举 profile |
-| [2026-11-04-s3-implementation-plan.md](2026-11-04-s3-implementation-plan.md) | **S3 实施计划**：T1–T6，八档属性类型与聚合矩阵、模型结构与校验、版本快照、降采样列推导、P1 首份模型 |
+| [2026-11-04-s3-implementation-plan.md](2026-11-04-s3-implementation-plan.md) | **S3 实施计划**：T1–T6，八档属性类型与聚合 → 列类型表、声明 / 版本两级、降采样列推导、P1 首份模型 |
 | [2026-11-01-backlog-triage.md](2026-11-01-backlog-triage.md) | 开放表 70 项分诊：本增量必须 11 / 顺手 5 / 只定口径 3 / 不做（明细，不计入必读） |
 | [2026-11-01-scope-and-task-map.md](2026-11-01-scope-and-task-map.md) | **范围定稿**：8 个子任务与出口、5 项决策各自落在哪个子任务前、执行顺序、预算与砍线 |
 | [2026-11-01-s0-plan.md](2026-11-01-s0-plan.md) | **S0 设计与实施计划**：子表审计脚本、对账护栏、e2e 残留清理、worker 健康检查；含危险动作闸 |
