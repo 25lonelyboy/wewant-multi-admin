@@ -18,7 +18,8 @@ export function resolveException(exception: unknown): ResolvedError {
     return {
       status: exception.httpStatus,
       code: exception.code,
-      message: exception.message
+      message: exception.message,
+      data: exception.data
     };
   }
   if (exception instanceof BadRequestException) {

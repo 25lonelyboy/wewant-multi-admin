@@ -18,4 +18,11 @@ describe('BizException', () => {
     expect(ex.message).toBe('未认证');
     expect(ex).toBeInstanceOf(Error);
   });
+
+  it('可携带结构化细节', () => {
+    const ex = new BizException(BizCode.CONFLICT, '冲突', {
+      reason: 'table-exists'
+    });
+    expect(ex.data).toEqual({ reason: 'table-exists' });
+  });
 });
