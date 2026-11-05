@@ -5,8 +5,8 @@ import type * as TdClient from '@tdengine/websocket';
  * `@tdengine/websocket` 是 **CJS 产物**（`lib/index.js` 为 tsc CommonJS 输出），
  * 从 ESM 里用 `createRequire` 取，避免具名导出探测依赖打包器的实现细节。
  */
-const require = createRequire(import.meta.url);
-const td = require('@tdengine/websocket') as typeof TdClient;
+const requireCjs = createRequire(import.meta.url);
+const td = requireCjs('@tdengine/websocket') as typeof TdClient;
 
 // ⚠️ 连接器在加载时把 winston 的 ExceptionHandler 挂到了 `uncaughtException` 上，而它在本机栈上
 // 自己就会崩（`TypeError: stackTrace.parse is not a function`），把真正的异常盖掉、只剩 winston 的

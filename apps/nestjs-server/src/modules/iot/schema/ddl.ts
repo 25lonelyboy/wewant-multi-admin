@@ -1,4 +1,5 @@
 import {
+  DEVICE_ID_LENGTH,
   DS_DATABASE,
   DS_LEVELS,
   DS_MINUTE_KEEP_DAYS,
@@ -24,7 +25,7 @@ import {
  * 因此加列一律按列展开成多条语句。
  */
 
-const DEVICE_ID_TAG_TYPE = 'VARCHAR(16)';
+const DEVICE_ID_TAG_TYPE = `VARCHAR(${DEVICE_ID_LENGTH})`;
 const TIMESTAMP_COLUMN = 'ts TIMESTAMP';
 
 /** 属性 → 原始超表列定义；校验过的声明不会走到失败分支 */
