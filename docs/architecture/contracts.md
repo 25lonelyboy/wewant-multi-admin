@@ -6,7 +6,7 @@ covers:
   - apps/pure-web/src/api/
   - apps/pure-web/mock/
   - apps/iot-worker/src/
-last_verified: 2026-11-04
+last_verified: 2026-11-05
 ---
 
 # contracts 契约包

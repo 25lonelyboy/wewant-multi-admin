@@ -1,12 +1,12 @@
 # IoT 平台 P1 · 增量 3「物模型」· L1 阶段目标
 
-- **状态**：L1 已定稿；S0 已完成（2026-11-02）；D2、D4 已收口（2026-11-03）；S0.5 已完成（2026-11-04）；S1 已完成（2026-11-04）；D2 补版本与版本快照（2026-11-04）；S3 已完成（2026-11-04）；D3 已定稿（2026-11-05）；S2 实施计划已出（2026-11-05）
+- **状态**：L1 已定稿；S0 已完成（2026-11-02）；D2、D4 已收口（2026-11-03）；S0.5 已完成（2026-11-04）；S1 已完成（2026-11-04）；D2 补版本与版本快照（2026-11-04）；S3 已完成（2026-11-04）；D3 已定稿（2026-11-05）；S2 已完成（2026-11-05）
 - **时间窗**：2026-11-02 ~ 11-15（每周 8–10 h）｜下一里程碑 M2 = 2026-12-06
 - **判据**：[阶段地图](../../governance/iot-stage-map.md) §2 —— 新增设备只按物模型注册即可接入，**不改代码**
 - **覆盖层**：治理（并改存储与计算的接口面）
 - **规划上下文**：L0 阶段地图 §1–§3；缺口来源见 [backlog](../../governance/backlog.md) 中物模型相关 7 项
 
-## 当前状态（2026-11-04）
+## 当前状态（2026-11-05）
 
 **已完成**：S0「债务清理与护栏」四项 + 两个计划外缺陷修复（worker 镜像起不来、探针 fail-open）；**D2** 六个子问题全部定案；**D4** 三项全部定案；**S0.5「单设备单子表」** 交付完成——契约与档案去掉采集点层（`TelemetryPayload.localPointId`、`DeviceRecord.singlePoint/points`、`SubtableRef.pointKey` 均已删除，查档失败只剩 `unknown-device`），超表改 `{模型编码}`、子表改 `{模型编码}_{deviceId}`（P1 占位模型编码 `p1`），超表与降采样表的单位列全部删除（降采样行 16 → 13 列）。两条本机实测通过（`ADD COLUMN` 传播到已有子表、列名上限 64 / 表名上限 192）。提交在 master、未推送。
 
@@ -20,7 +20,11 @@
 
 **S3 验收证据**（2026-11-04）：device-registry 49/49 单测通过；`P1_MODEL` 过自身校验器、推导出 12 列（`sum_temperature` … `max_current`，类型 `DOUBLE` / `BIGINT` / `FLOAT`），与 S0.5 落地的降采样超表逐列一致；`pnpm check` 与 `pnpm doc:lint` 全绿。
 
-**下一步**：按 S2 计划开工档案落 PG；S4 的前置（D3）已齐；S5 的前置是 D1。
+**S2「档案落 PG」** 交付完成——四张表（`IotDeviceModel` / `IotModelVersion` / `IotDevice` / `IotDeviceModelUsage`）与 partial unique index 落在同一份迁移；只读仓储 `DeviceRegistryRepository` 提供查在用设备、枚举在用设备、按使用史展开子表期望集三个读法，子表名一律取自 `subtableName()`；`runSeed()` 注入 `p1` 模型、版本 1（`ACTIVE`）、100 台设备与各自的 open usage。`DeviceRegistry` 接口未动，worker 读档案仍归 D1，注册写入归 S4。
+
+**S2 验收证据**（2026-11-05）：迁移 `20261105144320_iot_device_registry` 在本地库与测试库执行成功，`\dt` 见四表；seed 连跑两次后设备 / usage / 版本 / 模型行数恒为 100 / 100 / 1 / 1；`test/iot-registry.e2e-spec.ts` 6/6 通过（只认 ACTIVE、当前模型由 open usage 推出、期望集含新旧子表、命名同源、同一设备第二条 open usage 被拒、指向不存在版本的 usage 被拒、seed 幂等）；`pnpm --filter @multi-admin/nestjs-server run test`、`pnpm check`、`pnpm doc:lint` 全绿。
+
+**下一步**：按 S4 做注册路径（D3 前置已齐）；S5 消费接线的前置是 D1。
 
 **未决**：D1（档案承载与 worker 读取）、D5（注销口径与遗产清理范围）。按子任务前置排：D1 在 S5 前，D5 随 S6 定。
 
@@ -28,6 +32,7 @@
 
 ```bash
 pnpm ops:env-up
+pnpm --filter @multi-admin/nestjs-server run test:e2e -- test/iot-registry.e2e-spec.ts
 pnpm --filter @multi-admin/iot-worker run subtable:audit     # 四桶应全空、退出 0
 pnpm --filter @multi-admin/iot-worker run downsample:verify  # 无流量时应退出 1
 pnpm check
@@ -35,7 +40,7 @@ pnpm check
 
 **环境注意**：跑 iot-worker 的 e2e 前先 `docker compose stop worker`——两者消费同一队列，worker 会抢走测试 job。表结构变更后需 `docker compose down -v` 再 `pnpm ops:env-up` 重建（本地开发库可丢）。
 
-**已知未修**（均有触发点，明细在 `.superpowers/sdd/progress.md`，两条新增缺口已登记 [backlog](../../governance/backlog.md)）：e2e 的降采样侧证据是构造必然；`healthcheck-core` 的重试分支无单测；结构体内部字段不可查；错钟设备的全部数据会被拒、现象与设备掉线相同（D4 代价，告警接收方缺位）；**审计对「整个模型退场」静默**——一个模型整体从档案消失后，它的超表与全部子表在审计的两张期望集合里都不命中，整片被跳过、四桶全空，期望集扩成「设备 × 用过的模型」后（S2）才补得上；**模型编码未经校验直接拼进 DDL**——今日是常量 `p1`，S3/S4 让注册输入接管前必须补标识符与长度校验。
+**已知未修**（均有触发点，明细在 `.superpowers/sdd/progress.md`，两条新增缺口已登记 [backlog](../../governance/backlog.md)）：e2e 的降采样侧证据是构造必然；`healthcheck-core` 的重试分支无单测；结构体内部字段不可查；错钟设备的全部数据会被拒、现象与设备掉线相同（D4 代价，告警接收方缺位）；**审计对「整个模型退场」静默**——一个模型整体从档案消失后，它的超表与全部子表在审计的两张期望集合里都不命中，整片被跳过、四桶全空，期望集改由 S2 仓储的 `listSubtablesOfActiveDevices()` 提供后（S5 接线）才补得上；**模型编码未经校验直接拼进 DDL**——今日是常量 `p1`，S3/S4 让注册输入接管前必须补标识符与长度校验。
 
 ## 过程文件
 

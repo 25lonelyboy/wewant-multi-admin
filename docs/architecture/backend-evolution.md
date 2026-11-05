@@ -3,7 +3,7 @@ status: living
 covers:
   - apps/nestjs-server/
   - docs/decisions/ADR-007-backend-evolution.md
-last_verified: 2026-10-13
+last_verified: 2026-11-05
 ---
 
 # NestJS 后端演进路线图
@@ -54,7 +54,7 @@ iot 域作为第二个业务域落地（见 [ADR-009](../decisions/ADR-009-iot-p
 | --- | --- | --- |
 | e2e 分层（域 spec 下沉） | 已命中 | backlog 条目「新增第一个非 auth/system 域 e2e」，本次 iot e2e 已落地 |
 | system 域只读查询门面 | 未命中 | 原触发条件为「第二个需用户/角色信息的域」，iot 域不做 RBAC 查询 |
-| schema.prisma 多文件拆分 | 未命中 | 原触发条件为模型规模（> ~25 模型或 > ~600 行），iot 域未新增模型 |
+| schema.prisma 多文件拆分 | 未命中 | 原触发条件为模型规模（> ~25 模型或 > ~600 行）；iot 域新增 4 个模型后共 9 个模型，仍在阈值内 |
 | common/ 与 infra/ 二分 | **延后（2026-10-12 判定）** | 原触发条件＝server 侧出现第二个外部中间件适配器。增量 2 落地后该条件失效：**消费者独立成 `apps/iot-worker`**，TDengine 客户端落在 worker 侧、不进 server，server 侧只剩一个薄的 BullMQ 生产者 ⇒ `common/` 里仍只有一个外部适配薄壳。**待 server 侧再落第二个外部适配器时重启评估**（同 [backlog](../governance/backlog.md) 该条） |
 
 ### 阶段 A 已确认的范围决策（ADR-007）

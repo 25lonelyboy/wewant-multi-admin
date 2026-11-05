@@ -6,9 +6,7 @@ import type { DeviceRecord, DeviceRegistry } from './types.js';
 export const P1_DEVICE_COUNT = 100;
 
 /**
- * P1 的占位模型编码。
- *
- * P1 尚无物模型；S3 落地物模型后由档案里的 `modelCode` 取代本常量。
+ * P1 的模型编码：设备档案与 `P1_MODEL` 共用本常量。
  */
 export const P1_MODEL_CODE = 'p1';
 

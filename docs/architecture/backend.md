@@ -3,7 +3,7 @@ status: living
 covers:
   - apps/nestjs-server/
   - apps/iot-worker/
-last_verified: 2026-11-04
+last_verified: 2026-11-05
 ---
 
 # NestJS 后端架构
@@ -94,10 +94,25 @@ TDengine 库表 / 降采样子表与建库脚本见 [build-and-verify.md](../eng
 
 ## 数据库
 
-Prisma 7 + PostgreSQL，五表（User / Role / Menu / UserRole / RoleMenu）三级 RBAC；软删除只作用于 User / Role / Menu（带 `deletedAt`），两张关联表为物理维护、按查询条件过滤。
+Prisma 7 + PostgreSQL，system 五表（User / Role / Menu / UserRole / RoleMenu）三级 RBAC 与 iot 档案四表；软删除只作用于 User / Role / Menu（带 `deletedAt`），两张关联表为物理维护、按查询条件过滤。
 
 - datasource url 由 `prisma.config.ts` 管理（运行期从 env 读取）；产物输出 `src/generated/`
 - 连接池经 driver adapter 自管：`DATABASE_POOL_MAX`（默认 20）显式配置；query 事件经纯函数 `resolveQueryLog` 决策日志——超阈值（`PRISMA_SLOW_QUERY_MS`，默认 500ms）warn 级 `Slow query detected`，`PRISMA_QUERY_LOG=true` 时低于阈值查询以 log 级 `Query log` 输出（排障临时开关）
 - seed 走 `tsx` 执行 TS 源码（`prisma/seed.ts`）；首次启动由 `ADMIN_INIT_PASSWORD` 环境变量创建超管
 - 库名统一 `multi_admin`（测试库 `multi_admin_test`）；e2e 幂等建库 + migrate deploy + seed，见 [build-and-verify.md](../engineering/build-and-verify.md)
 - argon2 密码哈希，永不落日志
+
+### iot 档案（设备与物模型）
+
+| 表 | 存什么 | 关键约束 |
+| --- | --- | --- |
+| `IotDeviceModel` | 模型身份（`code`，已折小写） | 主键 |
+| `IotModelVersion` | 一个版本一份不可变的声明快照（`properties` / `services` / `events` 整份 JSON） | `(modelCode, version)` 唯一；状态（`PENDING` / `ACTIVE` / `FAILED`）在版本上 |
+| `IotDevice` | 设备档案：自报编号 → 平台 `deviceId` | `localDeviceId` 与 `deviceId` 各自唯一；状态在设备上 |
+| `IotDeviceModelUsage` | 设备 × 版本 × 起止 | 复合外键指向 `IotModelVersion(modelCode, version)`；同一设备至多一条 `toAt IS NULL`（partial unique index，手写在建表迁移里） |
+
+- **当前模型不存字段**，由 `usage.toAt IS NULL` 推出；设备与模型之间没有直接外键，绑定只在 usage 上
+- 子表名的唯一来源是 `packages/device-registry` 的 `subtableName()`；期望集按 usage 展开，**含已闭合的历史**——换型号后旧模型的子表仍然合法
+- server 侧只读仓储 `src/modules/iot/registry/device-registry.repository.ts`：`findActiveDevice` / `listActiveDevices` / `listSubtablesOfActiveDevices`，只认 `ACTIVE` 设备、不缓存
+- seed 注入 `p1` 模型与版本 1（`ACTIVE`）、100 台 P1 设备及各自的 open usage；设备标识取自 `p1DeviceRecords()`，create-only 幂等
+- worker 仍不读 PG（档案承载与读取形态归 D1 / S5）；注册写入路径归 S4
