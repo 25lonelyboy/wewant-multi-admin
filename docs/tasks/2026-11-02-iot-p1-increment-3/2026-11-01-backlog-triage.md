@@ -8,7 +8,7 @@
 
 | backlog 项 | 原文触发条件 | 本增量处置 | 归属 |
 | --- | --- | --- | --- |
-| 设备档案数据源过渡 | 增量 3 立项时实现 PG 档案 | 档案落 PG + `PENDING/ACTIVE/FAILED` 状态机；`DeviceRegistry` 接口不变 | D1 / D3 |
+| 设备档案数据源过渡 | 增量 3 立项时实现 PG 档案 | 档案落 PG；设备两态 `PENDING/ACTIVE`，版本三态 `PENDING/ACTIVE/SUPERSEDED`（注册失败不落库，没有失败态）；`DeviceRegistry` 接口不变 | D1 / D3 |
 | 设备类型注册 → 建超表无流程归属 | 增量 3 立项时 | 注册路径统一产出：档案 + 模型 + 超表 + 子表（1+3）+ 降采样列 | D3 |
 | 契约 `value` 不支持非数值测点 | 增量 3 定义测点类型时 | `value` 改联合类型（number / boolean / string），类型由模型声明 | D2 |
 | 设备档案缺协议版本字段 | 增量 3 设备注册落地 | 档案表加字段，来源是订阅端可见的 `proto_ver` | D1 |

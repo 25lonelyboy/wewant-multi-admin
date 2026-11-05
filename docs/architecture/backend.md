@@ -73,7 +73,7 @@ HTTP 之外的第二条入口，不经全局前缀与守卫链；整条链路跨
 - **降采样环**（本进程内与消费环并列的第二条链路，`apps/iot-worker/src/downsample/`）：**不用 TDengine 流**——本机实测 3.4.2.8 的流会把每个窗口的聚合复制给全部输出子表（选型与依据见 [降采样设计](../tasks/archive/2026-10-07-iot-p1-increment-2/2026-10-12-downsample-design.md)）。改由本进程的 BullMQ Job Scheduler 触发，每次**重算最近 K 个已闭合窗口**（`DOWNSAMPLE_LOOKBACK_WINDOWS`）——只依赖墙上时钟、不记游标，晚到数据落在最近 K 个窗口内即被自愈。三级 `1m`/`1h`/`1d` **平级**、各自一条调度，都从各自模型编码对应的原始超表算（`rawStableName(modelCode)`），互不依赖；`1d` 业务日从 08:00 起（读查询 `INTERVAL(1d, 8h)`，窗口边界算术与之同源）。⭐ **建表与计算同形**：建库脚本与降采样环都按档案里出现过的模型编码逐个处理。写到预建的降采样子表（`{模型编码}_{deviceId}_{level}`），幂等键仍是 `(子表, ts)`；其**读侧**连接级读错即丢 reader，非连接级（确定性 SQL / 解析错）**单次不丢、连续两次才丢**——兜住半开连接又不因一次瞬时错白重连；写出侧同理（连接级即作废，同一格连续两次也作废）。`DOWNSAMPLE_ENABLED=false` 只跑消费环（排障用）。⭐ 其队列名 `iot-telemetry-downsample` **就地定义在本应用**、不进 contracts——调度注册与消费都在本进程内，没有第二个应用引用它（与跨应用的 `iot-telemetry-ingest` 相对）。
 - **健康检查**：进程每 10 s 向队列 Redis 写心跳键 `wewant:worker:hb:<容器主机名>`（TTL 30 s），compose 的 healthcheck 跑 `node dist/healthcheck.js` 读该键。它只反映**事件环停摆**与**队列 Redis 不可达**，不反映消费进度（消费卡住但事件环正常时仍报健康）；⚠️ compose 不会因 unhealthy 自动重启，这是可见信号，并为 K8s 的 liveness 铺路。
 
-TDengine 库表 / 降采样子表与建库脚本见 [build-and-verify.md](../engineering/build-and-verify.md) 与 `apps/iot-worker/scripts/tdengine-init.ts`；降采样**逐条对账**脚本 `apps/iot-worker/scripts/downsample-verify.ts`（判据②，逐字段比原始聚合与降采样行）见同处。选型与边界见 [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md)、[ADR-010](../decisions/ADR-010-ingest-buffer-bullmq.md)；设备注册与物模型属物模型增量。
+TDengine 库表 / 降采样子表与建库脚本见 [build-and-verify.md](../engineering/build-and-verify.md) 与 `apps/iot-worker/scripts/tdengine-init.ts`；降采样**逐条对账**脚本 `apps/iot-worker/scripts/downsample-verify.ts`（判据②，逐字段比原始聚合与降采样行）见同处。选型与边界见 [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md)、[ADR-010](../decisions/ADR-010-ingest-buffer-bullmq.md)；注册路径的 DDL 由 server 执行，见下节。
 
 ### 交付判据与验收口径（增量 2）
 
@@ -87,7 +87,7 @@ TDengine 库表 / 降采样子表与建库脚本见 [build-and-verify.md](../eng
 - 全局前缀 `api/v1`（`exclude: ['health']`）
 - Swagger 仅非生产环境启用，挂载于 `api/docs`（Bearer 认证 scheme）
 - 响应统一信封：`{ code: number, message: string, data: T }`
-- 校验失败（40001）时 `data.errors` 携带字段级明细 `{ field, message }[]`（field 为点分路径，如 `meta.title`，见 [contracts.md](contracts.md)）；其余错误 `data: null`
+- 校验失败（40001）时 `data.errors` 携带字段级明细 `{ field, message }[]`（field 为点分路径，如 `meta.title`，见 [contracts.md](contracts.md)）；业务错误可携带结构化 `data`（如 iot 注册的 `{ issues }` / `{ reason, tables }`），其余错误 `data: null`
 - 业务错误走 `BizException`（携带 `BizCode` 枚举），由 `AllExceptionsFilter` 经 exception-resolver 统一格式化；错误码表与信封扩展规则见 [contracts.md](contracts.md)
 - 限流：登录同 IP 5 次/分；账号维度连续失败 5 次锁定 15 分钟（自动解锁，锁定中返回 42301）；refresh-token 10 次/分；全局 60 次/分
 - 请求体大小：全局 `BODY_LIMIT`（默认 `1mb`）；`/api/v1/upload` 为上传预留路径（尚无上传端点），单独用 `UPLOAD_BODY_LIMIT`（默认 `10mb`）
@@ -107,12 +107,24 @@ Prisma 7 + PostgreSQL，system 五表（User / Role / Menu / UserRole / RoleMenu
 | 表 | 存什么 | 关键约束 |
 | --- | --- | --- |
 | `IotDeviceModel` | 模型身份（`code`，已折小写） | 主键 |
-| `IotModelVersion` | 一个版本一份不可变的声明快照（`properties` / `services` / `events` 整份 JSON） | `(modelCode, version)` 唯一；状态（`PENDING` / `ACTIVE` / `FAILED`）在版本上 |
-| `IotDevice` | 设备档案：自报编号 → 平台 `deviceId` | `localDeviceId` 与 `deviceId` 各自唯一；状态在设备上 |
+| `IotModelVersion` | 一个版本一份不可变的声明快照（`properties` / `services` / `events` 整份 JSON） | `(modelCode, version)` 唯一；状态 `PENDING` / `ACTIVE` / `SUPERSEDED` 在版本上；同一模型至多一个 `ACTIVE`（partial unique index，手写在迁移里） |
+| `IotDevice` | 设备档案：自报编号 → 平台 `deviceId` | `localDeviceId` 与 `deviceId` 各自唯一；状态只有 `PENDING` / `ACTIVE`（注册失败不落库，没有失败态） |
 | `IotDeviceModelUsage` | 设备 × 版本 × 起止 | 复合外键指向 `IotModelVersion(modelCode, version)`；同一设备至多一条 `toAt IS NULL`（partial unique index，手写在建表迁移里） |
 
 - **当前模型不存字段**，由 `usage.toAt IS NULL` 推出；设备与模型之间没有直接外键，绑定只在 usage 上
 - 子表名的唯一来源是 `packages/device-registry` 的 `subtableName()`；期望集按 usage 展开，**含已闭合的历史**——换型号后旧模型的子表仍然合法
 - server 侧只读仓储 `src/modules/iot/registry/device-registry.repository.ts`：`findActiveDevice` / `listActiveDevices` / `listSubtablesOfActiveDevices`，只认 `ACTIVE` 设备、不缓存
 - seed 注入 `p1` 模型与版本 1（`ACTIVE`）、100 台 P1 设备及各自的 open usage；设备标识取自 `p1DeviceRecords()`，create-only 幂等
-- worker 仍不读 PG（档案承载与读取形态归 D1 / S5）；注册写入路径归 S4
+- worker 仍不读 PG（档案承载与读取形态归 D1 / S5）；注册写入路径见下节
+
+### 注册路径（物模型与设备档案）
+
+- **两个 HTTP 入口**：`POST /api/v1/iot/models`（发布模型声明；新模型建表，已有模型发布新版本）与 `POST /api/v1/iot/devices`（注册设备）。鉴权走全局 JWT——本增量不加权限点（D3 §5 的复查触发点是出现第二个操作者）。两者都支持 `?dryRun=true`：只跑校验与比对、返回将要执行的 DDL，**不写库、不执行**。
+- **DDL 归属 server**：语句生成在 `src/modules/iot/schema/ddl.ts`，表名一律取自 `packages/device-registry`（`rawStableName` / `dsStableName` / `dsSubtableName` / `subtableName`，库名与分钟级 KEEP 同处）；一个 `IF NOT EXISTS` 都不用——表/列已存在直接报错阻断注册，幂等由注册流程的前置状态判断承担。
+- **模型内演进按列差集**：`DESCRIBE STABLE` 取现有列，声明有、库里没有 ⇒ 加列；声明有、库里已有 ⇒ 视为上次已应用（同一声明重放不会重复 `ALTER`）；声明没有、历史版本也没有的列 ⇒ 409「结构不一致」。改 key 的存储类型 ⇒ 400，不放行。
+- **降采样超表按表在不在决定建还是 `ALTER`**：模型可从「全无聚合」演进为「有聚合」，那时三张表一张都没有。聚合从无到有后，已注册设备的降采样子表在版本切换之后补建；这一步失败**不回滚发布**，只记 error，缺失由审计报 `missingDs`。
+- **TDengine 一次 `ALTER STABLE ADD COLUMN` 只能加一列**（3.4.2.8 实测多列写法语法错误），加列按列展开成多条语句；分钟级新建超表自带 `KEEP 1095`（全案唯一的超表级 KEEP）。
+- **设备 `deviceId` 由平台签发**（16 位、首字母 + 字母数字，`^[A-Z][A-Z0-9]{15}$`），接口不接收。它进子表名与 TAGS 标签值；从库里读回时再过一次 `checkDeviceId` 防脏数据。
+- **幂等是结果幂等**：同 `localDeviceId` 已 `ACTIVE` 且应有子表齐（有聚合时 1 + 3，无聚合时只有 1）即返回首次结果；文档在、表缺一张报 409「结构不一致」，**不自动补**。同一 `localDeviceId` 已注册在别的模型 ⇒ 409。
+- **失败整体回滚**：本次建的表按 `createdTables` 清单**逆序**删除（只删清单里的名字，不按前缀匹配），单张失败重试三次、仍失败记 error 并继续；PG 不落库、没有失败态，`localDeviceId` 不被占用、重试天然可行。`ALTER` 已加上的列不退（TDengine 删不掉列），残留表由审计兜底。
+- **连接是懒的**：`TDENGINE_URL`（默认 `ws://root:taosdata@127.0.0.1:6041`）首次用到才建连，时序库不可达不会让 server 起不来；容器内必须显式传服务名。`@tdengine/websocket` 加载时挂的 winston `uncaughtException` 处理器在 `td-client.ts` 模块加载期被摘除（先于任何自有处理器注册）。

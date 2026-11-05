@@ -24,7 +24,7 @@ last_verified: 2026-11-05
 | `apps/iot-worker`（`@multi-admin/iot-worker`） | 遥测消费者 | 与 HTTP 服务并列的第二个运行时：**不用 Nest、不开 HTTP**，从 BullMQ 队列取原始报文，解析 / 检测 / 攒批后 STMT 写入 TDengine；可独立启停 / 多实例 / 扩缩，自备 Dockerfile（**不碰 PG，无 migrate / seed**）；另含建库脚本 `apps/iot-worker/scripts/tdengine-init.ts`（预建 TDengine 原始 / 降采样表，幂等，经 `pnpm ops:tdengine-init` 调用）；消费 `packages/contracts` 与 `packages/device-registry` |
 | `packages/common`（`@multi-admin/common`） | 跨端共享 TS 代码 | tsdown 构建；暂无应用引用 |
 | `packages/contracts`（`@multi-admin/contracts`） | 接口与设备接入契约 | 纯类型 + BizCode/MenuType 常量 + iot 段（主题模板、上行载荷类型、队列名与键前缀）；tsdown ESM+CJS 双格式 + 双 d.ts；nestjs-server、pure-web、iot-simulator 与 iot-worker 以 `workspace:*` 消费；见 [contracts.md](contracts.md) |
-| `packages/device-registry`（`@multi-admin/device-registry`） | 设备档案 | 一台设备一条记录：`localDeviceId → deviceId + modelCode`，子表名 `{模型编码}_{deviceId}` 由档案一处给出；并存**存储侧词汇**——类型档位表（`MetricColumnType` / `MAX_VARCHAR_BYTES`）与进 DDL 的标识符校验（`checkMetricKey` / `checkModelCode`），它们描述列与表名的形状，按 `contracts.md` 的边界不属契约。对外只暴露接口（`hasDevice` / `resolve` / `allSubtables`），数据形态是实现细节。⚠️ **模拟器与 pure-web 都不依赖它**——"平台侧标识不下发"由**依赖边界**保证；依赖 `packages/contracts`；nestjs-server 消费其命名函数、P1 模型声明与设备档案种子数据 |
+| `packages/device-registry`（`@multi-admin/device-registry`） | 设备档案与存储侧词汇 | 一台设备一条记录：`localDeviceId → deviceId + modelCode`；**表名的唯一出处**（`subtableName` / `rawStableName` / `dsStableName` / `dsSubtableName`、`DS_LEVELS`、库名与分钟级 KEEP）；平台 `deviceId` 的签发与校验（`issueDeviceId` / `checkDeviceId`）；类型档位表与**原始 / 降采样列类型映射**（`rawColumnOf` / `AGGREGATE_COLUMN_TYPE` / `MAX_VARCHAR_BYTES`）；进 DDL 的标识符校验（`checkMetricKey` / `checkModelCode`）与物模型声明校验。按 `contracts.md` 的边界，这些都不属契约。对外只暴露接口（`hasDevice` / `resolve` / `allSubtables`），数据形态是实现细节。⚠️ **模拟器与 pure-web 都不依赖它**——"平台侧标识不下发"由**依赖边界**保证；依赖 `packages/contracts`；nestjs-server 消费其命名、列类型、设备标识与 P1 种子数据，iot-worker 消费其命名与类型 |
 | `internal/node-utils` | Node 侧进程工具 | 仅导出 `run` / `runSync`（`process.mjs`），供根 `scripts/check.mjs` 等使用 |
 | `internal/eslint-config` | ESLint 基线 | 导出 `base.mjs` / `node.mjs` / `vue.mjs` / `typescript.mjs` / `tailwind.mjs` 工厂，应用侧配置为薄壳 |
 | `internal/stylelint-config` | Stylelint 基线 | 导出 `base.mjs` |
@@ -51,6 +51,7 @@ flowchart LR
     desktop -- "任务图 ^build 编排 pure-web 产物" --> web
     web -- "workspace:* 契约消费" --> contracts
     server -- "workspace:* 契约消费" --> contracts
+    server -- "workspace:* 命名 / 列类型 / 设备标识" --> registry
     simulator -- "workspace:* 契约消费" --> contracts
     worker -- "workspace:* 契约消费" --> contracts
     worker -- "workspace:* 档案查询" --> registry
@@ -70,7 +71,7 @@ flowchart LR
 - pure-web 与 electron-desktop 是"产物消费"关系而非代码 import 关系：桌面端通过自定义协议托管 pure-web 的静态产物（见 [desktop-app.md](desktop-app.md)）。
 - `packages/common` 目前无消费方，新增共享代码时的放置判据见下。
 - `packages/contracts` 是首个被前后端双端消费的共享包；契约扩展流程与错误码表见 [contracts.md](contracts.md)。
-- `apps/iot-worker` 是与 HTTP 服务**并列的第二个运行时**（队列消费独立成进程，不占 server 进程）；`packages/device-registry` 是平台侧标识（`deviceId` / `modelCode`）的**唯一持有者**——模拟器与 pure-web 都不依赖它，"平台侧标识不下发"由依赖边界硬性保证，不靠约定。
+- `apps/iot-worker` 是与 HTTP 服务**并列的第二个运行时**（队列消费独立成进程，不占 server 进程）；`packages/device-registry` 是平台侧标识（`deviceId` / `modelCode`）与**表名的唯一持有者**——模拟器与 pure-web 都不依赖它，"平台侧标识不下发"由依赖边界硬性保证，不靠约定；server 建表与 worker 对账读同一套命名函数。
 - `packages/contracts` 的 iot 段同时被发布方（iot-simulator）与消费方（iot-worker）消费，队列名与主题一并一处定义，避免两端漂移。
 
 ## 目录放置规则

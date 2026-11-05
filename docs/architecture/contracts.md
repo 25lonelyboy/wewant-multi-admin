@@ -29,7 +29,7 @@ last_verified: 2026-11-05
 - **设备侧编号约定**：`localDeviceIdForIndex` 生成 P1 编号（`sim-001`…），模拟器与设备档案共用同一函数，不靠事后断言对齐；`normalizeLocalId` 统一去首尾空白 + 小写（只处理同一台设备前后不一致，不跨设备去重）。
 - **队列常量**：`TELEMETRY_INGEST_QUEUE`（`iot-telemetry-ingest`）与 `TELEMETRY_QUEUE_PREFIX`（`wewant`）。生产者（订阅端）与消费者（`apps/iot-worker`）分属两个应用，队列名必须一处定义，否则两端会各自连到不同的队列而不报错。⚠️ 队列名**不能含 `:`**——BullMQ 用它作 Redis 键分隔符，含冒号构造即抛；故分隔符用 `-`，命名空间交给 `prefix`。⚠️ 反之，**同一应用内**的队列不属契约、就地定义即可——如降采样环的 `iot-telemetry-downsample`，其调度注册与消费都在 `apps/iot-worker` 进程内，没有第二个应用引用它（判据是"是否跨应用"，不是"是不是队列"）。
 - **通道**：`IotChannel` 定义 `telemetry` / `service` / `event` 三个通道位，本增量只实现 `telemetry` 通路。订阅端只订遥测，`localDeviceIdFromTopic` 也只认 `telemetry`——放宽解析等于悄悄扩大订阅面。
-- **契约边界**：主题、上行载荷与队列名属契约；写哪张表、DDL 形态**不属**契约——归 `apps/iot-worker` 内部（schema 定义与建库脚本均在该应用内）。同理，**存储列类型档位**（`FLOAT` / `DOUBLE` / `INT` / `BIGINT` / `BOOL` / `VARCHAR` 与 `VARCHAR(N)` 上限）、**进 DDL 的标识符校验**（属性 key、模型编码）以及**物模型的声明与校验**（属性档位、聚合集、结构体子字段）也不属契约，归 `packages/device-registry`——它们描述列与表名的形状，不是线上载荷。
+- **契约边界**：主题、上行载荷与队列名属契约；写哪张表、DDL 形态**不属**契约——DDL 语句归 `apps/nestjs-server` 的注册路径，`apps/iot-worker` 只保留开发期补齐脚本。同理，**存储列类型档位**（`FLOAT` / `DOUBLE` / `INT` / `BIGINT` / `BOOL` / `VARCHAR` 与 `VARCHAR(N)` 上限）、**进 DDL 的标识符与表名校验**（属性 key、模型编码、超表 / 子表命名）、**物模型的声明与校验**（属性档位、聚合集、结构体子字段）以及**平台设备标识的签发与校验**也不属契约，归 `packages/device-registry`——它们描述列与表名的形状，不是线上载荷。
 
 ## 契约扩展流程（contracts 先行）
 
@@ -41,7 +41,7 @@ last_verified: 2026-11-05
 ## 响应信封与错误码
 
 - 所有端点成功响应为 `ApiResponse<T> = { code, message, data }`；错误响应同信封，HTTP 状态按码段规则 `httpStatus = Math.floor(code / 100)`。
-- 校验失败（`VALIDATION_FAILED` / 40001）时 `data.errors` 为字段级明细 `Array<{ field: string; message: string }>`（`field` 为点分路径，嵌套 DTO 如 `meta.title`）；其余错误 `data: null`。
+- 校验失败（`VALIDATION_FAILED` / 40001）时 `data.errors` 为字段级明细 `Array<{ field: string; message: string }>`（`field` 为点分路径，嵌套 DTO 如 `meta.title`）；业务错误可在 `data` 里携带结构化细节（目前只有 iot 注册路径，见下），无细节时 `data: null`。
 - 错误码表（BizCode，contracts 为事实源）：
 
 | 常量 | 码值 | 语义 |
@@ -57,6 +57,30 @@ last_verified: 2026-11-05
 | LOGIN_ACCOUNT_LOCKED | 42301 | 登录账号已锁定（等待自动解锁） |
 | RATE_LIMITED | 42901 | 触发限流 |
 | INTERNAL_ERROR | 50000 | 内部错误 |
+
+### iot 注册接口的错误 `data` 形状
+
+**不新增数字码**：注册路径的细分错误都落在 400 / 409 语义内，复用 `VALIDATION_FAILED` / `CONFLICT`，用 `data` 里的结构区分。
+
+`POST /api/v1/iot/models`：
+
+| 情形 | HTTP | code | data |
+|---|---|---|---|
+| 声明结构非法 | 400 | `VALIDATION_FAILED` | `{ issues: ModelIssue[] }`（`path` + `code`） |
+| 某档位用不了所选聚合（如 `bool` + `sum`） | 400 | `VALIDATION_FAILED` | `{ issues: [{ path, code: 'no-column-type' }] }` |
+| 某个 key 的存储类型变了 | 400 | `VALIDATION_FAILED` | `{ issues: [{ path, code: 'kind-changed' }] }` |
+| 并发发布撞唯一约束 | 409 | `CONFLICT` | `{ reason: 'version-conflict' }` |
+| 表 / 列已存在，或结构与声明不符 | 409 | `CONFLICT` | `{ reason: 'table-exists' \| 'schema-mismatch', tables: string[] }` |
+
+`POST /api/v1/iot/devices`：
+
+| 情形 | HTTP | code | data |
+|---|---|---|---|
+| 模型无 ACTIVE 版本 | 409 | `CONFLICT` | `{ reason: 'model-not-active', modelCode }` |
+| 档案 ACTIVE 但表缺 | 409 | `CONFLICT` | `{ reason: 'schema-mismatch', tables: string[] }` |
+| 同 `localDeviceId` 已注册在别的模型 | 409 | `CONFLICT` | `{ reason: 'registered-to-other-model', modelCode }` |
+| 并发撞唯一约束 | 409 | `CONFLICT` | `{ reason: 'duplicate-device' }` |
+| 同名子表已存在 | 409 | `CONFLICT` | `{ reason: 'table-exists', tables: string[] }` |
 
 ## 分页与时间约定
 
