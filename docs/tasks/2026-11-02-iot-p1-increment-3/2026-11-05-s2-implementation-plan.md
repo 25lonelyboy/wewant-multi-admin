@@ -155,6 +155,23 @@ erDiagram
 
 状态挂在两个不同对象上：**模型的状态在版本上**，**设备的状态在设备上**（D3 §2.3）。模型本身没有状态。
 
+**跨型号查询的前提（本机实测 2026-11-05）**
+
+设备在一天内换过型号时，"按天查这台设备"必须跨两张子表。TDengine 3.4.2.8 实测支持：
+
+```sql
+SELECT ts, temp, vibration, NULL AS pressure FROM wewant_iot.b_<deviceId>
+UNION ALL
+SELECT ts, temp, NULL AS vibration, pressure FROM wewant_iot.c_<deviceId>
+ORDER BY ts
+```
+
+两条使用记录**给出的信息是"查哪几张表"与"每张表叫什么"**，不是"取哪些行"。由此三条前提：
+
+1. **子表清单由 usage 枚举，时间条件只用于查询区间**。不要拿 `usage.fromAt / toAt` 去裁剪数据——那是**档案认定的生效区间**，不是**数据实际所在的区间**：注册晚于实际上电会让 `fromAt` 偏晚；换型后设备可能还在旧模型上发一会儿，旧表里会有超出 `toAt` 的行。按档案窗口裁剪会**漏数据**。
+2. **列集合取并集，缺的补 `NULL`**（实测可行，`ORDER BY` 也照常作用于合并结果）。
+3. **每一行要能标出来源模型**。`temp` 在两个模型里都可能存在，但**单位可以不同**——单位不可变是"模型内"的约束，跨模型不受限（D2 §10：改单位 = 新建模型类型）。合并成一个 `temp` 列而不标模型，等于把两种单位的读数混进同一列。
+
 ### 2.3 T2 仓储层
 
 `apps/nestjs-server/src/modules/iot/registry/device-registry.repository.ts`：
