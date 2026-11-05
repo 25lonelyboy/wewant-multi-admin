@@ -6,6 +6,7 @@
 import { pathToFileURL } from 'node:url';
 import * as argon2 from 'argon2';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { P1_MODEL, p1DeviceRecords } from '@multi-admin/device-registry';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import {
   BUTTON_ACTIONS,
@@ -225,6 +226,75 @@ export async function runSeed(prisma: PrismaClient): Promise<void> {
       });
     });
   }
+
+  // 6. iot：p1 模型 + 版本 1，以及 100 台 P1 设备与各自的 open usage。
+  // 设备标识一律取自 p1DeviceRecords()——那份映射有「有数据即冻结」的约束，不在此重新推导。
+  await seedP1Registry(prisma);
+}
+
+const P1_MODEL_VERSION = 1;
+
+/**
+ * create-only 幂等：模型、版本、设备、usage 都只补缺失行。
+ * 已有 open usage 的设备不追加 p1 usage——它可能已被换到别的型号。
+ */
+async function seedP1Registry(prisma: PrismaClient): Promise<void> {
+  const modelCode = P1_MODEL.modelCode;
+  await prisma.iotDeviceModel.upsert({
+    where: { code: modelCode },
+    create: { code: modelCode },
+    update: {}
+  });
+
+  const now = new Date();
+  await prisma.iotModelVersion.upsert({
+    where: { modelCode_version: { modelCode, version: P1_MODEL_VERSION } },
+    create: {
+      modelCode,
+      version: P1_MODEL_VERSION,
+      status: 'ACTIVE',
+      properties: toJson(P1_MODEL.properties),
+      services: toJson(P1_MODEL.services),
+      events: toJson(P1_MODEL.events),
+      effectiveFrom: now,
+      statusChangedAt: now
+    },
+    update: {}
+  });
+
+  const records = p1DeviceRecords();
+  await prisma.iotDevice.createMany({
+    data: records.map(record => ({
+      localDeviceId: record.localDeviceId,
+      deviceId: record.deviceId,
+      status: 'ACTIVE' as const,
+      statusChangedAt: now
+    })),
+    skipDuplicates: true
+  });
+
+  const devices = await prisma.iotDevice.findMany({
+    where: { localDeviceId: { in: records.map(r => r.localDeviceId) } },
+    select: {
+      deviceId: true,
+      usages: { where: { toAt: null }, select: { id: true } }
+    }
+  });
+  await prisma.iotDeviceModelUsage.createMany({
+    data: devices
+      .filter(device => device.usages.length === 0)
+      .map(device => ({
+        deviceId: device.deviceId,
+        modelCode,
+        version: P1_MODEL_VERSION
+      })),
+    skipDuplicates: true
+  });
+}
+
+/** Prisma 的 Json 入参不接受 readonly 数组，按值复制一份 */
+function toJson(value: unknown): object {
+  return structuredClone(value) as object;
 }
 
 // CLI 入口（仅当直跑本文件时执行，被 import 时不触发）。
