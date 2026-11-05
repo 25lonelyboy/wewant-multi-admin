@@ -122,7 +122,7 @@ Prisma 7 + PostgreSQL，system 五表（User / Role / Menu / UserRole / RoleMenu
 - **两个 HTTP 入口**：`POST /api/v1/iot/models`（发布模型声明；新模型建表，已有模型发布新版本）与 `POST /api/v1/iot/devices`（注册设备）。鉴权走全局 JWT——本增量不加权限点（D3 §5 的复查触发点是出现第二个操作者）。两者都支持 `?dryRun=true`：只跑校验与比对、返回将要执行的 DDL，**不写库、不执行**。
 - **DDL 归属 server**：语句生成在 `src/modules/iot/schema/ddl.ts`，表名一律取自 `packages/device-registry`（`rawStableName` / `dsStableName` / `dsSubtableName` / `subtableName`，库名与分钟级 KEEP 同处）；一个 `IF NOT EXISTS` 都不用——表/列已存在直接报错阻断注册，幂等由注册流程的前置状态判断承担。
 - **模型内演进按列差集**：`DESCRIBE STABLE` 取现有列，声明有、库里没有 ⇒ 加列；声明有、库里已有 ⇒ 视为上次已应用（同一声明重放不会重复 `ALTER`）；声明没有、历史版本也没有的列 ⇒ 409「结构不一致」。改 key 的存储类型 ⇒ 400，不放行。
-- **降采样超表按表在不在决定建还是 `ALTER`**：模型可从「全无聚合」演进为「有聚合」，那时三张表一张都没有。聚合从无到有后，已注册设备的降采样子表在版本切换之后补建；这一步失败**不回滚发布**，只记 error，缺失由审计报 `missingDs`。
+- **降采样超表逐级判断**：表不存在按当前声明整张建，存在则按**该级自己的现有列**做差集、逐列 `ALTER`——「1m 已加、1h 失败」的混合状态重放只补 1h。模型可从「全无聚合」演进为「有聚合」，那时三张表一张都没有。聚合从无到有后，已注册设备的降采样子表在版本切换之后补建；这一步失败**不回滚发布**，只记 error，缺失由审计报 `missingDs`。
 - **TDengine 一次 `ALTER STABLE ADD COLUMN` 只能加一列**（3.4.2.8 实测多列写法语法错误），加列按列展开成多条语句；分钟级新建超表自带 `KEEP 1095`（全案唯一的超表级 KEEP）。
 - **设备 `deviceId` 由平台签发**（16 位、首字母 + 字母数字，`^[A-Z][A-Z0-9]{15}$`），接口不接收。它进子表名与 TAGS 标签值；从库里读回时再过一次 `checkDeviceId` 防脏数据。
 - **幂等是结果幂等**：同 `localDeviceId` 已 `ACTIVE` 且应有子表齐（有聚合时 1 + 3，无聚合时只有 1）即返回首次结果；文档在、表缺一张报 409「结构不一致」，**不自动补**。同一 `localDeviceId` 已注册在别的模型 ⇒ 409。

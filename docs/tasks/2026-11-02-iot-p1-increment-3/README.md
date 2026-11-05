@@ -26,7 +26,7 @@
 
 **S4「注册路径」** 交付完成——四个命名函数与 `DS_LEVELS`（连同库名、分钟级 KEEP）移入 `packages/device-registry`，版本状态拆成设备两态 / 版本三态并补「同一模型至多一个 `ACTIVE` 版本」的库级唯一索引；`rawColumnOf` 补齐原始列映射；server 以懒连接接入 TDengine，按声明生成 DDL（不带 `IF NOT EXISTS`，加列按列展开，降采样超表按表在不在建或 `ALTER`）；`POST /api/v1/iot/models` 与 `POST /api/v1/iot/devices` 两个接口支持 `dryRun`，设备 `deviceId` 由平台签发，失败整体回滚、档案不落库。S4 交付后新模型的设备仍收不了数据——worker 的 detection 与写入器还按 `RAW_METRICS` 写死，归 S5。
 
-**S4 验收证据**（2026-11-06）：`test/iot-registration.e2e-spec.ts` 17/17 通过（真 PG + 真 TDengine）——含 BOOL / 枚举测点的新模型注册后 `SHOW` 与 `DESCRIBE` 全部由声明生成；同模型第二台设备只多一套子表；加属性后原始超表与三张降采样超表各多一列、旧版本 `SUPERSEDED`；减属性放行且旧列保留；幂等重放表数与行数不变；引用非 ACTIVE 模型、非法档位、布尔 + `sum`、改 key 的 kind、表已存在均返回明确错误且 PG 不留半条；失败后同一 `localDeviceId` 重试成功；无聚合模型只有 1 张子表，聚合从无到有后三张降采样超表与已有设备的三张子表被补出且可重放。server 单测 265/265、全量 e2e 55/55；合并覆盖率 lines 94.48% / branches 81.31% / functions 91.86% / statements 93.92%（门禁 ≥80%）；`pnpm check`、`pnpm doc:lint` 全绿。测试用的稳定 `deviceId` 由 `DeviceIdIssuer` 覆盖提供，只为让「手工占住同名子表」有可复现靶子。
+**S4 验收证据**（2026-11-06）：`test/iot-registration.e2e-spec.ts` 18/18 通过（真 PG + 真 TDengine）——含 BOOL / 枚举测点的新模型注册后 `SHOW` 与 `DESCRIBE` 全部由声明生成；同模型第二台设备只多一套子表；加属性后原始超表与三张降采样超表各多一列、旧版本 `SUPERSEDED`；减属性放行且旧列保留；降采样某一级被手工删列后，重放只补该级、已有列的两级不重复 `ALTER`；幂等重放表数与行数不变；引用非 ACTIVE 模型、非法档位、布尔 + `sum`、改 key 的 kind、表已存在均返回明确错误且 PG 不留半条；失败后同一 `localDeviceId` 重试成功；无聚合模型只有 1 张子表，聚合从无到有后三张降采样超表与已有设备的三张子表被补出且可重放。server 单测 266/266、全量 e2e 56/56；合并覆盖率 lines 94.51% / branches 81.32% / functions 91.89% / statements 93.96%（门禁 ≥80%）；`pnpm check`、`pnpm doc:lint` 全绿。测试用的稳定 `deviceId` 由 `DeviceIdIssuer` 覆盖提供，只为让「手工占住同名子表」有可复现靶子。
 
 **下一步**：S5「消费接线」的前置是 D1；S6 的注销与清理口径在前定 D5。
 
@@ -45,7 +45,7 @@ pnpm check
 
 **环境注意**：跑 iot-worker 的 e2e 前先 `docker compose stop worker`——两者消费同一队列，worker 会抢走测试 job。表结构变更后需 `docker compose down -v` 再 `pnpm ops:env-up` 重建（本地开发库可丢）。
 
-**已知未修**（均有触发点，明细在 `.superpowers/sdd/progress.md`，缺口已登记 [backlog](../../governance/backlog.md)）：e2e 的降采样侧证据是构造必然；`healthcheck-core` 的重试分支无单测；结构体内部字段不可查；错钟设备的全部数据会被拒、现象与设备掉线相同（D4 代价，告警接收方缺位）；**审计对「整个模型退场」静默**——一个模型整体从档案消失后，它的超表与全部子表在审计的两张期望集合里都不命中，整片被跳过、四桶全空，期望集改由 S2 仓储的 `listSubtablesOfActiveDevices()` 提供后（S5 接线）才补得上；**模型内演进若在降采样加列中途失败，重放补不回已跳过的那几级**——待加列由原始超表列差集算出，原始列一旦加上重试差集即为空；若某级降采样表已加列、另一级没加上，需要人工比对（触发点：TDengine 在加列途中报错）。
+**已知未修**（均有触发点，明细在 `.superpowers/sdd/progress.md`，缺口已登记 [backlog](../../governance/backlog.md)）：e2e 的降采样侧证据是构造必然；`healthcheck-core` 的重试分支无单测；结构体内部字段不可查；错钟设备的全部数据会被拒、现象与设备掉线相同（D4 代价，告警接收方缺位）；**审计对「整个模型退场」静默**——一个模型整体从档案消失后，它的超表与全部子表在审计的两张期望集合里都不命中，整片被跳过、四桶全空，期望集改由 S2 仓储的 `listSubtablesOfActiveDevices()` 提供后（S5 接线）才补得上。
 
 ## 过程文件
 

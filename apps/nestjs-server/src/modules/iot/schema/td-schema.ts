@@ -60,16 +60,13 @@ export interface RawStableSchema {
   columns: Map<string, ColumnFact>;
 }
 
-/** 原始超表的结构；表不存在时 `exists=false`，列集为空 */
-export async function describeRawStable(
+/** 任意超表的数据列（不含 `ts` 与标签）；调用方负责先确认表存在 */
+export async function describeStableColumns(
   td: TdSql,
-  modelCode: string
-): Promise<RawStableSchema> {
-  const name = rawStableName(modelCode);
-  const stables = await listExistingStables(td, RAW_DATABASE, [name]);
-  if (!stables.has(name)) return { exists: false, columns: new Map() };
-
-  const rows = await td.query(`DESCRIBE ${RAW_DATABASE}.${name}`);
+  db: string,
+  name: string
+): Promise<Map<string, ColumnFact>> {
+  const rows = await td.query(`DESCRIBE ${db}.${name}`);
   const columns = new Map<string, ColumnFact>();
   for (const row of rows) {
     const field = textCell(row[0]).toLowerCase();
@@ -81,7 +78,22 @@ export async function describeRawStable(
       length: Number.isFinite(length) ? length : null
     });
   }
-  return { exists: true, columns };
+  return columns;
+}
+
+/** 原始超表的结构；表不存在时 `exists=false`，列集为空 */
+export async function describeRawStable(
+  td: TdSql,
+  modelCode: string
+): Promise<RawStableSchema> {
+  const name = rawStableName(modelCode);
+  const stables = await listExistingStables(td, RAW_DATABASE, [name]);
+  if (!stables.has(name)) return { exists: false, columns: new Map() };
+
+  return {
+    exists: true,
+    columns: await describeStableColumns(td, RAW_DATABASE, name)
+  };
 }
 
 /** `VARCHAR(n)` 期望值与 DESCRIBE 的 type/length 是否一致；其余类型逐字比 */

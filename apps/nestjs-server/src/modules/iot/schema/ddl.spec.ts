@@ -1,6 +1,9 @@
-import type {
-  ModelDeclaration,
-  SubtableRef
+import {
+  DS_LEVELS,
+  dsColumnsOf,
+  type DsLevel,
+  type ModelDeclaration,
+  type SubtableRef
 } from '@multi-admin/device-registry';
 import {
   alterDsStables,
@@ -8,7 +11,8 @@ import {
   createDsStables,
   createDsSubtables,
   createRawStable,
-  createRawSubtable
+  createRawSubtable,
+  type DsStableState
 } from './ddl.js';
 
 const DECL: ModelDeclaration = {
@@ -83,9 +87,14 @@ describe('DDL 生成', () => {
         { key: 'pressure', kind: 'double', aggregates: [] }
       ]),
       ...alterDsStables(
-        DECL,
-        [{ key: 'pressure', kind: 'double', aggregates: ['sum'] }],
-        new Set(['e2e_reg_ddl_1m', 'e2e_reg_ddl_1h', 'e2e_reg_ddl_1d'])
+        {
+          ...DECL,
+          properties: [
+            ...DECL.properties,
+            { key: 'pressure', kind: 'double', aggregates: ['sum'] }
+          ]
+        },
+        existingStates(() => baseDsColumns())
       ),
       createRawSubtable(REF),
       ...createDsSubtables(
@@ -111,12 +120,38 @@ describe('DDL 生成', () => {
   });
 });
 
-describe('降采样超表演进：建还是 ALTER 由表在不在决定', () => {
-  it('三张都在 ⇒ 逐列 ALTER 新增聚合列', () => {
+function baseDsColumns(): Set<string> {
+  const result = dsColumnsOf(DECL.properties);
+  if (!result.ok) throw new Error('fixture 推导失败');
+  return new Set(result.columns.map(column => column.name));
+}
+
+function existingStates(
+  columnsFor: (level: DsLevel) => ReadonlySet<string>
+): Map<DsLevel, DsStableState> {
+  return new Map(
+    DS_LEVELS.map(level => [
+      level,
+      { exists: true, columns: columnsFor(level) }
+    ])
+  );
+}
+
+describe('降采样超表演进：逐级按自己的列做差集', () => {
+  const pressure = {
+    key: 'pressure',
+    kind: 'double',
+    aggregates: ['sum', 'count']
+  } as const;
+  const withPressure: ModelDeclaration = {
+    ...DECL,
+    properties: [...DECL.properties, pressure]
+  };
+
+  it('三张都在且都缺新列 ⇒ 每级逐列 ALTER', () => {
     const statements = alterDsStables(
-      DECL,
-      [{ key: 'pressure', kind: 'double', aggregates: ['sum', 'count'] }],
-      new Set(['e2e_reg_ddl_1m', 'e2e_reg_ddl_1h', 'e2e_reg_ddl_1d'])
+      withPressure,
+      existingStates(() => baseDsColumns())
     );
     expect(statements).toHaveLength(6);
     expect(statements[0]).toBe(
@@ -128,16 +163,7 @@ describe('降采样超表演进：建还是 ALTER 由表在不在决定', () => 
   });
 
   it('一张都没有 ⇒ 按新声明建三张', () => {
-    const pressure = {
-      key: 'pressure',
-      kind: 'double',
-      aggregates: ['sum']
-    } as const;
-    const next: ModelDeclaration = {
-      ...DECL,
-      properties: [...DECL.properties, pressure]
-    };
-    const statements = alterDsStables(next, [pressure], new Set());
+    const statements = alterDsStables(withPressure, new Map());
     expect(statements).toHaveLength(3);
     expect(statements[0]).toContain(
       'CREATE STABLE wewant_iot_ds.e2e_reg_ddl_1m'
@@ -156,10 +182,25 @@ describe('降采样超表演进：建还是 ALTER 由表在不在决定', () => 
             { key: 'x', kind: 'int', aggregates: [] }
           ]
         },
-        [{ key: 'x', kind: 'int', aggregates: [] }],
-        new Set(['e2e_reg_ddl_1m', 'e2e_reg_ddl_1h', 'e2e_reg_ddl_1d'])
+        existingStates(() => baseDsColumns())
       )
     ).toEqual([]);
+  });
+
+  it('1m 已有新列、1h / 1d 没有 ⇒ 只补缺的两级', () => {
+    const oneMinute = baseDsColumns();
+    oneMinute.add('sum_pressure');
+    const statements = alterDsStables(
+      {
+        ...DECL,
+        properties: [...DECL.properties, { ...pressure, aggregates: ['sum'] }]
+      },
+      existingStates(level => (level === '1m' ? oneMinute : baseDsColumns()))
+    );
+    expect(statements).toEqual([
+      'ALTER STABLE wewant_iot_ds.e2e_reg_ddl_1h ADD COLUMN sum_pressure DOUBLE',
+      'ALTER STABLE wewant_iot_ds.e2e_reg_ddl_1d ADD COLUMN sum_pressure DOUBLE'
+    ]);
   });
 });
 

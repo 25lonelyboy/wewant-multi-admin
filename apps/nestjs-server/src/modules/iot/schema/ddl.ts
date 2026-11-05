@@ -10,6 +10,7 @@ import {
   rawColumnOf,
   rawStableName,
   type DerivedColumn,
+  type DsLevel,
   type ModelDeclaration,
   type PropertyDecl,
   type SubtableRef
@@ -110,36 +111,43 @@ export function alterRawStable(
   );
 }
 
+/** 某一级降采样超表的现状：表在不在、已有哪些数据列 */
+export interface DsStableState {
+  exists: boolean;
+  /** 该级超表已有的数据列名（折小写，不含 `ts` / 标签）；表不存在时为空集 */
+  columns: ReadonlySet<string>;
+}
+
+export type DsStableStates = ReadonlyMap<DsLevel, DsStableState>;
+
 /**
- * 模型内演进：降采样超表**按表在不在**决定建还是加列。
+ * 模型内演进：降采样超表**逐级判断**。
  *
- * 模型可以从「全无聚合」演进为「有聚合」，那时三张表一张都没有——统一走 ALTER 会报错，
- * 统一走 CREATE 会撞已存在。`existing` 是当前库里已有的降采样超表名（不带库前缀）。
+ * 每一级按**自己的现有列**做差集，不依赖原始超表的列差集：原始表与 1m 已加列、1h 失败时，
+ * 重放只补 1h。表不存在则按当前声明整张建（模型可从全无聚合演进为有聚合）。
  */
 export function alterDsStables(
   decl: ModelDeclaration,
-  added: readonly PropertyDecl[],
-  existing: ReadonlySet<string>
+  existing: DsStableStates
 ): string[] {
   const columns = dsColumnDefs(decl.properties);
   if (columns === null) return [];
 
-  const addedColumns = dsColumnDefs(added) ?? [];
-
   const statements: string[] = [];
   for (const level of DS_LEVELS) {
-    const name = dsStableName(decl.modelCode, level);
-    if (existing.has(name)) {
-      for (const column of addedColumns) {
-        statements.push(
-          `ALTER STABLE ${dsStableRef(decl.modelCode, level)} ADD COLUMN ${column.name} ${column.type}`
-        );
-      }
-    } else {
+    const state = existing.get(level);
+    if (state === undefined || !state.exists) {
       const keep = level === '1m' ? ` KEEP ${DS_MINUTE_KEEP_DAYS}` : '';
       statements.push(
         `CREATE STABLE ${dsStableRef(decl.modelCode, level)} ` +
           `(${columnList(columns)}) TAGS (deviceId ${DEVICE_ID_TAG_TYPE})${keep}`
+      );
+      continue;
+    }
+    for (const column of columns) {
+      if (state.columns.has(column.name)) continue;
+      statements.push(
+        `ALTER STABLE ${dsStableRef(decl.modelCode, level)} ADD COLUMN ${column.name} ${column.type}`
       );
     }
   }

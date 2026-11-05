@@ -463,6 +463,39 @@ describe('iot 注册路径 (e2e)', () => {
       expect(versions[0].effectiveTo).not.toBeNull();
     });
 
+    it('某一级降采样表缺列时，重放只补该级', async () => {
+      const level = '1h';
+      const stable = dsStableName(MACHINE, level);
+      await td.exec(
+        `ALTER STABLE wewant_iot_ds.${stable} DROP COLUMN sum_pressure`
+      );
+      expect(await columnsOf('wewant_iot_ds', stable)).not.toContain(
+        'sum_pressure'
+      );
+
+      const result = expectData<ModelResult>(
+        await post(
+          '/iot/models',
+          machineDeclaration([
+            { key: 'pressure', kind: 'double', aggregates: ['sum'] }
+          ])
+        )
+      );
+      // 1m / 1d 已有该列，不重复 ALTER；只补 1h
+      expect(result.ddl).toEqual([
+        `ALTER STABLE wewant_iot_ds.${stable} ADD COLUMN sum_pressure DOUBLE`
+      ]);
+      expect(await columnsOf('wewant_iot_ds', stable)).toContain(
+        'sum_pressure'
+      );
+      for (const other of DS_LEVELS.filter(candidate => candidate !== level)) {
+        expect(
+          await columnsOf('wewant_iot_ds', dsStableName(MACHINE, other))
+        ).toContain('sum_pressure');
+      }
+      expect(result.version).toBe(3);
+    });
+
     it('减属性放行，列保留在库里', async () => {
       const result = expectData<ModelResult>(
         await post('/iot/models', {
@@ -475,7 +508,7 @@ describe('iot 注册路径 (e2e)', () => {
           events: []
         })
       );
-      expect(result.version).toBe(3);
+      expect(result.version).toBe(4);
       // 物理一份、逻辑多版：声明里没有的属性，新数据不再上报，旧列不删
       expect(await columnsOf('wewant_iot', MACHINE)).toContain('mode');
       expect(
@@ -487,7 +520,7 @@ describe('iot 注册路径 (e2e)', () => {
             where: { modelCode: MACHINE, status: 'ACTIVE' }
           })
         ).version
-      ).toBe(3);
+      ).toBe(4);
     });
   });
 

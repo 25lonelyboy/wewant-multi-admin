@@ -11,6 +11,7 @@ import {
   rawStableName,
   subtableName,
   validateModel,
+  type DsLevel,
   type ModelDeclaration,
   type ModelWarning,
   type PropertyDecl,
@@ -26,12 +27,14 @@ import {
   alterRawStable,
   createDsStables,
   createDsSubtables,
-  createRawStable
+  createRawStable,
+  type DsStableState
 } from '../schema/ddl.js';
 import { dropCreatedTables, type CreatedTable } from '../schema/execute.js';
 import {
   columnMatches,
   describeRawStable,
+  describeStableColumns,
   listExistingStables,
   listExistingTables
 } from '../schema/td-schema.js';
@@ -222,8 +225,24 @@ export class ModelsService {
 
     const dsNames = this.dsStableNamesOf(decl);
     const existingDs = await listExistingStables(td, DS_DATABASE, dsNames);
+    // 每级按自己的现有列做差集：1m 已加、1h 失败时，重放只补 1h
+    const dsStates = new Map<DsLevel, DsStableState>();
+    if (dsNames.length > 0) {
+      for (const level of DS_LEVELS) {
+        const name = dsStableName(decl.modelCode, level);
+        const exists = existingDs.has(name);
+        dsStates.set(level, {
+          exists,
+          columns: exists
+            ? new Set(
+                (await describeStableColumns(td, DS_DATABASE, name)).keys()
+              )
+            : new Set()
+        });
+      }
+    }
     const rawDdl = alterRawStable(decl, added);
-    const dsDdl = alterDsStables(decl, added, existingDs);
+    const dsDdl = alterDsStables(decl, dsStates);
     const createdDsNames = dsNames.filter(name => !existingDs.has(name));
 
     const nextVersion =
