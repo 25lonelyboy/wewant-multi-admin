@@ -22,7 +22,7 @@
 
 **S2「档案落 PG」** 交付完成——四张表（`IotDeviceModel` / `IotModelVersion` / `IotDevice` / `IotDeviceModelUsage`）与 partial unique index 落在同一份迁移；只读仓储 `DeviceRegistryRepository` 提供查在用设备、枚举在用设备、按使用史展开子表期望集三个读法，子表名一律取自 `subtableName()`；`runSeed()` 注入 `p1` 模型、版本 1（`ACTIVE`）、100 台设备与各自的 open usage。`DeviceRegistry` 接口未动，worker 读档案仍归 D1，注册写入归 S4。
 
-**S2 验收证据**（2026-11-05）：迁移 `20261105144320_iot_device_registry` 在本地库与测试库执行成功，`\dt` 见四表；seed 连跑两次后设备 / usage / 版本 / 模型行数恒为 100 / 100 / 1 / 1；`test/iot-registry.e2e-spec.ts` 6/6 通过（只认 ACTIVE、当前模型由 open usage 推出、期望集含新旧子表、命名同源、同一设备第二条 open usage 被拒、指向不存在版本的 usage 被拒、seed 幂等）；`pnpm --filter @multi-admin/nestjs-server run test`、`pnpm check`、`pnpm doc:lint` 全绿。
+**S2 验收证据**（2026-11-05）：迁移 `20261105144320_iot_device_registry` 在本地库与测试库执行成功，`\dt` 见四表；seed 连跑两次后设备 / usage / 版本 / 模型行数恒为 100 / 100 / 1 / 1；`test/iot-registry.e2e-spec.ts` 6/6 通过（只认 ACTIVE、当前模型由 open usage 推出、期望集含新旧子表、命名同源、同一设备第二条 open usage 被拒、指向不存在版本的 usage 被拒、seed 幂等）；server 全量 e2e 38/38 通过；`pnpm --filter @multi-admin/nestjs-server run test`、`pnpm check`、`pnpm doc:lint` 全绿。
 
 **下一步**：按 S4 做注册路径（D3 前置已齐）；S5 消费接线的前置是 D1。
 
