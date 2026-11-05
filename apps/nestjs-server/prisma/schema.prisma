@@ -96,3 +96,58 @@ enum MenuType {
   EXTERNAL
   BUTTON
 }
+
+enum IotStatus {
+  PENDING
+  ACTIVE
+  FAILED
+}
+
+model IotDeviceModel {
+  code      String            @id
+  name      String?
+  createdAt DateTime          @default(now())
+  versions  IotModelVersion[]
+}
+
+model IotModelVersion {
+  id              String                @id @default(cuid())
+  modelCode       String
+  version         Int
+  status          IotStatus
+  properties      Json
+  services        Json
+  events          Json
+  effectiveFrom   DateTime?
+  effectiveTo     DateTime?
+  statusChangedAt DateTime?
+  createdAt       DateTime              @default(now())
+  model           IotDeviceModel        @relation(fields: [modelCode], references: [code])
+  usages          IotDeviceModelUsage[]
+
+  @@unique([modelCode, version])
+}
+
+model IotDevice {
+  id              String                @id @default(cuid())
+  localDeviceId   String                @unique
+  deviceId        String                @unique
+  protocolVersion String?
+  status          IotStatus             @default(PENDING)
+  statusChangedAt DateTime?
+  createdAt       DateTime              @default(now())
+  usages          IotDeviceModelUsage[]
+}
+
+model IotDeviceModelUsage {
+  id           String          @id @default(cuid())
+  deviceId     String
+  modelCode    String
+  version      Int
+  fromAt       DateTime        @default(now())
+  toAt         DateTime?
+  device       IotDevice       @relation(fields: [deviceId], references: [deviceId])
+  modelVersion IotModelVersion @relation(fields: [modelCode, version], references: [modelCode, version])
+
+  @@index([deviceId, toAt])
+}
