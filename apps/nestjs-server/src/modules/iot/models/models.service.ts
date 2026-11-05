@@ -4,6 +4,7 @@ import {
   DS_DATABASE,
   DS_LEVELS,
   RAW_DATABASE,
+  checkDeviceId,
   dsColumnsOf,
   dsStableName,
   dsSubtableName,
@@ -315,11 +316,22 @@ export class ModelsService {
       });
       if (usages.length === 0) return;
 
-      const refs: SubtableRef[] = usages.map(usage => ({
-        name: subtableName(decl.modelCode, usage.deviceId),
-        deviceId: usage.deviceId,
-        modelCode: decl.modelCode
-      }));
+      const refs: SubtableRef[] = [];
+      for (const usage of usages) {
+        // deviceId 进表名与 TAGS；从库里读回的值必须兜住，脏数据跳过该设备而非中断补建
+        if (!checkDeviceId(usage.deviceId)) {
+          this.logger.error(
+            `补建降采样子表跳过：档案 deviceId 格式非法（modelCode=${decl.modelCode}，deviceId=${usage.deviceId}）`
+          );
+          continue;
+        }
+        refs.push({
+          name: subtableName(decl.modelCode, usage.deviceId),
+          deviceId: usage.deviceId,
+          modelCode: decl.modelCode
+        });
+      }
+      if (refs.length === 0) return;
       const wanted = refs.flatMap(ref =>
         DS_LEVELS.map(level => dsSubtableName(ref.name, level))
       );

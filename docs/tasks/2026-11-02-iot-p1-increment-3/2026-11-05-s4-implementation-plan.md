@@ -239,7 +239,9 @@ D3 §2.5 要求「表已存在、列已存在直接报错、阻断注册」。`I
 | 情形 | HTTP | code | data |
 | --- | --- | --- | --- |
 | 模型无 ACTIVE 版本 | 409 | `CONFLICT` | `{ reason: 'model-not-active', modelCode }` |
+| 档案存在但非 ACTIVE | 409 | `CONFLICT` | `{ reason: 'device-not-active', status }` |
 | 档案 ACTIVE 但表缺 | 409 | `CONFLICT` | `{ reason: 'schema-mismatch', tables: string[] }` |
+| 同 `localDeviceId` 已注册在别的模型 | 409 | `CONFLICT` | `{ reason: 'registered-to-other-model', modelCode }` |
 | 并发撞唯一约束 | 409 | `CONFLICT` | `{ reason: 'duplicate-device' }` |
 
 ### 2.7 失败清理与告警（T5 / T6 共用）

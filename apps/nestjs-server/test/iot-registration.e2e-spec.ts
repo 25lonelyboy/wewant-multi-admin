@@ -282,6 +282,27 @@ describe('iot 注册路径 (e2e)', () => {
         })
       ).toBe(0);
     });
+
+    it('档案存在但非 ACTIVE ⇒ device-not-active，不建表', async () => {
+      await prisma.iotDevice.create({
+        data: {
+          localDeviceId: 'e2e-reg-pending',
+          deviceId: 'T000000000000900',
+          status: 'PENDING'
+        }
+      });
+      const tablesBefore = await allTables();
+      const res = await post('/iot/devices', {
+        localDeviceId: 'e2e-reg-pending',
+        modelCode: `${PREFIX}pendingmodel`
+      });
+      const error = expectError(res, 409);
+      expect(error.data).toEqual({
+        reason: 'device-not-active',
+        status: 'PENDING'
+      });
+      expect(await allTables()).toEqual(tablesBefore);
+    });
   });
 
   describe('新模型 + 第一台设备', () => {

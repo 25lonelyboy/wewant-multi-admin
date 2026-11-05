@@ -20,6 +20,10 @@ import type { TdSql } from '../tdengine/td-client.js';
 import { createDsSubtables, createRawSubtable } from '../schema/ddl.js';
 import { dropCreatedTables, type CreatedTable } from '../schema/execute.js';
 import { listExistingTables } from '../schema/td-schema.js';
+import {
+  DeviceRegistryRepository,
+  type DeviceRow
+} from '../registry/device-registry.repository.js';
 import { DeviceIdIssuer } from './device-id-issuer.js';
 import type { RegisterDeviceDto } from './dto/device.dto.js';
 
@@ -44,6 +48,7 @@ const DEVICE_ID_ATTEMPTS = 5;
 interface RegisterConflictDetails {
   modelCode?: string;
   tables?: string[];
+  status?: string;
 }
 
 /**
@@ -59,7 +64,8 @@ export class DevicesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly td: TdClientProvider,
-    private readonly issuer: DeviceIdIssuer
+    private readonly issuer: DeviceIdIssuer,
+    private readonly registry: DeviceRegistryRepository
   ) {}
 
   async register(
@@ -76,12 +82,17 @@ export class DevicesService {
     }
     const modelCode = modelCodeCheck.value;
 
-    const device = await this.prisma.iotDevice.findFirst({
-      where: { localDeviceId },
-      include: {
-        usages: { where: { toAt: null }, select: { modelCode: true } }
+    const device = await this.registry.findActiveDevice(localDeviceId);
+    if (device === null) {
+      // 仓储只认 ACTIVE；非 ACTIVE 的档案要单独说清楚，不能当成“不存在”去建表
+      const existing = await this.prisma.iotDevice.findFirst({
+        where: { localDeviceId },
+        select: { status: true }
+      });
+      if (existing !== null) {
+        throw this.conflict('device-not-active', { status: existing.status });
       }
-    });
+    }
     const model = await this.prisma.iotDeviceModel.findUnique({
       where: { code: modelCode },
       include: { versions: true }
@@ -91,16 +102,9 @@ export class DevicesService {
     if (device !== null) {
       // 先比设备当前模型，再要求请求的模型 ACTIVE：换型号与“模型不存在”是两种错误，
       // 前者更能说明调用方哪里不对
-      if (device.status !== 'ACTIVE') {
-        throw this.conflict('duplicate-device');
-      }
-      const [usage] = device.usages;
-      if (usage === undefined) {
-        throw this.conflict('schema-mismatch', { tables: [] });
-      }
-      if (usage.modelCode !== modelCode) {
+      if (device.modelCode !== modelCode) {
         throw this.conflict('registered-to-other-model', {
-          modelCode: usage.modelCode
+          modelCode: device.modelCode
         });
       }
       if (active === undefined) {
@@ -157,10 +161,7 @@ export class DevicesService {
    */
   private async idempotentResult(
     td: TdSql,
-    device: {
-      localDeviceId: string;
-      deviceId: string;
-    },
+    device: DeviceRow,
     modelCode: string,
     active: VersionRow
   ): Promise<RegisterDeviceResult> {
@@ -170,7 +171,7 @@ export class DevicesService {
 
     const properties = asProperties(active.properties);
     const ref: SubtableRef = {
-      name: subtableName(modelCode, device.deviceId),
+      name: device.subtable,
       deviceId: device.deviceId,
       modelCode
     };
@@ -316,6 +317,7 @@ export class DevicesService {
       | 'schema-mismatch'
       | 'table-exists'
       | 'duplicate-device'
+      | 'device-not-active'
       | 'registered-to-other-model',
     details: RegisterConflictDetails = {}
   ): BizException {

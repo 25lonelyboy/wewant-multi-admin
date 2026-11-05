@@ -1,12 +1,17 @@
+import { Inject, Injectable } from '@nestjs/common';
 import { normalizeLocalId } from '@multi-admin/contracts';
 import { subtableName, type SubtableRef } from '@multi-admin/device-registry';
 import type { PrismaClient } from '../../../generated/prisma/client.js';
+import { PrismaService } from '../../../database/prisma.service.js';
 
 /** 一台在用设备及其当前模型 */
 export interface DeviceRow {
   localDeviceId: string;
   deviceId: string;
+  /** 当前模型编码 */
   modelCode: string;
+  /** 当前 open usage 指向的版本号 */
+  version: number;
   /** 当前模型对应的子表名 */
   subtable: string;
 }
@@ -17,8 +22,10 @@ export interface DeviceRow {
  * 只认 `ACTIVE` 设备；「当前模型」由 `usage.toAt IS NULL` 推出来，不存冗余字段。
  * 缓存与 `DeviceRegistry` 的实现形态归 D1，这里只做 server 侧的直连读取。
  */
+@Injectable()
 export class DeviceRegistryRepository {
-  constructor(private readonly prisma: PrismaClient) {}
+  // 显式 token：构造参数保留 PrismaClient 形态，测试可直接 new 一个传 PrismaClient
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaClient) {}
 
   /** 查档：只认 ACTIVE，返回当前模型对应的子表 */
   async findActiveDevice(localDeviceId: string): Promise<DeviceRow | null> {
@@ -29,7 +36,10 @@ export class DeviceRegistryRepository {
         usages: { some: { toAt: null } }
       },
       include: {
-        usages: { where: { toAt: null }, select: { modelCode: true } }
+        usages: {
+          where: { toAt: null },
+          select: { modelCode: true, version: true }
+        }
       }
     });
     if (!device) return null;
@@ -40,6 +50,7 @@ export class DeviceRegistryRepository {
       localDeviceId: device.localDeviceId,
       deviceId: device.deviceId,
       modelCode: usage.modelCode,
+      version: usage.version,
       subtable: subtableName(usage.modelCode, device.deviceId)
     };
   }
@@ -49,7 +60,10 @@ export class DeviceRegistryRepository {
     const devices = await this.prisma.iotDevice.findMany({
       where: { status: 'ACTIVE', usages: { some: { toAt: null } } },
       include: {
-        usages: { where: { toAt: null }, select: { modelCode: true } }
+        usages: {
+          where: { toAt: null },
+          select: { modelCode: true, version: true }
+        }
       },
       orderBy: { localDeviceId: 'asc' }
     });
@@ -61,6 +75,7 @@ export class DeviceRegistryRepository {
           localDeviceId: device.localDeviceId,
           deviceId: device.deviceId,
           modelCode: usage.modelCode,
+          version: usage.version,
           subtable: subtableName(usage.modelCode, device.deviceId)
         }
       ];

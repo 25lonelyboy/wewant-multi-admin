@@ -113,7 +113,7 @@ Prisma 7 + PostgreSQL，system 五表（User / Role / Menu / UserRole / RoleMenu
 
 - **当前模型不存字段**，由 `usage.toAt IS NULL` 推出；设备与模型之间没有直接外键，绑定只在 usage 上
 - 子表名的唯一来源是 `packages/device-registry` 的 `subtableName()`；期望集按 usage 展开，**含已闭合的历史**——换型号后旧模型的子表仍然合法
-- server 侧只读仓储 `src/modules/iot/registry/device-registry.repository.ts`：`findActiveDevice` / `listActiveDevices` / `listSubtablesOfActiveDevices`，只认 `ACTIVE` 设备、不缓存
+- server 侧只读仓储 `src/modules/iot/registry/device-registry.repository.ts`：`findActiveDevice` / `listActiveDevices` 返回当前模型、open usage 的版本号与子表名，`listSubtablesOfActiveDevices` 展开审计期望集；只认 `ACTIVE` 设备、不缓存。注册路径的前置查档走它（`models.service` 的补建按模型筛，保留自己的查询）
 - seed 注入 `p1` 模型与版本 1（`ACTIVE`）、100 台 P1 设备及各自的 open usage；设备标识取自 `p1DeviceRecords()`，create-only 幂等
 - worker 仍不读 PG（档案承载与读取形态归 D1 / S5）；注册写入路径见下节
 
@@ -127,4 +127,4 @@ Prisma 7 + PostgreSQL，system 五表（User / Role / Menu / UserRole / RoleMenu
 - **设备 `deviceId` 由平台签发**（16 位、首字母 + 字母数字，`^[A-Z][A-Z0-9]{15}$`），接口不接收。它进子表名与 TAGS 标签值；从库里读回时再过一次 `checkDeviceId` 防脏数据。
 - **幂等是结果幂等**：同 `localDeviceId` 已 `ACTIVE` 且应有子表齐（有聚合时 1 + 3，无聚合时只有 1）即返回首次结果；文档在、表缺一张报 409「结构不一致」，**不自动补**。同一 `localDeviceId` 已注册在别的模型 ⇒ 409。
 - **失败整体回滚**：本次建的表按 `createdTables` 清单**逆序**删除（只删清单里的名字，不按前缀匹配），单张失败重试三次、仍失败记 error 并继续；PG 不落库、没有失败态，`localDeviceId` 不被占用、重试天然可行。`ALTER` 已加上的列不退（TDengine 删不掉列），残留表由审计兜底。
-- **连接是懒的**：`TDENGINE_URL`（默认 `ws://root:taosdata@127.0.0.1:6041`）首次用到才建连，时序库不可达不会让 server 起不来；容器内必须显式传服务名。`@tdengine/websocket` 加载时挂的 winston `uncaughtException` 处理器在 `td-client.ts` 模块加载期被摘除（先于任何自有处理器注册）。
+- **连接是懒的**：`TDENGINE_URL`（默认 `ws://root:taosdata@127.0.0.1:6041`）首次用到才建连，时序库不可达不会让 server 起不来；容器内必须显式传服务名。`@tdengine/websocket` 加载时挂的 winston `uncaughtException` 处理器在 `td-client.ts` 模块加载期被摘除；摘除是全进程的，当前 server 没有自有处理器，若将来新增，必须让本摘除先执行。
