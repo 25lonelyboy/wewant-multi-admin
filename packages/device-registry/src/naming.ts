@@ -5,6 +5,13 @@
  * 改一处不会报错，只会把表建到别处去。
  */
 
+/** 原始库：设备上报的遥测。KEEP 3 年（决策 4 轴 1） */
+export const RAW_DATABASE = 'wewant_iot';
+/** 降采样库：聚合结果。库级 KEEP 10 年；分钟级再靠**超表级** KEEP 收到 3 年 */
+export const DS_DATABASE = 'wewant_iot_ds';
+/** 分钟级只留 3 年——全案唯一的**超表级** KEEP（必须小于库级） */
+export const DS_MINUTE_KEEP_DAYS = 1095;
+
 /** 降采样三级——**同形**，只有窗口不同（跨级查询与再聚合才成立） */
 export const DS_LEVELS = ['1m', '1h', '1d'] as const;
 export type DsLevel = (typeof DS_LEVELS)[number];

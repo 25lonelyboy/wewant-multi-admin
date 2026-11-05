@@ -1,15 +1,16 @@
 import {
+  DS_DATABASE,
   DS_LEVELS,
+  DS_MINUTE_KEEP_DAYS,
+  RAW_DATABASE,
   dsStableName,
   dsSubtableName,
   rawStableName,
   type SubtableRef
 } from '@multi-admin/device-registry';
 
-/** 原始库：设备上报的遥测。KEEP 3 年（决策 4 轴 1） */
-export const RAW_DATABASE = 'wewant_iot';
-/** 降采样库：聚合结果。库级 KEEP 10 年；分钟级再靠**超表级** KEEP 收到 3 年 */
-export const DS_DATABASE = 'wewant_iot_ds';
+// 库名与分钟级 KEEP 的唯一出处在 device-registry；此处转发，供 worker 内部与建表脚本沿用。
+export { DS_DATABASE, DS_MINUTE_KEEP_DAYS, RAW_DATABASE };
 
 /**
  * 单次 `bind` 的行数上限 = 2¹⁵−1（本机探针实测：32767 行成功、32768 行报
@@ -24,8 +25,6 @@ export type RawMetric = (typeof RAW_METRICS)[number];
 
 export const RAW_KEEP_DAYS = 1095;
 export const DS_KEEP_DAYS = 3650;
-/** 分钟级只留 3 年——全案唯一的**超表级** KEEP（必须小于库级） */
-export const DS_MINUTE_KEEP_DAYS = 1095;
 /** 每个数据文件的跨度：`KEEP` 到期以它为粒度发生 */
 export const DURATION_DAYS = 10;
 
