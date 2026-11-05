@@ -127,6 +127,8 @@ services:
       MQTT_URL: ${MQTT_URL:-mqtt://emqx:1883}
       # 队列 Redis：与业务缓存分开的实例。⚠️ 它**不可达不得阻断启动**——不可达时订阅端落本地缓冲。
       QUEUE_REDIS_URL: ${QUEUE_REDIS_URL:-redis://redis-queue:6379}
+      # 容器里的 127.0.0.1 不是 tdengine 容器，必须显式指向服务名（懒连接，tdengine 未起不影响启动）
+      TDENGINE_URL: ${TDENGINE_URL:-ws://root:taosdata@tdengine:6041}
       # 队列不可达时的本地落盘目录。⚠️ 不挂卷 ⇒ 容器一重建，本地缓冲白做。
       IOT_SPILL_DIR: /var/lib/wewant-spill
       ADMIN_INIT_PASSWORD: ${ADMIN_INIT_PASSWORD:?请在 .env 中设置 ADMIN_INIT_PASSWORD}

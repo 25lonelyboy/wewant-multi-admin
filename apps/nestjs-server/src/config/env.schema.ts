@@ -30,6 +30,8 @@ export const envSchema = z.object({
     .default(86400),
   /** 队列 Redis——与业务缓存 `REDIS_URL` 是**两个实例**（ADR-010 D4） */
   QUEUE_REDIS_URL: z.string().min(1).default('redis://127.0.0.1:6380'),
+  /** TDengine taosAdapter 的 WebSocket 入口；与 worker 同名同默认，容器内必须显式传 */
+  TDENGINE_URL: z.string().min(1).default('ws://root:taosdata@127.0.0.1:6041'),
   /** 队列不可达时落本地的目录；不挂卷则容器一重建，缓冲就白做 */
   IOT_SPILL_DIR: z.string().min(1).default('./.spill'),
   /** 本地缓冲上限（字节）；超过即**停订阅 + 告警**，不静默丢数据 */

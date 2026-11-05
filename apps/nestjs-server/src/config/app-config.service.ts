@@ -55,6 +55,10 @@ export class AppConfigService {
     return this.config.get('QUEUE_REDIS_URL', { infer: true });
   }
 
+  get tdengineUrl(): Env['TDENGINE_URL'] {
+    return this.config.get('TDENGINE_URL', { infer: true });
+  }
+
   get iotSpillDir(): Env['IOT_SPILL_DIR'] {
     return this.config.get('IOT_SPILL_DIR', { infer: true });
   }
