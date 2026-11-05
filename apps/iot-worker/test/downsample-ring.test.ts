@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { UnrecoverableError, type Job, type Queue, type Worker } from 'bullmq';
 import { loadConfig } from '../src/config.js';
 import { createLogger } from '../src/logger.js';
-import { dsSubtableName } from '../src/schema.js';
+import { dsSubtableName } from '@multi-admin/device-registry';
 import { DS_CODEC, type DsAggregateRow } from '../src/downsample/rows.js';
 import { DownsampleRing, type TdConnect } from '../src/downsample/ring.js';
 import type { TdRow, TdSql } from '../src/tdengine/client.js';

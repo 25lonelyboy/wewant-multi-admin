@@ -10,13 +10,12 @@ import { TelemetryConsumer } from '../src/consumer.js';
 import { createLogger } from '../src/logger.js';
 import { connectTd, destroyTd } from '../src/tdengine/client.js';
 import { TdengineWriter, type PendingRow } from '../src/tdengine/writer.js';
-import { p1DeviceRegistry } from '@multi-admin/device-registry';
 import {
-  DS_DATABASE,
-  RAW_DATABASE,
   dsSubtableName,
+  p1DeviceRegistry,
   rawStableName
-} from '../src/schema.js';
+} from '@multi-admin/device-registry';
+import { DS_DATABASE, RAW_DATABASE } from '../src/schema.js';
 import { LEVEL_SPECS } from '../src/downsample/level.js';
 import { lastClosedBoundary } from '../src/downsample/window.js';
 import type { TdSql } from '../src/tdengine/client.js';

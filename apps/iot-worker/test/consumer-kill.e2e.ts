@@ -8,10 +8,10 @@ import {
   TELEMETRY_INGEST_QUEUE,
   TELEMETRY_QUEUE_PREFIX
 } from '@multi-admin/contracts';
-import { p1DeviceRegistry } from '@multi-admin/device-registry';
+import { p1DeviceRegistry, rawStableName } from '@multi-admin/device-registry';
 import { loadConfig } from '../src/config.js';
 import { connectTd, destroyTd, type TdSql } from '../src/tdengine/client.js';
-import { RAW_DATABASE, rawStableName } from '../src/schema.js';
+import { RAW_DATABASE } from '../src/schema.js';
 
 /**
  * 判据③——**强杀重投不丢**：拉起**真正的 worker 进程**（不是进程内 `new`），在它把一批

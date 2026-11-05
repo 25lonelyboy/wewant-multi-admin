@@ -1,13 +1,11 @@
 import {
-  DS_DATABASE,
   DS_LEVELS,
-  RAW_METRICS,
   dsLevelSuffix,
   dsStableName,
   dsSubtableName,
-  type DsLevel,
-  type RawMetric
-} from '../schema.js';
+  type DsLevel
+} from '@multi-admin/device-registry';
+import { DS_DATABASE, RAW_METRICS, type RawMetric } from '../schema.js';
 import type { TdRow } from '../tdengine/client.js';
 import type { DsLevelSpec } from './level.js';
 import { levelSpec } from './level.js';

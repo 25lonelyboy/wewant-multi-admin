@@ -1,7 +1,11 @@
-import { p1DeviceRegistry } from '@multi-admin/device-registry';
+import {
+  DS_LEVELS,
+  p1DeviceRegistry,
+  type DsLevel
+} from '@multi-admin/device-registry';
 import { loadConfig } from '../src/config.js';
 import { connectTd, destroyTd } from '../src/tdengine/client.js';
-import { DS_LEVELS, RAW_DATABASE, type DsLevel } from '../src/schema.js';
+import { RAW_DATABASE } from '../src/schema.js';
 import {
   checkTablesNonEmpty,
   emptySideFailures,

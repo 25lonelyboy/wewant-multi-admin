@@ -95,7 +95,8 @@ export interface ModelDeclaration {
   events: readonly EventDecl[];
 }
 
-export type VersionStatus = 'PENDING' | 'ACTIVE' | 'FAILED';
+/** 版本三态：发布新版本时旧版本转 `SUPERSEDED`；注册失败不落库，不会出现失败态 */
+export type VersionStatus = 'PENDING' | 'ACTIVE' | 'SUPERSEDED';
 
 /**
  * 版本快照（D2 §11）：不可变的是**快照**，不是物理列集合。
@@ -111,10 +112,5 @@ export interface ModelVersion extends ModelDeclaration {
 }
 
 export function isVersionStatus(value: unknown): value is VersionStatus {
-  return value === 'PENDING' || value === 'ACTIVE' || value === 'FAILED';
-}
-
-/** `FAILED` 是终态；`ACTIVE` 仍可转 `FAILED` */
-export function isTerminalStatus(status: VersionStatus): boolean {
-  return status === 'FAILED';
+  return value === 'PENDING' || value === 'ACTIVE' || value === 'SUPERSEDED';
 }

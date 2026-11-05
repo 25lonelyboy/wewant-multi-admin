@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { RAW_METRICS, dsSubtableName } from '../src/schema.js';
+import { dsSubtableName } from '@multi-admin/device-registry';
+import { RAW_METRICS } from '../src/schema.js';
 import { levelSpec } from '../src/downsample/level.js';
 import { buildAggregateSql } from '../src/downsample/query.js';
 import { lastClosedBoundary } from '../src/downsample/window.js';

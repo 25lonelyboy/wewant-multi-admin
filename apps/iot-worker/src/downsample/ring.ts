@@ -1,7 +1,11 @@
 import { Queue, UnrecoverableError, Worker, type Job } from 'bullmq';
 import { TELEMETRY_QUEUE_PREFIX } from '@multi-admin/contracts';
-import { p1DeviceRegistry } from '@multi-admin/device-registry';
-import { DS_LEVELS, RAW_DATABASE, type DsLevel } from '../schema.js';
+import {
+  DS_LEVELS,
+  p1DeviceRegistry,
+  type DsLevel
+} from '@multi-admin/device-registry';
+import { RAW_DATABASE } from '../schema.js';
 import type { WorkerConfig } from '../config.js';
 import {
   classifyWriteError,

@@ -1,0 +1,40 @@
+/**
+ * TDengine 库内表名的唯一出处。
+ *
+ * 建表端（server 注册路径）与对账端（worker 审计 / 降采样）共用这些函数：名字一旦分裂，
+ * 改一处不会报错，只会把表建到别处去。
+ */
+
+/** 降采样三级——**同形**，只有窗口不同（跨级查询与再聚合才成立） */
+export const DS_LEVELS = ['1m', '1h', '1d'] as const;
+export type DsLevel = (typeof DS_LEVELS)[number];
+
+/**
+ * 原始超表名：即模型编码，折小写。
+ *
+ * ⚠️ **折小写必须与 `subtableName` 一致**：TDengine 存标识符时折小写，而审计拿
+ * `information_schema` 里的小写名去比这些函数算出的期望名——一边折一边不折就会整片误报。
+ */
+export function rawStableName(modelCode: string): string {
+  return modelCode.toLowerCase();
+}
+
+/** 降采样超表名：`{模型编码}_{级别}`，折小写（同 `rawStableName`） */
+export function dsStableName(modelCode: string, level: DsLevel): string {
+  return `${modelCode}_${level}`.toLowerCase();
+}
+
+/** 降采样子表名的级别后缀——命名约定的唯一出处（建表端与对账报告共用，勿各处重打） */
+export function dsLevelSuffix(level: DsLevel): string {
+  return `_${level}`;
+}
+
+/**
+ * 降采样子表名：`{name}_{level}`（`name` 即原始库的子表名，折小写）。
+ *
+ * ⚠️ **级别必须进名**：三张超表同库，而 TDengine 的子表名**库内唯一**——同名子表只能挂一张
+ * 超表，否则报 `Table already exists in other stables`。建表端与写入端复用本函数，命名只此一处。
+ */
+export function dsSubtableName(name: string, level: DsLevel): string {
+  return `${name}${dsLevelSuffix(level)}`;
+}

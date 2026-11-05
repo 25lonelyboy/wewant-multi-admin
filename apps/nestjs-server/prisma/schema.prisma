@@ -97,10 +97,17 @@ enum MenuType {
   BUTTON
 }
 
-enum IotStatus {
+/** 设备两态：注册失败不落库，不会出现失败态；没有「退役」语义 */
+enum IotDeviceStatus {
   PENDING
   ACTIVE
-  FAILED
+}
+
+/** 版本三态：发布新版本时旧版本转 SUPERSEDED */
+enum IotVersionStatus {
+  PENDING
+  ACTIVE
+  SUPERSEDED
 }
 
 model IotDeviceModel {
@@ -114,7 +121,7 @@ model IotModelVersion {
   id              String                @id @default(cuid())
   modelCode       String
   version         Int
-  status          IotStatus
+  status          IotVersionStatus
   properties      Json
   services        Json
   events          Json
@@ -133,7 +140,7 @@ model IotDevice {
   localDeviceId   String                @unique
   deviceId        String                @unique
   protocolVersion String?
-  status          IotStatus             @default(PENDING)
+  status          IotDeviceStatus       @default(PENDING)
   statusChangedAt DateTime?
   createdAt       DateTime              @default(now())
   usages          IotDeviceModelUsage[]

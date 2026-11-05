@@ -1,10 +1,5 @@
-import {
-  DS_DATABASE,
-  RAW_METRICS,
-  dsSubtableName,
-  type DsLevel,
-  type RawMetric
-} from '../schema.js';
+import { dsSubtableName, type DsLevel } from '@multi-admin/device-registry';
+import { DS_DATABASE, RAW_METRICS, type RawMetric } from '../schema.js';
 import type { TdRow } from '../tdengine/client.js';
 import type { WriteCodec, WriteColumn } from '../tdengine/writer.js';
 

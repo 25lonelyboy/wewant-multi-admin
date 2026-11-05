@@ -1,18 +1,20 @@
-import { p1DeviceRegistry } from '@multi-admin/device-registry';
+import {
+  DS_LEVELS,
+  dsStableName,
+  p1DeviceRegistry,
+  rawStableName
+} from '@multi-admin/device-registry';
 import { loadConfig } from '../src/config.js';
 import { connectTd, destroyTd, type TdSql } from '../src/tdengine/client.js';
 import {
   DS_DATABASE,
-  DS_LEVELS,
   RAW_DATABASE,
   alterDsMinuteKeepStatement,
   createDatabaseStatements,
   createDsStableStatements,
   createDsSubtableStatements,
   createRawStableStatement,
-  createSubtableStatement,
-  dsStableName,
-  rawStableName
+  createSubtableStatement
 } from '../src/schema.js';
 
 /**

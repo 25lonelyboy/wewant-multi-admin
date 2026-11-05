@@ -4,7 +4,6 @@ import {
   AGGREGATE_COLUMN_TYPE,
   AGGREGATES,
   PROPERTY_KINDS,
-  isTerminalStatus,
   isVersionStatus
 } from './model-types.js';
 
@@ -59,12 +58,10 @@ void test('布尔 / 枚举没有 sum；字符串与结构体只有 count', () =>
   assert.deepEqual(Object.keys(AGGREGATE_COLUMN_TYPE.struct), ['count']);
 });
 
-void test('版本状态：FAILED 是终态，ACTIVE 不是', () => {
-  assert.equal(isTerminalStatus('FAILED'), true);
-  assert.equal(isTerminalStatus('ACTIVE'), false);
-  assert.equal(isTerminalStatus('PENDING'), false);
-
+void test('版本状态：PENDING / ACTIVE / SUPERSEDED，没有失败态', () => {
   assert.equal(isVersionStatus('ACTIVE'), true);
+  assert.equal(isVersionStatus('SUPERSEDED'), true);
+  assert.equal(isVersionStatus('FAILED'), false);
   assert.equal(isVersionStatus('DONE'), false);
   assert.equal(isVersionStatus(undefined), false);
 });

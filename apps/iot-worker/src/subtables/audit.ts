@@ -1,12 +1,11 @@
-import type { TdRow } from '../tdengine/client.js';
 import {
-  DS_DATABASE,
   DS_LEVELS,
-  RAW_DATABASE,
   dsStableName,
   dsSubtableName,
   rawStableName
-} from '../schema.js';
+} from '@multi-admin/device-registry';
+import type { TdRow } from '../tdengine/client.js';
+import { DS_DATABASE, RAW_DATABASE } from '../schema.js';
 
 /** 只读查询依赖——生产是 `TdSql`，单测注入替身 */
 export interface AuditQuery {

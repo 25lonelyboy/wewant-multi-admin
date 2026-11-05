@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { DS_LEVELS } from '../src/schema.js';
+import { DS_LEVELS } from '@multi-admin/device-registry';
 import {
   LEVEL_SPECS,
   assertLevelCoverage,

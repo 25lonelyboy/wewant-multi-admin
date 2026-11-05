@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { DS_DATABASE, RAW_METRICS, dsSubtableName } from '../src/schema.js';
+import { dsSubtableName } from '@multi-admin/device-registry';
+import { DS_DATABASE, RAW_METRICS } from '../src/schema.js';
 import {
   DS_CODEC,
   parseAggregateRows,

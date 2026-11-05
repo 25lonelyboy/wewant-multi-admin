@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { DS_LEVELS, dsSubtableName } from '@multi-admin/device-registry';
 import {
   DS_DATABASE,
-  DS_LEVELS,
   DS_MINUTE_KEEP_DAYS,
   DURATION_DAYS,
   RAW_DATABASE,
@@ -12,8 +12,7 @@ import {
   createDsStableStatements,
   createDsSubtableStatements,
   createRawStableStatement,
-  createSubtableStatement,
-  dsSubtableName
+  createSubtableStatement
 } from '../src/schema.js';
 
 void test('建库语句带 KEEP 与 DURATION，且幂等', () => {

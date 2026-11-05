@@ -1,4 +1,10 @@
-import type { SubtableRef } from '@multi-admin/device-registry';
+import {
+  DS_LEVELS,
+  dsStableName,
+  dsSubtableName,
+  rawStableName,
+  type SubtableRef
+} from '@multi-admin/device-registry';
 
 /** 原始库：设备上报的遥测。KEEP 3 年（决策 4 轴 1） */
 export const RAW_DATABASE = 'wewant_iot';
@@ -16,10 +22,6 @@ export const MAX_BIND_ROWS = 32767;
 export const RAW_METRICS = ['temperature', 'vibration', 'current'] as const;
 export type RawMetric = (typeof RAW_METRICS)[number];
 
-/** 降采样三级——**同形**，只有窗口不同（跨级查询与再聚合才成立） */
-export const DS_LEVELS = ['1m', '1h', '1d'] as const;
-export type DsLevel = (typeof DS_LEVELS)[number];
-
 export const RAW_KEEP_DAYS = 1095;
 export const DS_KEEP_DAYS = 3650;
 /** 分钟级只留 3 年——全案唯一的**超表级** KEEP（必须小于库级） */
@@ -29,36 +31,6 @@ export const DURATION_DAYS = 10;
 
 /** 设备标识宽度：决策 1 §8.2 的 16 位 */
 const DEVICE_ID_WIDTH = 16;
-
-/**
- * 原始超表名：即模型编码，折小写。
- *
- * ⚠️ **折小写必须与 `subtableName` 一致**：TDengine 存标识符时折小写，而审计拿
- * `information_schema` 里的小写名去比这些函数算出的期望名——一边折一边不折就会整片误报。
- */
-export function rawStableName(modelCode: string): string {
-  return modelCode.toLowerCase();
-}
-
-/** 降采样超表名：`{模型编码}_{级别}`，折小写（同 `rawStableName`） */
-export function dsStableName(modelCode: string, level: DsLevel): string {
-  return `${modelCode}_${level}`.toLowerCase();
-}
-
-/** 降采样子表名的级别后缀——命名约定的唯一出处（建表端与对账报告共用，勿各处重打） */
-export function dsLevelSuffix(level: DsLevel): string {
-  return `_${level}`;
-}
-
-/**
- * 降采样子表名：`{name}_{level}`（`name` 即原始库的子表名，折小写）。
- *
- * ⚠️ **级别必须进名**：三张超表同库，而 TDengine 的子表名**库内唯一**——同名子表只能挂一张
- * 超表，否则报 `Table already exists in other stables`。建表端与写入端复用本函数，命名只此一处。
- */
-export function dsSubtableName(name: string, level: DsLevel): string {
-  return `${name}${dsLevelSuffix(level)}`;
-}
 
 /** 建库语句——两个库，幂等 */
 export function createDatabaseStatements(): string[] {

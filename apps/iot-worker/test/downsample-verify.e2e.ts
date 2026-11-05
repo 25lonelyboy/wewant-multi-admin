@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Queue, Worker } from 'bullmq';
-import { p1DeviceRegistry } from '@multi-admin/device-registry';
+import { dsSubtableName, p1DeviceRegistry } from '@multi-admin/device-registry';
 import { loadConfig } from '../src/config.js';
 import { createLogger } from '../src/logger.js';
-import { DS_DATABASE, RAW_DATABASE, dsSubtableName } from '../src/schema.js';
+import { DS_DATABASE, RAW_DATABASE } from '../src/schema.js';
 import { connectTd, destroyTd, type TdSql } from '../src/tdengine/client.js';
 import { TdengineWriter, type PendingRow } from '../src/tdengine/writer.js';
 import { levelSpec } from '../src/downsample/level.js';

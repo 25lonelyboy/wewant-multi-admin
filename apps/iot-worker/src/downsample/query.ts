@@ -1,4 +1,5 @@
-import { RAW_DATABASE, RAW_METRICS, rawStableName } from '../schema.js';
+import { rawStableName } from '@multi-admin/device-registry';
+import { RAW_DATABASE, RAW_METRICS } from '../schema.js';
 import { intervalClause, type DsLevelSpec } from './level.js';
 
 /**

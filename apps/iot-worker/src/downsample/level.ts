@@ -1,4 +1,4 @@
-import { DS_LEVELS, type DsLevel } from '../schema.js';
+import { DS_LEVELS, type DsLevel } from '@multi-admin/device-registry';
 import type { WindowSpec } from './window.js';
 
 /**
@@ -78,7 +78,7 @@ export function levelSpec(level: DsLevel): DsLevelSpec {
   return spec;
 }
 
-/** 三级齐全——与 `schema.ts` 的 `DS_LEVELS` 对齐（改一处须同步另一处） */
+/** 三级齐全——与 `device-registry` 的 `DS_LEVELS` 对齐（改一处须同步另一处） */
 export function assertLevelCoverage(): void {
   const missing = DS_LEVELS.filter(
     level => !LEVEL_SPECS.some(spec => spec.level === level)
