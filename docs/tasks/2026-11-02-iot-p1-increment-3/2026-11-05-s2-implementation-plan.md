@@ -1,7 +1,7 @@
 # S2 · 档案落 PG：设计与实施计划
 
 - **日期**：2026-11-05｜上承 [范围定稿](2026-11-01-scope-and-task-map.md) S2 与 [D3 决策卡](2026-11-05-d3-decision-card.md)
-- **出口**：① 档案、模型、版本快照、设备模型使用史四张表可读写；② 仓储层只返回 `ACTIVE`；③ 换型号后旧模型的子表仍被算作合法（审计期望集含历史）；④ 100 台 P1 设备与 `p1` 模型由 seed 注入，幂等
+- **出口**：① 档案、模型、版本快照、设备模型使用史四张表可读写，**物模型与设备档案真的落到库里、能查出来**；② 仓储层只返回 `ACTIVE`；③ 换型号后旧模型的子表仍被算作合法（审计期望集含历史）；④ 100 台 P1 设备与 `p1` 模型由 seed 注入，幂等
 - **前置**：D3 已定（2026-11-05）
 
 ## 0. 先说一处计划内部的矛盾
@@ -25,6 +25,8 @@ allSubtables(): SubtableRef[];
 | **S2 只做仓储，不实现 `DeviceRegistry`** | 接口一字不动，形态留给 D1 |
 
 **本计划取第三条**，并把 S2 的出口第三条改成「仓储层只返回 `ACTIVE`」。原出口的「消费者只认 ACTIVE」移到 S5——那才是消费者真的开始读档案的地方。
+
+**D1 的读取形态暂按直连**（决策人 2026-11-05 定）：worker 侧怎么读档案后续再讨论，但方向按直连走。它对 S2 的直接影响只有一个——**`DeviceRegistry` 的同步签名迟早要改成异步**。S2 因此既不动接口、也不做内存快照：先按快照实现，到 D1 还得拆一遍。
 
 ## 1. 形状
 
@@ -108,7 +110,52 @@ model IotDeviceModelUsage {
 - **`localDeviceId` 与 `deviceId` 都唯一**：前者是设备自报的稳定编号，后者永不复用
 - **usage 记 `version` 而不只是 `modelCode`**：D2 §11 的版本快照要与使用史对得上，否则"这台设备当时用的是哪一版"答不出来
 
-### 2.2 T2 仓储层
+### 2.2 四张表的关系（ER）
+
+```mermaid
+erDiagram
+    IotDeviceModel ||--o{ IotModelVersion : "1 个模型有多个版本"
+    IotDevice ||--o{ IotDeviceModelUsage : "1 台设备用过多个型号"
+    IotModelVersion ||--o{ IotDeviceModelUsage : "1 个版本被多台设备使用"
+```
+
+**设备与模型之间没有直接外键**——这是这张图最要紧的一点。
+
+一条 `IotDevice.currentModelCode` 存不下历史，而审计需要历史（D2 §2.2 代价 a：换型号后旧模型的子表仍合法）。所以「设备现在用哪个模型」不是一个字段，而是 `IotDeviceModelUsage` 里 `toAt IS NULL` 的那一行。
+
+**四条关系的含义**
+
+| 关系 | 语义 | 为什么这样建 |
+| --- | --- | --- |
+| 模型 → 版本（1:N） | 模型是**身份**（`code`），版本是**声明快照** | 声明不可变（D2 §11），演进 = 新行；同一模型多版并存，只有一版 ACTIVE |
+| 设备 → 使用史（1:N） | 设备**用过哪些型号**、各自起止 | 换型号要留痕，否则旧子表无从判定合法性 |
+| 版本 → 使用史（1:N） | 一个版本被多台设备用 | usage 记 `version` 而不只是 `modelCode`，「当时用的哪一版」才答得出 |
+| 设备 × 版本（N:M，经 usage） | 设备与模型的全部绑定 | 唯一的绑定点，也是**子表名的来源** |
+
+**子表名从 usage 推出**：每一行 usage → 一个 `{模型编码}_{deviceId}`。所以审计的期望集 = **全部 usage 行**（含 `toAt` 非空的），而不只是当前在用。
+
+**不变量**
+
+| 不变量 | 挡住什么 |
+| --- | --- |
+| `IotDevice.localDeviceId` 唯一 | 同一自报编号不能对应两台设备 |
+| `IotDevice.deviceId` 唯一、永不复用 | 子表名唯一性的根 |
+| `(modelCode, version)` 唯一 | 版本号不复用 |
+| 同一设备至多一条 `toAt IS NULL` 的 usage | 否则「当前模型」不唯一，`findActiveDevice` 会返回两行 |
+| usage 的 `toAt` 一旦非空不可再改 | 历史只增不改 |
+
+**四条路径走查**
+
+| 场景 | 写什么 | 读到的 |
+| --- | --- | --- |
+| 新模型 + 第一台设备（S4） | 1 行 Model、1 行 Version（ACTIVE）、1 行 Device（ACTIVE）、1 行 Usage（`toAt = null`） | 子表 `{模型编码}_{deviceId}` |
+| 同一模型第二台设备（S4） | 只加 Device + Usage，模型的表不动 | 另一张子表 |
+| 设备换型号（S4） | 新增一条 Usage；把旧 Usage 的 `toAt` 置为换型时刻 | 当前 = 新子表；期望集 = 新旧两张 |
+| 审计（S0 的工具） | 不写 | 枚举全部 Usage → 子表名集合 |
+
+状态挂在两个不同对象上：**模型的状态在版本上**，**设备的状态在设备上**（D3 §2.3）。模型本身没有状态。
+
+### 2.3 T2 仓储层
 
 `apps/nestjs-server/src/modules/iot/registry/device-registry.repository.ts`：
 
@@ -136,7 +183,7 @@ export class DeviceRegistryRepository {
 - server 因此新增对 `@multi-admin/device-registry` 的依赖（目前只依赖 `contracts`）。这不违反"模拟器与 pure-web 都不依赖它"——那条约束说的是**下发侧**，server 是平台侧
 - 只读方法全部 `async`，**不缓存**（见 §1）
 
-### 2.3 T3 seed
+### 2.4 T3 seed
 
 现有 seed 是 create-only 幂等（只补不删不改）。iot 部分按同一形态加进去：
 
@@ -145,7 +192,7 @@ export class DeviceRegistryRepository {
 
 ⚠️ seed 会在**每次 `ops:env-up`** 跑一遍，必须保证重跑不报错、不产生重复。
 
-### 2.4 T4 单测
+### 2.5 T4 单测
 
 | 用例 | 断言 |
 | --- | --- |
@@ -157,7 +204,7 @@ export class DeviceRegistryRepository {
 
 测试用真实 PG（仓库其它 e2e 的做法），不走 mock——这条与"测试要打真库"的既有纪律一致。
 
-### 2.5 T5 文档
+### 2.6 T5 文档
 
 `backend.md` 补 iot 域的数据模型一节；任务 README 记 S2 状态与证据；`repo-structure.md` 若描述到 server 的依赖，补一句。
 
