@@ -462,6 +462,33 @@ describe('iot 注册路径 (e2e)', () => {
       expect(versions.map(v => v.status)).toEqual(['SUPERSEDED', 'ACTIVE']);
       expect(versions[0].effectiveTo).not.toBeNull();
     });
+
+    it('减属性放行，列保留在库里', async () => {
+      const result = expectData<ModelResult>(
+        await post('/iot/models', {
+          modelCode: MACHINE,
+          properties: [
+            { key: 'temperature', kind: 'float', aggregates: ['sum'] },
+            { key: 'door_open', kind: 'bool', aggregates: ['count'] }
+          ],
+          services: [],
+          events: []
+        })
+      );
+      expect(result.version).toBe(3);
+      // 物理一份、逻辑多版：声明里没有的属性，新数据不再上报，旧列不删
+      expect(await columnsOf('wewant_iot', MACHINE)).toContain('mode');
+      expect(
+        await columnsOf('wewant_iot_ds', dsStableName(MACHINE, '1m'))
+      ).toContain('count_mode');
+      expect(
+        (
+          await prisma.iotModelVersion.findFirstOrThrow({
+            where: { modelCode: MACHINE, status: 'ACTIVE' }
+          })
+        ).version
+      ).toBe(3);
+    });
   });
 
   describe('无聚合模型', () => {
@@ -538,6 +565,8 @@ describe('iot 注册路径 (e2e)', () => {
         })
       );
       expect(result.version).toBe(3);
+      // 列差集为空：同一声明重放不会重复 ALTER、不产生新表
+      expect(result.ddl).toEqual([]);
       expect((await allTables()).sort()).toEqual(tablesBefore);
     });
   });
