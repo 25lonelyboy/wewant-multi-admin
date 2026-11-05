@@ -65,17 +65,19 @@ model IotDeviceModel {
 }
 
 model IotModelVersion {
-  id            String    @id @default(cuid())
-  modelCode     String
-  version       Int
-  status        IotStatus
-  properties    Json // S3 的归一化声明，整份不可变
-  services      Json
-  events        Json
-  effectiveFrom DateTime?
-  effectiveTo   DateTime?
-  createdAt     DateTime  @default(now())
-  model         IotDeviceModel @relation(fields: [modelCode], references: [code])
+  id              String    @id @default(cuid())
+  modelCode       String
+  version         Int
+  status          IotStatus
+  properties      Json // S3 的归一化声明，整份不可变
+  services        Json
+  events          Json
+  effectiveFrom   DateTime?
+  effectiveTo     DateTime?
+  statusChangedAt DateTime?
+  createdAt       DateTime  @default(now())
+  model           IotDeviceModel @relation(fields: [modelCode], references: [code])
+  usages          IotDeviceModelUsage[]
 
   @@unique([modelCode, version])
 }
@@ -86,22 +88,35 @@ model IotDevice {
   deviceId        String    @unique // 平台签发，**永不复用**
   protocolVersion String? // '3.1.1' | '5.0'，backlog 的协议版本字段在这里落地
   status          IotStatus @default(PENDING)
+  statusChangedAt DateTime?
   createdAt       DateTime  @default(now())
   usages          IotDeviceModelUsage[]
 }
 
 model IotDeviceModelUsage {
-  id        String    @id @default(cuid())
-  deviceId  String // 平台标识，不是 surrogate id
-  modelCode String
-  version   Int
-  fromAt    DateTime  @default(now())
-  toAt      DateTime? // null = 当前在用
-  device    IotDevice @relation(fields: [deviceId], references: [deviceId])
+  id           String   @id @default(cuid())
+  deviceId     String // 平台标识，不是 surrogate id
+  modelCode    String
+  version      Int
+  fromAt       DateTime @default(now())
+  toAt         DateTime? // null = 当前在用
+  device       IotDevice @relation(fields: [deviceId], references: [deviceId])
+  modelVersion IotModelVersion @relation(fields: [modelCode, version], references: [modelCode, version])
 
   @@index([deviceId, toAt])
 }
 ```
+
+**两条不变量落到数据库**（Prisma schema 表达不了第二条第，迁移里手写）：
+
+```sql
+-- 每台设备至多一条 open 的 usage —— findActiveDevice 正确性的前提
+CREATE UNIQUE INDEX "IotDeviceModelUsage_deviceId_open_key"
+  ON "IotDeviceModelUsage"("deviceId")
+  WHERE "toAt" IS NULL;
+```
+
+生成方式：`prisma migrate dev --create-only --name iot_device_registry`，把上面这段追加进生成的 SQL，再执行迁移。**不要**事后单独补一条迁移——它必须与建表同一次，否则中间态可以写坏数据。
 
 四个取法：
 
@@ -136,13 +151,14 @@ erDiagram
 
 **不变量**
 
-| 不变量 | 挡住什么 |
-| --- | --- |
-| `IotDevice.localDeviceId` 唯一 | 同一自报编号不能对应两台设备 |
-| `IotDevice.deviceId` 唯一、永不复用 | 子表名唯一性的根 |
-| `(modelCode, version)` 唯一 | 版本号不复用 |
-| 同一设备至多一条 `toAt IS NULL` 的 usage | 否则「当前模型」不唯一，`findActiveDevice` 会返回两行 |
-| usage 的 `toAt` 一旦非空不可再改 | 历史只增不改 |
+| 不变量 | 由谁强制 | 挡住什么 |
+| --- | --- | --- |
+| `IotDevice.localDeviceId` 唯一 | `@unique` | 同一自报编号不能对应两台设备 |
+| `IotDevice.deviceId` 唯一 | `@unique` | 子表名唯一性的根。「永不复用」是业务约定，数据库管不了 |
+| `(modelCode, version)` 唯一 | `@@unique` | 版本号不复用 |
+| usage 指向的版本必须存在 | **复合外键** → `IotModelVersion(modelCode, version)` | 悬空的 usage |
+| 同一设备至多一条 `toAt IS NULL` 的 usage | **partial unique index**（手写迁移） | 「当前模型」不唯一，`findActiveDevice` 返回不确定的行 |
+| usage 的 `toAt` 一旦非空不可再改 | 无——应用层约定 | 历史只增不改；数据库层强制它要触发器，成本不划算 |
 
 **四条路径走查**
 
@@ -189,14 +205,16 @@ export class DeviceRegistryRepository {
   /**
    * 审计与建表脚本用的期望集：**设备 × 用过的模型**，含历史。
    *
-   * ⚠️ 这是 D2 §2.2 代价 (a) 明确要求的：换型号后旧模型的子表仍然合法，
-   * 只按"当前模型"展开会把旧子表全判成孤儿。
+   * ⚠️ 名字里的 "Active" 修饰的是**设备**，不是子表——只取 ACTIVE 设备，但每台设备的
+   * 全部模型（含已闭合的）都要展开。这是 D2 §2.2 代价 (a) 明确要求的：换型号后旧模型的
+   * 子表仍然合法，只按"当前模型"展开会把旧子表全判成孤儿。
    */
-  listActiveSubtables(): Promise<SubtableRef[]>;
+  listSubtablesOfActiveDevices(): Promise<SubtableRef[]>;
 }
 ```
 
-- `listActiveSubtables()` 返回 `packages/device-registry` 的 `SubtableRef`，名字用包里的 `subtableName(modelCode, deviceId)` 拼——**命名单一来源**，不在 SQL 里再拼一次
+- 方法名刻意把 "Active" 限定在**设备**上：叫 `listActiveSubtables()` 会被读成"只取当前在用的子表"，而它返回的恰恰包含历史
+- `listSubtablesOfActiveDevices()` 返回 `packages/device-registry` 的 `SubtableRef`，名字用包里的 `subtableName(modelCode, deviceId)` 拼——**命名单一来源**，不在 SQL 里再拼一次
 - server 因此新增对 `@multi-admin/device-registry` 的依赖（目前只依赖 `contracts`）。这不违反"模拟器与 pure-web 都不依赖它"——那条约束说的是**下发侧**，server 是平台侧
 - 只读方法全部 `async`，**不缓存**（见 §1）
 
@@ -205,7 +223,8 @@ export class DeviceRegistryRepository {
 现有 seed 是 create-only 幂等（只补不删不改）。iot 部分按同一形态加进去：
 
 - `p1` 模型 + 版本 1（`ACTIVE`），`properties` 取 `P1_MODEL.properties` 的 JSON
-- 100 台设备（`P1_DEVICE_COUNT`），状态 `ACTIVE`，各一条 `usage`（`p1` / v1 / `toAt = null`）
+- 100 台设备：**`localDeviceId` 与 `deviceId` 一律取 `p1DeviceRecords()`**，不重新推导——那份映射有"一旦有数据就冻结"的约束（`p1.ts` 注释），复制一份就是第二个来源
+- 每台一条 `usage`（`p1` / v1 / `toAt = null`），状态 `ACTIVE`
 
 ⚠️ seed 会在**每次 `ops:env-up`** 跑一遍，必须保证重跑不报错、不产生重复。
 
@@ -215,8 +234,10 @@ export class DeviceRegistryRepository {
 | --- | --- |
 | 只认 ACTIVE | 插入一条 `PENDING` 设备，`findActiveDevice` 返回 `null` |
 | 当前模型 | 一条设备有两条 usage（旧 closed、新 open），`findActiveDevice` 用新模型 |
-| 期望集含历史 | 同上，`listActiveSubtables()` 同时返回新旧两个 `SubtableRef` |
+| 期望集含历史 | 同上，`listSubtablesOfActiveDevices()` 同时返回新旧两个 `SubtableRef` |
 | 命名同源 | 返回的 `name` 与 `subtableName(modelCode, deviceId)` 一致 |
+| **open usage 唯一** | 给同一设备插第二条 `toAt = null` 的 usage ⇒ 数据库抛唯一约束错误 |
+| **版本外键** | 插一条 `modelCode/version` 不存在的 usage ⇒ 数据库抛外键错误 |
 | seed 幂等 | 连续跑两次，设备数与 usage 数不变 |
 
 测试用真实 PG（仓库其它 e2e 的做法），不走 mock——这条与"测试要打真库"的既有纪律一致。
@@ -236,6 +257,7 @@ T1 → T2 → T3 → T4 → T5
 | 四张表可写可读 | `prisma migrate deploy` 后 `\dt` 可见；seed 后 100 台设备 + 1 个模型 |
 | 只认 ACTIVE | `PENDING` 设备查不到；`ACTIVE` 的查得到 |
 | 换型号合法 | 一台设备两条 usage 时，期望集含两个子表名 |
+| 不变量在库上 | 直接插入违规数据被数据库拒绝：两条 open usage、指向不存在版本的 usage |
 | 命名同源 | 仓储返回名 = `subtableName()` 的结果 |
 | 幂等 | seed 连跑两次，行数不变 |
 | 门禁 | `pnpm --filter @multi-admin/nestjs-server run test`、`pnpm check`、`pnpm doc:lint` 全绿 |
@@ -245,6 +267,7 @@ T1 → T2 → T3 → T4 → T5
 | 动作 | 影响 | 闸 |
 | --- | --- | --- |
 | `prisma migrate dev` | 若库里有手工改过 schema 留下的 drift，会要求 reset 并**清空全部业务数据** | 先 `prisma migrate status` 确认没有 drift；有 drift 先查明来源，不盲目 reset |
+| **手写迁移 SQL** | `--create-only` 生成的迁移被追加了 partial unique index；写错只会在执行时报，且迁移是单向的 | 迁移执行前先在 scratch 库上跑一遍；索引名与列名逐字核对 |
 | seed 写 iot 数据 | 每次 env-up 都跑 | 严格 create-only；新增的唯一约束要先确认与现有数据不冲突 |
 | server 加 device-registry 依赖 | lockfile 变化 | 同提交更新 `pnpm-lock.yaml`，CI 用 `--frozen-lockfile` |
 
@@ -262,7 +285,7 @@ T1 → T2 → T3 → T4 → T5
 | 文件 | 改什么 |
 | --- | --- |
 | `apps/nestjs-server/prisma/schema.prisma` | 新增 4 个模型 + 1 个枚举 |
-| `apps/nestjs-server/prisma/migrations/<ts>_iot_device_registry/` | 迁移 SQL |
+| `apps/nestjs-server/prisma/migrations/<ts>_iot_device_registry/` | 迁移 SQL（**含手写的 partial unique index**） |
 | `apps/nestjs-server/prisma/seed.ts` | 增加 iot 种子（调用新的 seed 片段） |
 | `apps/nestjs-server/src/modules/iot/registry/*.ts` | 仓储层与测试 |
 | `apps/nestjs-server/package.json` | 新增 `@multi-admin/device-registry` 依赖 |
@@ -273,7 +296,7 @@ T1 → T2 → T3 → T4 → T5
 
 **核对过、确认不改**：`packages/device-registry`（接口一字不动）、`apps/iot-worker`（不读 PG，直到 D1）、`packages/contracts`。
 
-## 7. 本计划做的四处判断（可否决）
+## 7. 本计划做的六处判断（可否决）
 
 | 判断 | 理由 | 否决的后果 |
 | --- | --- | --- |
@@ -281,3 +304,5 @@ T1 → T2 → T3 → T4 → T5
 | 当前模型由 `usage.toAt IS NULL` 推导，不存冗余字段 | 存两处必然漂 | 换型号时要么漏更新字段，要么多一次写 |
 | `properties` 存整份 JSON，不拆子表 | 版本快照是不可变的整份声明 | 拆表要保证多行一致，而 S4 的写入路径还没设计 |
 | 仓储层不做缓存 | 缓存形态属 D1 | D1 若选"快照"形态，这里要先拆掉 |
+| 两条不变量落数据库（复合外键 + partial unique index） | `findActiveDevice` 的正确性靠它们；应用层挡不住并发 | 只留应用层约定，两个换型请求并发时会写出两条 open 的 usage |
+| 状态列加 `statusChangedAt` | `PENDING → ACTIVE / FAILED` 何时发生无处可查，排查"注册卡住"时没有时间线 | 去掉该列，只能靠 `createdAt` 与日志倒推 |
