@@ -35,7 +35,7 @@ allSubtables(): SubtableRef[];
 | T1 | Prisma 模型与迁移 | `apps/nestjs-server/prisma/` |
 | T2 | 仓储层（只读） | `apps/nestjs-server/src/modules/iot/registry/` |
 | T3 | seed：`p1` 模型 + 100 台设备 | `apps/nestjs-server/prisma/` |
-| T4 | 单测 | 同模块 `*.spec.ts` |
+| T4 | 真库集成测试 | `apps/nestjs-server/test/iot-registry.e2e-spec.ts` |
 | T5 | 文档 | `backend.md` / 任务 README |
 
 **三条边界**：
@@ -228,7 +228,7 @@ export class DeviceRegistryRepository {
 
 ⚠️ seed 会在**每次 `ops:env-up`** 跑一遍，必须保证重跑不报错、不产生重复。
 
-### 2.5 T4 单测
+### 2.5 T4 真库集成测试
 
 | 用例 | 断言 |
 | --- | --- |
@@ -240,7 +240,7 @@ export class DeviceRegistryRepository {
 | **版本外键** | 插一条 `modelCode/version` 不存在的 usage ⇒ 数据库抛外键错误 |
 | seed 幂等 | 连续跑两次，设备数与 usage 数不变 |
 
-测试用真实 PG（仓库其它 e2e 的做法），不走 mock——这条与"测试要打真库"的既有纪律一致。
+测试用真实 PG（仓库其它 e2e 的做法），不走 mock——这条与"测试要打真库"的既有纪律一致。`jest.config.cjs` 的单测不连库，所以用例落在 `test/iot-registry.e2e-spec.ts`，由 `test/jest-e2e.cjs` 的 `globalSetup` 完成建库 + migrate + seed；两条库级不变量是数据库行为，只有真库能验证。
 
 ### 2.6 T5 文档
 
@@ -260,7 +260,7 @@ T1 → T2 → T3 → T4 → T5
 | 不变量在库上 | 直接插入违规数据被数据库拒绝：两条 open usage、指向不存在版本的 usage |
 | 命名同源 | 仓储返回名 = `subtableName()` 的结果 |
 | 幂等 | seed 连跑两次，行数不变 |
-| 门禁 | `pnpm --filter @multi-admin/nestjs-server run test`、`pnpm check`、`pnpm doc:lint` 全绿 |
+| 门禁 | `pnpm --filter @multi-admin/nestjs-server run test`、`pnpm --filter @multi-admin/nestjs-server run test:e2e`、`pnpm check`、`pnpm doc:lint` 全绿 |
 
 ## 4. 危险动作
 
@@ -287,7 +287,8 @@ T1 → T2 → T3 → T4 → T5
 | `apps/nestjs-server/prisma/schema.prisma` | 新增 4 个模型 + 1 个枚举 |
 | `apps/nestjs-server/prisma/migrations/<ts>_iot_device_registry/` | 迁移 SQL（**含手写的 partial unique index**） |
 | `apps/nestjs-server/prisma/seed.ts` | 增加 iot 种子（调用新的 seed 片段） |
-| `apps/nestjs-server/src/modules/iot/registry/*.ts` | 仓储层与测试 |
+| `apps/nestjs-server/src/modules/iot/registry/*.ts` | 仓储层 |
+| `apps/nestjs-server/test/iot-registry.e2e-spec.ts` | 真库集成测试（读法与两条库级不变量） |
 | `apps/nestjs-server/package.json` | 新增 `@multi-admin/device-registry` 依赖 |
 | `pnpm-lock.yaml` | 随依赖更新 |
 | `docs/architecture/backend.md` | iot 域数据模型 |
