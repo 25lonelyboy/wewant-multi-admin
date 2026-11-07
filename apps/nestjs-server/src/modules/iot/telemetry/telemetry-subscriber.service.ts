@@ -160,6 +160,11 @@ export class TelemetrySubscriberService
    *   ⇒ 不拦的话，一个已授权设备可以在自己的主题上发别人的编号，数据落进别人的子表）
    */
   handleMessage(topic: string, payload: Buffer): void {
+    // ⚠️ 必须在 toString / JSON.parse 之前挡：上限保护的是进程内存与 CPU，不只是队列
+    if (payload.byteLength > this.config.iotMaxMessageBytes) {
+      this.counter.recordOversized();
+      return;
+    }
     const raw = payload.toString('utf8');
     const outcome = classifyMessage(topic, raw);
 

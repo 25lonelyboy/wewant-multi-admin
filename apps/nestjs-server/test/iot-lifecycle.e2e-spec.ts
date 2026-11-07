@@ -466,13 +466,18 @@ describe('iot 设备生命周期 (e2e)', () => {
     expect(expectError(rescheduled, 404).code).toBe(BizCode.NOT_FOUND);
   });
 
-  it('路径参数先过标识符校验：非法编号 400', async () => {
+  it('存量非法编号仍可注销：路径参数只归一化，查不到即 404', async () => {
+    // 规则收紧前注册的编号（含 / 或空格）仍要能被注销，否则数据会一直被接收
     const retired = await retireDevice('e2e%2Flife');
-    expect(expectError(retired, 400).code).toBe(BizCode.VALIDATION_FAILED);
+    expect(expectError(retired, 404).code).toBe(BizCode.NOT_FOUND);
 
     const rescheduled = await rescheduleDevice('e2e%20life', {
       fromAt: iso(Date.now() + 3_600_000)
     });
-    expect(expectError(rescheduled, 400).code).toBe(BizCode.VALIDATION_FAILED);
+    expect(expectError(rescheduled, 404).code).toBe(BizCode.NOT_FOUND);
+
+    // 归一化后为空仍然是非法参数
+    const empty = await retireDevice('%20');
+    expect(expectError(empty, 400).code).toBe(BizCode.VALIDATION_FAILED);
   });
 });

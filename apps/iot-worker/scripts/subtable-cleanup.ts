@@ -58,10 +58,6 @@ function printReport(report: AuditReport, listAll: boolean): void {
   printBucket('缺失降采样子表', report.missingDs, listAll);
 }
 
-function totalOf(report: AuditReport): number {
-  return Object.values(report).reduce((sum, list) => sum + list.length, 0);
-}
-
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const config = loadConfig();
@@ -102,7 +98,10 @@ async function main(): Promise<void> {
       expected,
       { apply: options.apply }
     );
-    const pending = [...result.report.orphanRaw, ...result.report.orphanDs];
+    const pending = [
+      ...result.report.orphanRaw,
+      ...result.report.orphanDs
+    ].filter(name => !result.skippedYoung.includes(name));
 
     if (options.json) {
       console.log(
@@ -112,6 +111,7 @@ async function main(): Promise<void> {
             apply: options.apply,
             report: result.report,
             pending,
+            skippedYoung: result.skippedYoung,
             dropped: result.dropped,
             failed: result.failed
           },
@@ -124,6 +124,19 @@ async function main(): Promise<void> {
         `▶ 子表清理（${options.apply ? '执行' : 'dry-run'}）：期望 ${expected.length} 台设备`
       );
       printReport(result.report, options.listAll);
+      if (result.skippedYoung.length > 0) {
+        console.log(
+          `▶ 新建表保护期（不足 10 分钟）跳过 ${result.skippedYoung.length} 张：`
+        );
+        for (const name of result.skippedYoung.slice(0, 20)) {
+          console.log(`    ${name}`);
+        }
+        if (result.skippedYoung.length > 20) {
+          console.log(
+            `    …另 ${result.skippedYoung.length - 20} 张（下一轮再清）`
+          );
+        }
+      }
       if (options.apply) {
         console.log(
           `▶ 已删除 ${result.dropped.length} 张，失败 ${result.failed.length} 张`
@@ -146,7 +159,11 @@ async function main(): Promise<void> {
         console.log('▶ 清理后重新审计：');
         printReport(remaining, options.listAll);
       }
-      if (totalOf(remaining) > 0) process.exitCode = 1;
+      // 保护期内跳过的孤儿允许留在库里；缺失桶不属清理职责
+      const unexpected = [...remaining.orphanRaw, ...remaining.orphanDs].filter(
+        name => !result.skippedYoung.includes(name)
+      );
+      if (unexpected.length > 0) process.exitCode = 1;
     }
   } finally {
     await sql.close();

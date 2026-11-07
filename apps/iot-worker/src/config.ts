@@ -20,6 +20,19 @@ const booleanEnv = (defaultValue: boolean) =>
     });
 
 /**
+ * 非负整数 env，**空字符串视为未设置**。
+ *
+ * ⚠️ `.default()` 只对 `undefined` 生效：`.env` 里留一行 `XXX=` 或 compose 传空串时，
+ * `z.coerce.number()` 会把 `''` 转成 0，默认值被绕过——时间窗变 0 会让 worker 拒收一切
+ * 过去的数据，只留下计数上涨。
+ */
+const nonNegativeIntEnv = (defaultValue: number) =>
+  z.preprocess(
+    value => (value === '' || value === undefined ? undefined : value),
+    z.coerce.number().int().nonnegative().default(defaultValue)
+  );
+
+/**
  * worker 的运行期配置。
  *
  * ⚠️ 队列 Redis 与业务缓存是**两个实例**（ADR-010 D4）：BullMQ 要求 `noeviction`，
@@ -78,20 +91,12 @@ const envSchema = z.object({
    * 事件时间戳的允许上界：`ts` 最多超前处理时刻这么久（毫秒，默认 +24 h）。
    * 错钟设备（时钟快）是唯一来源——`ts` 是设备事件时间，不受网络延迟与队列积压影响。
    */
-  INGEST_TS_MAX_FUTURE_MS: z.coerce
-    .number()
-    .int()
-    .nonnegative()
-    .default(24 * 3_600_000),
+  INGEST_TS_MAX_FUTURE_MS: nonNegativeIntEnv(24 * 3_600_000),
   /**
    * 事件时间戳的允许下界：`ts` 最多落后处理时刻这么久（毫秒，默认 90 天）。
    * 补传是合法场景，下界主要挡 RTC 复位到很久以前的设备。
    */
-  INGEST_TS_MAX_PAST_MS: z.coerce
-    .number()
-    .int()
-    .nonnegative()
-    .default(90 * 24 * 3_600_000)
+  INGEST_TS_MAX_PAST_MS: nonNegativeIntEnv(90 * 24 * 3_600_000)
 });
 
 export interface WorkerConfig {

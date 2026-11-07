@@ -1,5 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { BizCode, checkLocalDeviceId } from '@multi-admin/contracts';
+import {
+  BizCode,
+  checkLocalDeviceId,
+  normalizeLocalId
+} from '@multi-admin/contracts';
 import {
   DS_DATABASE,
   DS_LEVELS,
@@ -312,6 +316,10 @@ export class DevicesService {
     const properties = versions.flatMap(version =>
       asProperties(version.properties)
     );
+    // 与 createDevice / idempotentResult 同一条纪律：库里的 deviceId 进表名前必须兜住
+    if (!checkDeviceId(existing.deviceId)) {
+      throw new Error(`档案里的 deviceId 格式非法：${existing.deviceId}`);
+    }
     const ref: SubtableRef = {
       name: subtableName(modelCode, existing.deviceId),
       deviceId: existing.deviceId,
@@ -380,7 +388,7 @@ export class DevicesService {
    * `fromAt`（零长区间，一条数据都不覆盖）。不删表、不删数据；重复调用幂等。
    */
   async retire(rawLocalDeviceId: string): Promise<RetireDeviceResult> {
-    const localDeviceId = this.checkedLocalDeviceId(rawLocalDeviceId);
+    const localDeviceId = this.lookupLocalDeviceId(rawLocalDeviceId);
     const now = new Date();
 
     const outcome = await this.prisma.$transaction(async tx => {
@@ -449,7 +457,7 @@ export class DevicesService {
     rawLocalDeviceId: string,
     dto: RescheduleDeviceDto
   ): Promise<RescheduleDeviceResult> {
-    const localDeviceId = this.checkedLocalDeviceId(rawLocalDeviceId);
+    const localDeviceId = this.lookupLocalDeviceId(rawLocalDeviceId);
     const target = new Date(dto.fromAt);
     const now = new Date();
 
@@ -682,9 +690,16 @@ export class DevicesService {
   }
 
   /**
-   * 路径参数与请求体里的 `localDeviceId` 都过这一个函数：它要进 MQTT 主题段与 HTTP 路径，
-   * 非法编号无法稳定路由，也不能带进 SQL。
+   * 注销 / 改期只做归一化，不做字符集校验：存量档案可能保存着标识符规则收紧之前的编号，
+   * 严格校验会让这些设备永远无法注销、数据继续被接收。查询是参数化 SQL，不拼字符串。
    */
+  private lookupLocalDeviceId(raw: string): string {
+    const value = normalizeLocalId(raw);
+    if (value === '') throw this.invalid('localDeviceId');
+    return value;
+  }
+
+  /** 注册请求体的 localDeviceId 严格过标识符规则；注销 / 改期走 `lookupLocalDeviceId` */
   private checkedLocalDeviceId(raw: string): string {
     const checked = checkLocalDeviceId(raw);
     if (!checked.ok) {

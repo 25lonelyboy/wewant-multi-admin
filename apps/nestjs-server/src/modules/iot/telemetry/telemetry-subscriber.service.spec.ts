@@ -23,7 +23,8 @@ jest.mock('mqtt', () => {
 // 装生产者走覆写的 createProducer（见 SubscriberWithFake），不触发队列与 MQTT。
 // 队列侧的真实接线由 iot e2e（连真实 EMQX + redis-queue）覆盖。
 const stubConfig = {
-  mqttUrl: 'mqtt://127.0.0.1:1883'
+  mqttUrl: 'mqtt://127.0.0.1:1883',
+  iotMaxMessageBytes: 262_144
 } as unknown as AppConfigService;
 
 /**
@@ -111,6 +112,22 @@ describe('TelemetrySubscriberService 报文处理', () => {
     expect(service.identityRejectedTotal).toBe(1);
     expect(service.hasSeenDevice('sim-001')).toBe(false);
     expect(service.hasSeenDevice('sim-002')).toBe(false);
+  });
+
+  it('超限报文在解析前被拒：不进在线视图、不调用生产者', async () => {
+    const producer = producerReturning('enqueued');
+    const service = new SubscriberWithFake(stubConfig).use(producer);
+    const oversized = Buffer.alloc(stubConfig.iotMaxMessageBytes + 1, 'a');
+
+    service.handleMessage('wewant/devices/sim-001/telemetry', oversized);
+    await settled();
+
+    expect(service.hasSeenDevice('sim-001')).toBe(false);
+    // 没有走到生产者：否则 receivedTotal / enqueued 会被异步累加
+    expect(service.receivedTotal).toBe(0);
+    const window = service.report();
+    expect(window.enqueued).toBe(0);
+    expect(window.oversized).toBe(1);
   });
 
   it('坏报文不抛错（原样入队，计数归消费者）', () => {

@@ -135,8 +135,11 @@ void test('孤儿清理：dry-run 名单与 --apply 实删逐名一致，重跑�
       exec: (statement: string) => sql.exec(statement)
     };
 
-    // dry-run：名单正确、不执行删除
-    const dry = await cleanupOrphans(deps, expected, { apply: false });
+    // dry-run：名单正确、不执行删除。表是刚造的，保护期置 0（生产路径恒用默认 10 分钟）
+    const dry = await cleanupOrphans(deps, expected, {
+      apply: false,
+      minTableAgeMs: 0
+    });
     assert.deepEqual(dry.report.orphanRaw, [...ORPHAN_RAW].sort());
     assert.deepEqual(dry.report.orphanDs, [...ORPHAN_DS].sort());
     assert.deepEqual(dry.dropped, []);
@@ -151,7 +154,8 @@ void test('孤儿清理：dry-run 名单与 --apply 实删逐名一致，重跑�
     // --apply：删除顺序原始优先，名单与 dry-run 逐名一致
     const applied = await cleanupOrphans(deps, expected, {
       apply: true,
-      retryDelayMs: 0
+      retryDelayMs: 0,
+      minTableAgeMs: 0
     });
     assert.deepEqual(applied.dropped, [
       ...[...ORPHAN_RAW].sort(),
@@ -168,7 +172,8 @@ void test('孤儿清理：dry-run 名单与 --apply 实删逐名一致，重跑�
     // 重跑：幂等归零
     const again = await cleanupOrphans(deps, expected, {
       apply: true,
-      retryDelayMs: 0
+      retryDelayMs: 0,
+      minTableAgeMs: 0
     });
     assert.deepEqual(again.report.orphanRaw, []);
     assert.deepEqual(again.report.orphanDs, []);

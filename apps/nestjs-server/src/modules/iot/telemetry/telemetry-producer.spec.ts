@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Queue } from 'bullmq';
@@ -113,6 +113,25 @@ describe('TelemetryProducer.send 去向', () => {
 
 describe('TelemetryProducer 报文上限', () => {
   beforeEach(() => QueueMock.mockClear());
+
+  it('补投也过字节闸：升级前遗留的超限行不入队', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'producer-'));
+    try {
+      // 旧版本落下的缓冲文件里可能已有超过新上限的行
+      await writeFile(join(dir, SPILL_FILE), '12345\nok\n', 'utf8');
+      const producer = new TelemetryProducer(
+        options(dir, 1024, { maxMessageBytes: 4 })
+      );
+      lastAdd().mockResolvedValue(undefined);
+
+      await producer.start();
+      const calls = lastAdd().mock.calls as Array<[string, string, unknown]>;
+      expect(calls.map(([, raw]) => raw)).toEqual(['ok']);
+      await producer.close();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 
   it('超限：不入队、不落盘，返回 oversized', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'producer-'));

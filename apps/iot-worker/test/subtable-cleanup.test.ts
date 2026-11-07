@@ -22,12 +22,25 @@ const ROWS: TdRow[] = [
   ['wewant_iot_ds', 'p1_1m', 'p1_gone_1m']
 ];
 
-function fakeDeps(onExec?: (sql: string) => void) {
+const OLD_CREATED_AT = '2026-01-01T00:00:00.000Z';
+const AGE_ROWS: TdRow[] = [
+  ['p1_abc', OLD_CREATED_AT],
+  ['p1_old', OLD_CREATED_AT],
+  ['p1_gone', OLD_CREATED_AT],
+  ['p1_abc_1m', OLD_CREATED_AT],
+  ['p1_old_1m', OLD_CREATED_AT],
+  ['p1_gone_1m', OLD_CREATED_AT]
+];
+
+function fakeDeps(onExec?: (sql: string) => void, ageRows: TdRow[] = AGE_ROWS) {
   const executed: string[] = [];
   return {
     executed,
     deps: {
-      query: { query: () => Promise.resolve(ROWS) },
+      query: {
+        query: (sql: string) =>
+          Promise.resolve(sql.includes('create_time') ? ageRows : ROWS)
+      },
       exec: (sql: string): Promise<void> => {
         executed.push(sql);
         onExec?.(sql);
@@ -111,6 +124,28 @@ void test('期望集为空时拒绝判定（闸 2）', async () => {
     /期望集为空/
   );
   assert.deepEqual(executed, []);
+});
+
+void test('闸 4：创建不足保护期或创建时间读不出的表不进删除名单', async () => {
+  const ages: TdRow[] = AGE_ROWS.map(row =>
+    row[0] === 'p1_gone' ? ['p1_gone', new Date().toISOString()] : row
+  );
+  // 读不出创建时间 ⇒ 按新表处理
+  ages.push(['p1_gone_1m', null]);
+
+  const dry = fakeDeps(undefined, ages);
+  const dryResult = await cleanupOrphans(dry.deps, EXPECTED, { apply: false });
+  assert.deepEqual(dryResult.skippedYoung.sort(), ['p1_gone', 'p1_gone_1m']);
+  assert.deepEqual(dry.executed, []);
+
+  const apply = fakeDeps(undefined, ages);
+  const result = await cleanupOrphans(apply.deps, EXPECTED, {
+    apply: true,
+    retryDelayMs: 0
+  });
+  assert.ok(!apply.executed.some(sql => sql.includes('p1_gone')));
+  assert.deepEqual(result.dropped, ['p1_old', 'p1_old_1m']);
+  assert.deepEqual(result.skippedYoung.sort(), ['p1_gone', 'p1_gone_1m']);
 });
 
 void test('闸 3：built 缺失、rev 缺失、rev ≠ built、builtAt 非法、陈旧均拒绝', () => {

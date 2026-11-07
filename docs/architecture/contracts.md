@@ -26,7 +26,7 @@ last_verified: 2026-11-07
 - **放这里的理由与 HTTP 契约一致**：发布方（设备 / 模拟器）与订阅方（订阅端 / 消费者）消费同一份定义，避免各自写常量后漂移。
 - **主题段是路由地址、不是身份**：段里放设备自报的 `localDeviceId`（`telemetryTopic` 生成、`localDeviceIdFromTopic` 逆运算）；平台不以其判定身份——**身份以载荷为准**，订阅端只做一致性拦截（主题段与载荷不一致即丢弃 + 计数 + 告警）。
 - **载荷字段**：`localDeviceId`（设备自报编号，与主题段同值）、`ts`（epoch 毫秒）、`metrics[]`（每项 `key` / `value` / `unit`）。`value` 是 `MetricValue` 联合——**number / boolean / string / 对象**（结构体序列化成 JSON 存一列），类型由物模型声明，载荷只保证"能表达"；深度校验（子字段、长度上限、数组拒绝）在模型层。载荷字段与主题占位段统一用 `localDeviceId`（早期草案的 `deviceId` 已弃用），wire format 以本契约为准；`unit` 随载荷上报、供与模型声明比对，不落存储列。
-- **设备侧编号约定**：`localDeviceIdForIndex` 生成 P1 编号（`sim-001`…），模拟器与设备档案共用同一函数，不靠事后断言对齐；`normalizeLocalId` 统一去首尾空白 + 小写（只处理同一台设备前后不一致，不跨设备去重）。`checkLocalDeviceId` 在其上做标识符校验：归一化后须匹配 `^[a-z0-9][a-z0-9._:-]*$`、长度 ≤ 64，失败原因是 `empty` / `too-long` / `invalid-char` 三者之一。它要进 MQTT 主题段与 HTTP 路径，非法编号无法稳定路由，故注册、注销、改期三个入口都先过它。
+- **设备侧编号约定**：`localDeviceIdForIndex` 生成 P1 编号（`sim-001`…），模拟器与设备档案共用同一函数，不靠事后断言对齐；`normalizeLocalId` 统一去首尾空白 + 小写（只处理同一台设备前后不一致，不跨设备去重）。`checkLocalDeviceId` 在其上做标识符校验：归一化后须匹配 `^[a-z0-9][a-z0-9._:-]*$`、长度 ≤ 64，失败原因是 `empty` / `too-long` / `invalid-char` 三者之一。它要进 MQTT 主题段与 HTTP 路径，非法编号无法稳定路由，故**注册入口**必须先过它；**注销 / 改期只做归一化**——存量档案里可能有规则收紧之前的编号，严格校验会让这些设备永远无法注销。
 - **队列常量**：`TELEMETRY_INGEST_QUEUE`（`iot-telemetry-ingest`）与 `TELEMETRY_QUEUE_PREFIX`（`wewant`）。生产者（订阅端）与消费者（`apps/iot-worker`）分属两个应用，队列名必须一处定义，否则两端会各自连到不同的队列而不报错。⚠️ 队列名**不能含 `:`**——BullMQ 用它作 Redis 键分隔符，含冒号构造即抛；故分隔符用 `-`，命名空间交给 `prefix`。⚠️ 反之，**同一应用内**的队列不属契约、就地定义即可——如降采样环的 `iot-telemetry-downsample`，其调度注册与消费都在 `apps/iot-worker` 进程内，没有第二个应用引用它（判据是"是否跨应用"，不是"是不是队列"）。
 - **通道**：`IotChannel` 定义 `telemetry` / `service` / `event` 三个通道位，本增量只实现 `telemetry` 通路。订阅端只订遥测，`localDeviceIdFromTopic` 也只认 `telemetry`——放宽解析等于悄悄扩大订阅面。
 - **契约边界**：主题、上行载荷与队列名属契约；写哪张表、DDL 形态**不属**契约——DDL 语句归 `apps/nestjs-server` 的注册路径，`apps/iot-worker` 只保留开发期补齐脚本。同理，**存储列类型档位**（`FLOAT` / `DOUBLE` / `INT` / `BIGINT` / `BOOL` / `VARCHAR` 与 `VARCHAR(N)` 上限）、**进 DDL 的标识符与表名校验**（属性 key、模型编码、超表 / 子表命名）、**物模型的声明与校验**（属性档位、聚合集、结构体子字段）以及**平台设备标识的签发与校验**也不属契约，归 `packages/device-registry`——它们描述列与表名的形状，不是线上载荷。
@@ -91,7 +91,7 @@ last_verified: 2026-11-07
 | 情形 | HTTP | code | data |
 |---|---|---|---|
 | 设备不存在 | 404 | `NOT_FOUND` | `{ localDeviceId }` |
-| 路径编号不是标识符 | 400 | `VALIDATION_FAILED` | `{ issues: [{ path: 'localDeviceId', code }] }` |
+| 路径编号归一化后为空 | 400 | `VALIDATION_FAILED` | `{ issues: [{ path: 'localDeviceId', code: 'empty' }] }` |
 
 成功响应 `{ localDeviceId, deviceId, status: 'RETIRED', effectiveTo }`；已 `RETIRED` 重复调用返回 200，`toAt` 与 `statusChangedAt` 不变（存在 open usage 时按同一公式补闭合）。不删表、不删数据。
 
@@ -100,6 +100,7 @@ last_verified: 2026-11-07
 | 情形 | HTTP | code | data |
 |---|---|---|---|
 | 设备不存在 | 404 | `NOT_FOUND` | `{ localDeviceId }` |
+| 路径编号归一化后为空 | 400 | `VALIDATION_FAILED` | `{ issues: [{ path: 'localDeviceId', code: 'empty' }] }` |
 | 设备非 `ACTIVE`，或 open usage 不是恰好一条 | 409 | `CONFLICT` | `{ reason: 'device-not-scheduled', status }` |
 | 当前 `usage.fromAt ≤ now`（已生效，不可改期） | 409 | `CONFLICT` | `{ reason: 'device-effective' }` |
 | 目标 `fromAt ≤ now` | 409 | `CONFLICT` | `{ reason: 'from-at-not-future' }` |

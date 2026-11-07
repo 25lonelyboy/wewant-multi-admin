@@ -108,6 +108,8 @@ function spawnWorker(flushIntervalMs: number): {
       INGEST_BATCH_SIZE: '1000',
       INGEST_FLUSH_INTERVAL_MS: String(flushIntervalMs),
       INGEST_CONCURRENCY: String(N),
+      // 本用例造的是「远离当下的整点窗口」；放宽下界，避免固定基准日随 90 天窗口过期
+      INGEST_TS_MAX_PAST_MS: '315360000000',
       DOWNSAMPLE_ENABLED: 'false'
     },
     // stderr 收着备用：worker 起不来时把原因打出来，stdout 丢弃以保持测试输出干净

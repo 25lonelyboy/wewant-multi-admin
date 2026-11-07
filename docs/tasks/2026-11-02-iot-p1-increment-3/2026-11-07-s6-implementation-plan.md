@@ -63,7 +63,7 @@ export function checkLocalDeviceId(value: string):
 规则（归一化后）：`^[a-z0-9][a-z0-9._:-]*$`，长度 ≤ 64。大写输入先折小写，不拒绝。
 
 - `DevicesService.register` 用它替换现在的空串检查；不合法 ⇒ 400 `VALIDATION_FAILED`，`issues[].code` 带 `empty` / `too-long` / `invalid-char`
-- `retire` / `reschedule` 的路径参数过同一个函数，不合法 ⇒ 400，避免把编码问题带进 SQL
+- **注销 / 改期只做归一化**，不做字符集校验：存量档案里可能有规则收紧之前的编号，严格校验会让它们永远无法注销、数据继续被接收。查询是参数化 SQL，不拼字符串；路径参数归一化后为空仍 400
 - 文档：[contracts.md](../../architecture/contracts.md) 的载荷字段、[backend.md](../../architecture/backend.md) 的注册段各加一句；`checkMetricKey` / `checkModelCode` 的规则不受影响
 
 **验收**：非法字符（含 `/`、`?`、空格）、超长、空串在注册时 400 且不落库；大写编号归一化后正常注册；现有 `sim-0001` 与 e2e 前缀全部通过。
@@ -114,6 +114,9 @@ if (bytes > this.options.maxMessageBytes) {
 }
 ```
 
+- **订阅端在解析之前挡**：`handleMessage` 先按 `payload.byteLength` 判，超限直接计 `oversized` 并返回——上限保护的是进程内存与 CPU，不只是队列
+- **补投也过闸**：`drainSpill` 重新入队前按字节再判一次，升级前遗留的超限缓冲行不会绕过
+- `TelemetryProducer.send()` 仍按字节判一次（覆盖所有调用方），落盘路径因此一并覆盖
 - `SendDisposition` 增加 `'oversized'`——它是**去向**，不是 `dropped` 的子集：丢弃是「缓冲满 / 落盘失败」，超限是「报文本身不合格」
 - `TelemetryWindow` / `TelemetryWindowCounter` 增加 `oversized` 与 `recordOversized()`；每秒聚合日志增加「超限 N 条」一列
 - **`report()` 的 `active` 求和必须加上 `oversized`**，否则一台只发超限报文的设备会让这一秒完全静默
@@ -230,6 +233,7 @@ export async function cleanupOrphans(
 1. 快照不存在（`readRegistryState` 返回 null）⇒ 退出 2
 2. 期望集为空 ⇒ 拒绝判定，退出 1
 3. 快照不新鲜：`builtAt` 超过 10 分钟，或 `built` 缺失、`rev ≠ built` ⇒ 拒绝，退出 1——防止拿滞后快照把刚注册的表删掉
+4. **新表保护期**：创建时间不足 10 分钟的表不进删除名单（注册是「先建 TD 表 → 提交 PG → INCR」，这段在途窗口快照看不到）；创建时间读不出按新表处理；dry-run 与 `--apply` 都列在 `skippedYoung` 里，保证名单与实删一致
 
 **删除顺序**：`orphanRaw` 全部删完，再删 `orphanDs`。
 
@@ -249,6 +253,7 @@ export async function cleanupOrphans(
 | 位置 | 改动 |
 | --- | --- |
 | `.env.example` | `IOT_MAX_MESSAGE_BYTES = 262144`、`INGEST_TS_MAX_FUTURE_MS = 86400000`、`INGEST_TS_MAX_PAST_MS = 7776000000` |
+| `docker-compose.yml` | server / worker 的 `environment` 白名单转发上述三个变量，否则 `.env` 里调了容器也收不到 |
 | `apps/iot-worker/package.json` | 新增 `subtable:cleanup` 脚本入口 |
 | `docs/engineering/build-and-verify.md` | 脚本表加 `subtable:cleanup`（dry-run 默认与三条闸）；e2e 套件清单加 `iot-lifecycle`；审计那句「正式删除归注销流程」改为「孤儿由清理脚本回收」 |
 | `docs/architecture/contracts.md` | `localDeviceId` 的字符与长度规则 |
@@ -262,12 +267,13 @@ export async function cleanupOrphans(
 | 测试 | 覆盖 |
 | --- | --- |
 | `packages/contracts` 单测 | `checkLocalDeviceId`：空串 / 超长 / 非法字符 / 大写归一化 |
+| `config.test.ts` | 时间戳边界 env **留空 ⇒ 用默认值**（不被 coerce 成 0）；显式 0 仍是合法配置 |
 | `consumer.test.ts` | 时间戳上 / 下界、恰好边界、`clockOutOfRange` 计数与日志；注销后（闭合 usage）的报文落 `outOfRangeTs` |
-| `telemetry-producer.spec.ts` | 超限不入队不落盘、恰好上限放行、多字节按字节算、日志限频 |
-| `telemetry-window.spec.ts` / `telemetry-subscriber.service.spec.ts` | `oversized` 列、`active` 求和与聚合日志 |
+| `telemetry-producer.spec.ts` | 超限不入队不落盘、恰好上限放行、多字节按字节算、日志限频；**补投的超限行不入队** |
+| `telemetry-window.spec.ts` / `telemetry-subscriber.service.spec.ts` | `oversized` 列、`active` 求和与聚合日志；**超限报文在解析前被拒、不进在线视图** |
 | `iot-registration.e2e-spec.ts` | 非法 `localDeviceId` 400 且不落库 |
-| `iot-lifecycle.e2e-spec.ts` | 注销生效 / 幂等、快照仍含设备、`toAt` 与 `max(now, fromAt)`、改期、撤销零长区间、同型号复活、换型 409、缺表 409、未知设备 404 |
-| `subtable-cleanup.test.ts` | 闸门三态、原始优先、失败继续、dry-run 不执行 |
+| `iot-lifecycle.e2e-spec.ts` | 注销生效 / 幂等、快照仍含设备、`toAt` 与 `max(now, fromAt)`、改期、撤销零长区间、同型号复活、换型 409、缺表 409、未知设备 404、存量非法编号仍可注销 |
+| `subtable-cleanup.test.ts` | 闸门三态、原始优先、失败继续、dry-run 不执行；**新表保护期与创建时间读不出时跳过** |
 | 清理脚本真 TD 用例 | 造两张孤儿表 → dry-run 名单 → `--apply` 删除 → 重跑归零，验证库名限定与重复执行幂等；`finally` 清掉自己造的表 |
 | 既有套件 | server：registration / scheduling / snapshot；worker：单测与 `consumer-snapshot.e2e`（消费环改动），全绿 |
 
@@ -321,10 +327,10 @@ worker e2e 前先 `docker compose stop worker`（两者消费同一队列，work
 | 5 | `toAt = max(now, fromAt)` | 一个公式同时覆盖注销（now）与撤销（零长） | 两个入口两套边界，易错 |
 | 6 | 改期只允许「当前与目标都在未来」 | 已生效时段的数据已按旧区间写入，改期不可追溯 | 需要一套数据层面的补偿 |
 | 7 | 复活只认同型号，子表校验用全版本并集 | D5 定了换型不做；物理列是历史并集 | 退役期间模型演进过的设备复活会被误判缺表 |
-| 8 | 清理脚本原始优先、带 10 分钟与 `rev == built` 闸 | 中断残留惰性；滞后快照会误删刚注册的表 | 中断态可能让降采样整级失败 / 误删 |
+| 8 | 清理脚本原始优先、带快照新鲜度与 **10 分钟新表保护期** | 中断残留惰性；滞后快照或在途注册会误删刚建的表 | 中断态可能让降采样整级失败 / 误删 |
 | 9 | 注销与撤销共用一个 `DELETE` | 语义只差 `toAt` 的取值 | 两个入口、两套幂等 |
 | 10 | 行锁用 `SELECT … FOR UPDATE` | 注销 / 复活 / 改期并发时后到者看到已提交状态 | 并发下可能出现两条 open usage |
-| 11 | `localDeviceId` 收紧为标识符规则 | 它要进 MQTT 主题段与 HTTP 路径，非法编号无法稳定路由 | 已有非规范编号的设备将无法再注册（P1 尚无真实设备） |
+| 11 | `localDeviceId` 注册收紧为标识符规则；注销 / 改期只归一化 | 它要进 MQTT 主题段与 HTTP 路径；存量非法编号仍必须有停止接收的入口 | 注册不收紧则路由不稳定；注销也严格校验则存量设备无法注销 |
 
 ## 7. 与既有决策的接缝
 

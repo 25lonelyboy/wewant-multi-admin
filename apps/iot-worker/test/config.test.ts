@@ -46,3 +46,14 @@ void test('⭐ 连接数可配 2~4，默认 2（行 1）', () => {
   assert.throws(() => load({ TDENGINE_CONNECTIONS: '1' }));
   assert.throws(() => load({ TDENGINE_CONNECTIONS: '5' }));
 });
+
+void test('⭐ 时间戳边界 env 留空 ⇒ 用默认值，不被 coerce 成 0', () => {
+  const config = load({
+    INGEST_TS_MAX_FUTURE_MS: '',
+    INGEST_TS_MAX_PAST_MS: ''
+  });
+  assert.equal(config.tsMaxFutureMs, 24 * 3_600_000);
+  assert.equal(config.tsMaxPastMs, 90 * 24 * 3_600_000);
+  // 显式 0 仍然是合法配置
+  assert.equal(load({ INGEST_TS_MAX_PAST_MS: '0' }).tsMaxPastMs, 0);
+});

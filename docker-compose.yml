@@ -131,6 +131,7 @@ services:
       TDENGINE_URL: ${TDENGINE_URL:-ws://root:taosdata@tdengine:6041}
       # 队列不可达时的本地落盘目录。⚠️ 不挂卷 ⇒ 容器一重建，本地缓冲白做。
       IOT_SPILL_DIR: /var/lib/wewant-spill
+      IOT_MAX_MESSAGE_BYTES: ${IOT_MAX_MESSAGE_BYTES:-262144}
       ADMIN_INIT_PASSWORD: ${ADMIN_INIT_PASSWORD:?请在 .env 中设置 ADMIN_INIT_PASSWORD}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?请在 .env 中设置 JWT_ACCESS_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?请在 .env 中设置 JWT_REFRESH_SECRET}
@@ -169,6 +170,9 @@ services:
       QUEUE_REDIS_URL: ${QUEUE_REDIS_URL:-redis://redis-queue:6379}
       REDIS_URL: ${REDIS_URL:?请在 .env 中设置带凭据的 REDIS_URL（redis://:<REDIS_PASSWORD>@redis:6379）}
       TDENGINE_URL: ${TDENGINE_URL:-ws://root:taosdata@tdengine:6041}
+      # 事件时间戳边界：可在 .env 覆盖，缺省 +24 h / −90 d
+      INGEST_TS_MAX_FUTURE_MS: ${INGEST_TS_MAX_FUTURE_MS:-86400000}
+      INGEST_TS_MAX_PAST_MS: ${INGEST_TS_MAX_PAST_MS:-7776000000}
     healthcheck:
       test: ['CMD', 'node', 'dist/healthcheck.js']
       interval: 30s

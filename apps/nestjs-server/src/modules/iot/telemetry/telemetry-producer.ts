@@ -200,6 +200,12 @@ export class TelemetryProducer {
     this.draining = true;
     try {
       const sent = await this.spill.drain(async raw => {
+        // 升级前遗留的缓冲文件可能超过新上限：补投同样要过字节闸
+        const bytes = Buffer.byteLength(raw, 'utf8');
+        if (bytes > this.options.maxMessageBytes) {
+          this.recordOversized(bytes);
+          return;
+        }
         await this.queue.add(JOB_NAME, raw, JOB_OPTIONS);
       });
       if (sent > 0) this.logger.info(`本地缓冲补投 ${sent} 条`);
