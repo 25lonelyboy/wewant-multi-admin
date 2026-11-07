@@ -40,6 +40,8 @@ type VersionRow = {
   version: number;
   status: string;
   properties: unknown;
+  effectiveFrom: Date;
+  effectiveTo: Date | null;
 };
 
 /** 唯一约束/表名冲突的重试上限；碰撞概率极低，上限只是兜底 */
@@ -49,6 +51,7 @@ interface RegisterConflictDetails {
   modelCode?: string;
   tables?: string[];
   status?: string;
+  earliestEffectiveFrom?: string;
 }
 
 /**
@@ -95,9 +98,11 @@ export class DevicesService {
     }
     const model = await this.prisma.iotDeviceModel.findUnique({
       where: { code: modelCode },
-      include: { versions: true }
+      include: { versions: { orderBy: { effectiveFrom: 'asc' } } }
     });
-    const active = model?.versions.find(version => version.status === 'ACTIVE');
+    const versions = model?.versions ?? [];
+    const active = versions.find(version => version.status === 'ACTIVE');
+    const fromAt = dto.fromAt === undefined ? new Date() : new Date(dto.fromAt);
 
     if (device !== null) {
       // 先比设备当前模型，再要求请求的模型 ACTIVE：换型号与“模型不存在”是两种错误，
@@ -110,6 +115,7 @@ export class DevicesService {
       if (active === undefined) {
         throw this.conflict('model-not-active', { modelCode });
       }
+      this.versionAtOrThrow(versions, fromAt, modelCode);
       const td = await this.td.get();
       return this.idempotentResult(td, device, modelCode, active);
     }
@@ -117,7 +123,11 @@ export class DevicesService {
     if (active === undefined) {
       throw this.conflict('model-not-active', { modelCode });
     }
-    const properties = asProperties(active.properties);
+    const usageVersion = this.versionAtOrThrow(versions, fromAt, modelCode);
+    // 物理列是各版本的并集：降采样表建不建按「曾经有过聚合」判，不按当前版本
+    const properties = versions.flatMap(version =>
+      asProperties(version.properties)
+    );
     const td = await this.td.get();
 
     for (let attempt = 0; attempt < DEVICE_ID_ATTEMPTS; attempt += 1) {
@@ -144,7 +154,8 @@ export class DevicesService {
         ref,
         dsNames,
         properties,
-        active.version,
+        usageVersion.version,
+        fromAt,
         dryRun
       );
       if (result !== null) return result;
@@ -205,7 +216,8 @@ export class DevicesService {
     ref: SubtableRef,
     dsNames: readonly string[],
     properties: readonly PropertyDecl[],
-    modelVersion: number,
+    usageVersion: number,
+    fromAt: Date,
     dryRun: boolean
   ): Promise<RegisterDeviceResult | null> {
     // 同名子表已在库里（手工建的 / 上次清理失败的残留）⇒ 结构冲突，不覆盖
@@ -246,7 +258,13 @@ export class DevicesService {
           kind: 'table'
         });
       }
-      await this.createDeviceRows(dto, localDeviceId, ref, modelVersion);
+      await this.createDeviceRows(
+        dto,
+        localDeviceId,
+        ref,
+        usageVersion,
+        fromAt
+      );
       return result;
     } catch (error) {
       await dropCreatedTables(td, created, this.logger, {
@@ -269,7 +287,8 @@ export class DevicesService {
     dto: RegisterDeviceDto,
     localDeviceId: string,
     ref: SubtableRef,
-    modelVersion: number
+    usageVersion: number,
+    fromAt: Date
   ): Promise<void> {
     const now = new Date();
     await this.prisma.$transaction(async tx => {
@@ -286,11 +305,52 @@ export class DevicesService {
         data: {
           deviceId: ref.deviceId,
           modelCode: ref.modelCode,
-          version: modelVersion,
-          fromAt: now
+          version: usageVersion,
+          fromAt
         }
       });
     });
+  }
+
+  /**
+   * `fromAt` 必须落在模型已覆盖的时段内，并返回该时刻生效的版本。
+   *
+   * ⚠️ **不做回溯**的是模型声明；这里允许 `fromAt` 早于当前（补登），只要不早于最早版本。
+   * 版本区间连续（撤销会回填前驱右边界），一旦通过，该设备的时段此后永远有版本覆盖。
+   */
+  private versionAtOrThrow(
+    versions: readonly VersionRow[],
+    fromAt: Date,
+    modelCode: string
+  ): VersionRow {
+    const earliest = versions.reduce<Date | null>(
+      (min, version) =>
+        min === null || version.effectiveFrom < min
+          ? version.effectiveFrom
+          : min,
+      null
+    );
+    if (earliest === null || fromAt.getTime() < earliest.getTime()) {
+      throw this.conflict('from-at-before-model', {
+        modelCode,
+        ...(earliest === null
+          ? {}
+          : { earliestEffectiveFrom: earliest.toISOString() })
+      });
+    }
+    const version = versions.find(
+      candidate =>
+        candidate.effectiveFrom.getTime() <= fromAt.getTime() &&
+        (candidate.effectiveTo === null ||
+          fromAt.getTime() < candidate.effectiveTo.getTime())
+    );
+    if (version === undefined) {
+      throw this.conflict('from-at-not-covered', {
+        modelCode,
+        earliestEffectiveFrom: earliest.toISOString()
+      });
+    }
+    return version;
   }
 
   private dsSubtableNames(
@@ -318,7 +378,9 @@ export class DevicesService {
       | 'table-exists'
       | 'duplicate-device'
       | 'device-not-active'
-      | 'registered-to-other-model',
+      | 'registered-to-other-model'
+      | 'from-at-before-model'
+      | 'from-at-not-covered',
     details: RegisterConflictDetails = {}
   ): BizException {
     return new BizException(BizCode.CONFLICT, '设备注册冲突', {

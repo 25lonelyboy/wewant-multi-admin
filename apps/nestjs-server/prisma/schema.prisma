@@ -125,7 +125,7 @@ model IotModelVersion {
   properties      Json
   services        Json
   events          Json
-  effectiveFrom   DateTime?
+  effectiveFrom   DateTime
   effectiveTo     DateTime?
   statusChangedAt DateTime?
   createdAt       DateTime              @default(now())
@@ -150,11 +150,13 @@ model IotDeviceModelUsage {
   id           String          @id @default(cuid())
   deviceId     String
   modelCode    String
-  version      Int
+  /** 出处：可空——版本撤销时置空。判定一律按 ts 走区间，不读本字段 */
+  version      Int?
   fromAt       DateTime        @default(now())
   toAt         DateTime?
   device       IotDevice       @relation(fields: [deviceId], references: [deviceId])
-  modelVersion IotModelVersion @relation(fields: [modelCode, version], references: [modelCode, version])
+  modelVersion IotModelVersion? @relation(fields: [modelCode, version], references: [modelCode, version], onDelete: Restrict)
 
   @@index([deviceId, toAt])
+  @@index([modelCode, version])
 }

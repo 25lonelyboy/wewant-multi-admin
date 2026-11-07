@@ -10,8 +10,8 @@ export interface DeviceRow {
   deviceId: string;
   /** 当前模型编码 */
   modelCode: string;
-  /** 当前 open usage 指向的版本号 */
-  version: number;
+  /** 当前 open usage 指向的版本号；版本撤销后被置空 */
+  version: number | null;
   /** 当前模型对应的子表名 */
   subtable: string;
 }

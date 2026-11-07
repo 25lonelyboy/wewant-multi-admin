@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
   IsBooleanString,
+  IsISO8601,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -36,6 +37,14 @@ export class ModelDeclarationDto {
   @ApiProperty({ type: [Object] })
   @IsArray()
   events!: unknown[];
+
+  @ApiPropertyOptional({
+    description:
+      '新版本生效时刻（ISO 8601）；缺省为当前时刻。须严格晚于当前最新版本的生效时刻——不做回溯'
+  })
+  @IsOptional()
+  @IsISO8601()
+  effectiveFrom?: string;
 }
 
 export class PublishModelQueryDto {

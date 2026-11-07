@@ -5,6 +5,7 @@ import {
   DS_LEVELS,
   RAW_DATABASE,
   checkDeviceId,
+  checkModelCode,
   dsColumnsOf,
   dsStableName,
   dsSubtableName,
@@ -49,10 +50,19 @@ export interface PublishModelResult {
   ddl: string[];
 }
 
+export interface RevokeVersionResult {
+  modelCode: string;
+  version: number;
+  /** 引用被撤销版本的 usage 数——被置空的出处 */
+  clearedUsages: number;
+}
+
 type VersionRow = {
   version: number;
   status: string;
   properties: unknown;
+  effectiveFrom: Date;
+  effectiveTo: Date | null;
 };
 
 /** 注册接口的 400 细节：档位变了与声明校验问题同形，但码不在 `ModelIssueCode` 里 */
@@ -101,14 +111,26 @@ export class ModelsService {
       include: { versions: true }
     });
 
+    const effectiveFrom =
+      dto.effectiveFrom === undefined
+        ? new Date()
+        : new Date(dto.effectiveFrom);
+
     const td = await this.td.get();
     return model === null
-      ? this.publishNewModel(td, decl, validation.warnings, dryRun)
+      ? this.publishNewModel(
+          td,
+          decl,
+          validation.warnings,
+          effectiveFrom,
+          dryRun
+        )
       : this.publishNewVersion(
           td,
           decl,
           validation.warnings,
           model.versions,
+          effectiveFrom,
           dryRun
         );
   }
@@ -117,6 +139,7 @@ export class ModelsService {
     td: TdSql,
     decl: ModelDeclaration,
     warnings: ModelWarning[],
+    effectiveFrom: Date,
     dryRun: boolean
   ): Promise<PublishModelResult> {
     const rawName = rawStableName(decl.modelCode);
@@ -154,7 +177,7 @@ export class ModelsService {
         await td.exec(statement);
         created.push({ db: DS_DATABASE, name: dsNames[index], kind: 'stable' });
       }
-      await this.createModelRows(decl, version);
+      await this.createModelRows(decl, version, effectiveFrom);
     } catch (error) {
       await dropCreatedTables(td, created, this.logger, {
         modelCode: decl.modelCode
@@ -176,6 +199,7 @@ export class ModelsService {
     decl: ModelDeclaration,
     warnings: ModelWarning[],
     versions: readonly VersionRow[],
+    effectiveFrom: Date,
     dryRun: boolean
   ): Promise<PublishModelResult> {
     const active = versions.find(version => version.status === 'ACTIVE');
@@ -183,6 +207,19 @@ export class ModelsService {
     if (active === undefined) {
       // 「模型行在、ACTIVE 版本不在」是结构不一致，注册流程不自动修
       throw this.conflict('schema-mismatch', [rawName]);
+    }
+
+    // 不做回溯：新版本只能晚于当前最新版本。回溯会改写历史数据的解释。
+    const latest = versions.reduce((a, b) => (a.version > b.version ? a : b));
+    if (effectiveFrom.getTime() <= latest.effectiveFrom.getTime()) {
+      throw new BizException(
+        BizCode.VALIDATION_FAILED,
+        '新版本的生效时刻必须晚于当前最新版本',
+        {
+          issues: [{ path: 'effectiveFrom', code: 'not-after-latest' }],
+          latestEffectiveFrom: latest.effectiveFrom.toISOString()
+        }
+      );
     }
 
     const history = this.historicalProperties(versions);
@@ -276,7 +313,12 @@ export class ModelsService {
           createdIndex += 1;
         }
       }
-      await this.switchVersion(decl, active.version, nextVersion);
+      await this.switchVersion(
+        decl,
+        active.version,
+        nextVersion,
+        effectiveFrom
+      );
     } catch (error) {
       await dropCreatedTables(td, created, this.logger, {
         modelCode: decl.modelCode
@@ -361,7 +403,8 @@ export class ModelsService {
 
   private async createModelRows(
     decl: ModelDeclaration,
-    version: number
+    version: number,
+    effectiveFrom: Date
   ): Promise<void> {
     const now = new Date();
     await this.prisma.$transaction(async tx => {
@@ -374,7 +417,7 @@ export class ModelsService {
           properties: toJson(decl.properties),
           services: toJson(decl.services),
           events: toJson(decl.events),
-          effectiveFrom: now,
+          effectiveFrom,
           statusChangedAt: now
         }
       });
@@ -384,7 +427,8 @@ export class ModelsService {
   private async switchVersion(
     decl: ModelDeclaration,
     fromVersion: number,
-    toVersion: number
+    toVersion: number,
+    effectiveFrom: Date
   ): Promise<void> {
     const now = new Date();
     await this.prisma.$transaction(async tx => {
@@ -392,7 +436,12 @@ export class ModelsService {
         where: {
           modelCode_version: { modelCode: decl.modelCode, version: fromVersion }
         },
-        data: { status: 'SUPERSEDED', effectiveTo: now, statusChangedAt: now }
+        data: {
+          status: 'SUPERSEDED',
+          // 前驱的覆盖右边界就是新版本的生效时刻；SUPERSEDED 不代表已失效
+          effectiveTo: effectiveFrom,
+          statusChangedAt: now
+        }
       });
       await tx.iotModelVersion.create({
         data: {
@@ -402,10 +451,126 @@ export class ModelsService {
           properties: toJson(decl.properties),
           services: toJson(decl.services),
           events: toJson(decl.events),
-          effectiveFrom: now,
+          effectiveFrom,
           statusChangedAt: now
         }
       });
+    });
+  }
+
+  /**
+   * 撤销一个**尚未生效**的版本。
+   *
+   * 三条前置：只有 `effectiveFrom > now` 的版本可撤；只能撤最新版本（删中间版本会在前驱与
+   * 后继之间留下无覆盖空档）；撤销后模型必须仍覆盖全部已建档设备的 `fromAt`。
+   *
+   * 事务内先置空引用该版本的 usage，再删版本行，最后把前驱的 `effectiveTo` 回填为 `null`
+   * ——不回填，前驱会停在「被已删版本覆盖」的边界上，之后的时间没有版本覆盖。
+   */
+  async revokeVersion(
+    rawModelCode: string,
+    version: number
+  ): Promise<RevokeVersionResult> {
+    const modelCode = checkModelCode(rawModelCode);
+    if (!modelCode.ok) {
+      throw new BizException(BizCode.VALIDATION_FAILED, '模型编码非法', {
+        issues: [{ path: 'modelCode', code: modelCode.reason }]
+      });
+    }
+    if (!Number.isInteger(version) || version < 1) {
+      throw new BizException(BizCode.VALIDATION_FAILED, '版本号非法', {
+        issues: [{ path: 'version', code: 'invalid' }]
+      });
+    }
+
+    return this.prisma.$transaction(async tx => {
+      const model = await tx.iotDeviceModel.findUnique({
+        where: { code: modelCode.value },
+        include: { versions: { orderBy: { effectiveFrom: 'asc' } } }
+      });
+      if (model === null) {
+        throw new BizException(BizCode.NOT_FOUND, '物模型不存在', {
+          modelCode: modelCode.value
+        });
+      }
+      const target = model.versions.find(
+        candidate => candidate.version === version
+      );
+      if (target === undefined) {
+        throw new BizException(BizCode.NOT_FOUND, '模型版本不存在', {
+          modelCode: modelCode.value,
+          version
+        });
+      }
+      if (target.effectiveFrom.getTime() <= Date.now()) {
+        throw new BizException(BizCode.CONFLICT, '版本撤销冲突', {
+          reason: 'version-effective'
+        });
+      }
+      const successor = model.versions.find(
+        candidate => candidate.version > target.version
+      );
+      if (successor !== undefined) {
+        throw new BizException(BizCode.CONFLICT, '版本撤销冲突', {
+          reason: 'version-not-latest'
+        });
+      }
+
+      const remaining = model.versions.filter(
+        candidate => candidate.version !== version
+      );
+      const predecessor = remaining.at(-1);
+      // 撤销后的区间：前驱的右边界回到 null（向后延伸），据此判覆盖
+      const after = remaining.map(candidate =>
+        candidate.version === predecessor?.version
+          ? { ...candidate, effectiveTo: null }
+          : candidate
+      );
+
+      const usages = await tx.iotDeviceModelUsage.findMany({
+        where: { modelCode: modelCode.value },
+        select: {
+          fromAt: true,
+          device: { select: { localDeviceId: true } }
+        }
+      });
+      const affected = new Set<string>();
+      for (const usage of usages) {
+        if (!coveredAt(after, usage.fromAt)) {
+          affected.add(usage.device.localDeviceId);
+        }
+      }
+      if (affected.size > 0) {
+        throw new BizException(BizCode.CONFLICT, '版本撤销冲突', {
+          reason: 'versions-uncover-devices',
+          devices: [...affected].sort()
+        });
+      }
+
+      const cleared = await tx.iotDeviceModelUsage.updateMany({
+        where: { modelCode: modelCode.value, version },
+        data: { version: null }
+      });
+      await tx.iotModelVersion.delete({
+        where: { modelCode_version: { modelCode: modelCode.value, version } }
+      });
+      if (predecessor !== undefined) {
+        await tx.iotModelVersion.update({
+          where: {
+            modelCode_version: {
+              modelCode: modelCode.value,
+              version: predecessor.version
+            }
+          },
+          data: { effectiveTo: null }
+        });
+      }
+
+      return {
+        modelCode: modelCode.value,
+        version,
+        clearedUsages: cleared.count
+      };
     });
   }
 
@@ -485,6 +650,22 @@ export class ModelsService {
 
 function asProperties(value: unknown): PropertyDecl[] {
   return Array.isArray(value) ? (value as PropertyDecl[]) : [];
+}
+
+/** `at` 是否落在某个版本的半开区间 `[effectiveFrom, effectiveTo)` 内 */
+function coveredAt(
+  versions: readonly {
+    effectiveFrom: Date;
+    effectiveTo: Date | null;
+  }[],
+  at: Date
+): boolean {
+  return versions.some(
+    version =>
+      version.effectiveFrom.getTime() <= at.getTime() &&
+      (version.effectiveTo === null ||
+        at.getTime() < version.effectiveTo.getTime())
+  );
 }
 
 function errorMessage(error: unknown): string {

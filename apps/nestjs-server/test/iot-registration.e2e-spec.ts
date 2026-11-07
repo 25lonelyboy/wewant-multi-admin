@@ -261,6 +261,7 @@ describe('iot 注册路径 (e2e)', () => {
           properties: [],
           services: [],
           events: [],
+          effectiveFrom: new Date(Date.now() - 3_600_000),
           effectiveTo: new Date()
         }
       });

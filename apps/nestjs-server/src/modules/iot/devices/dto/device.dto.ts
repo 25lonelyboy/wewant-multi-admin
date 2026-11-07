@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBooleanString,
+  IsISO8601,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -25,6 +26,14 @@ export class RegisterDeviceDto {
   @IsString()
   @MaxLength(32)
   protocolVersion?: string;
+
+  @ApiPropertyOptional({
+    description:
+      '档案生效起点（ISO 8601）；缺省为当前时刻，可早于当前（补登）也可晚于当前（提前建单）。不得早于模型最早版本的生效时刻'
+  })
+  @IsOptional()
+  @IsISO8601()
+  fromAt?: string;
 }
 
 export class RegisterDeviceQueryDto {

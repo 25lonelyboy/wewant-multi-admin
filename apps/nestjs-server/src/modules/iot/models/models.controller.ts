@@ -1,4 +1,12 @@
-import { Body, Controller, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ModelsService } from './models.service.js';
 import { ModelDeclarationDto, PublishModelQueryDto } from './dto/model.dto.js';
@@ -18,5 +26,16 @@ export class ModelsController {
     @Query() query: PublishModelQueryDto
   ) {
     return this.models.publish(dto, query.dryRun === 'true');
+  }
+
+  @Delete(':modelCode/versions/:version')
+  @ApiOperation({
+    summary: '撤销尚未生效的模型版本（置空引用、删版本行、回填前驱右边界）'
+  })
+  revoke(
+    @Param('modelCode') modelCode: string,
+    @Param('version', ParseIntPipe) version: number
+  ) {
+    return this.models.revokeVersion(modelCode, version);
   }
 }

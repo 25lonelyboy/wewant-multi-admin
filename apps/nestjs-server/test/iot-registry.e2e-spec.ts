@@ -35,7 +35,8 @@ describe('iot 设备档案 (e2e)', () => {
         status: 'ACTIVE',
         properties: [],
         services: [],
-        events: []
+        events: [],
+        effectiveFrom: new Date('2020-01-01T00:00:00.000Z')
       },
       update: {}
     });
