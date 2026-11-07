@@ -43,11 +43,24 @@
 **结论**：档案、模型声明、量程**合成一份**。形状：
 
 ```ts
+/** 写入时的绑定类型——按列名绑定，类型必须来自声明，不能一律 float */
+type BindKind = 'bool' | 'int' | 'bigint' | 'float' | 'double' | 'varchar';
+
 interface RegistrySnapshot {
-  version: number;                    // 单调递增，来自 iot:registry:rev
+  version: number;                    // 单调递增
   builtAt: string;                    // ISO
   models: Array<{
     modelCode: string;
+    /** 物理原始列的名字并集；由 server 推导，worker 只读。顺序固定，便于快照比对 */
+    rawColumns: Array<{ name: string; bindKind: BindKind }>;
+    /** 物理降采样列并集，按级；带聚合与来源属性，供 SQL 与绑定直接使用 */
+    dsColumns: Array<{
+      level: DsLevel;
+      name: string;
+      aggregate: Aggregate;
+      property: string;
+      bindKind: BindKind;
+    }>;
     versions: Array<{
       version: number;
       effectiveFrom: string;          // 非空
@@ -65,11 +78,18 @@ interface RegistrySnapshot {
 }
 ```
 
+`rawColumns` / `dsColumns` 是**预推导的物理列并集**，不是某一版本的声明：
+
+- 列只增不减（D2 §11.4），物理列是所有版本的并集。按「当前版本声明」绑定，会在减过属性的模型上少绑列
+- 推导（`rawColumnOf` / `dsColumnsOf`）只在 server 跑一次，worker 不装这段逻辑——这是 §2.8 能把 `model-derive` / `column-type` 挪回 server 的前提
+- 绑定类型必须来自声明档位（`bindKind`），不能沿用全局的一个 `float`
+- 降采样列的**类型随属性档位变**（`AGGREGATE_COLUMN_TYPE`：`min` / `max` 对 float 是 FLOAT、对 double 是 DOUBLE、对 int 是 INT、对 bool 是 BOOL），所以「按聚合名硬编码类型」不成立。`dsColumns` 因此带 `bindKind`，并带上 `aggregate` 与 `property` 供拼 SQL
+
 **为什么不分三份**：
 
 - 量程本来就是 `PropertyDecl.range`，随属性走。拆出去要维护两套刷新
 - 档案与模型必须**同时**替换。分开刷新必然出现「档案已新、模型还旧」的窗口——正是本卡要消除的那类错配
-- 列绑定要求「最新的列序 + 按 ts 选出的值」，两者必须来自同一份快照
+- 列绑定要求「物理列并集 + 按 ts 选出的值」，两者必须来自同一份快照
 
 **连带结论**：`DEFAULT_METRIC_RANGES` 删除。它按 P1 三个 key 写死，对新模型无意义；判据 B 也要求量程来自物模型，不来自这个常量。
 
@@ -85,11 +105,17 @@ interface RegistrySnapshot {
 localDeviceId + ts
   → 命中哪条 usage（fromAt ≤ ts < coalesce(toAt, ∞)）→ deviceId / modelCode / 子表名
   → 命中哪个版本（effectiveFrom ≤ ts < coalesce(effectiveTo, ∞)）→ 该时刻的声明
-  → 列绑定用「当前超表的列集合」（= 最新版本的列集合，因为 ADD COLUMN 只追加）
+  → 列绑定用快照里的 `rawColumns`（所有版本的物理列并集，见下）
     值取「该版本声明里有、且报文带了的属性」，其余 NULL
 ```
 
-**列序与口径必须分开**：STMT 按位置绑定列。超表当前列序是所有版本列的并集，v1 的列序只是它的前缀；一条 v1 时期的晚到数据若按 v1 列序绑定，整行错位且不报错。**绑定用最新列序，值按 ts 选版本。**
+**列集合与口径必须分开**：写入是 `INSERT INTO db.sub (a, b) VALUES (?, ?)`（`apps/iot-worker/src/tdengine/writer.ts:120`）——**按列名，不按位置**，所以不存在「整行错位」。真正的约束有三条：
+
+- 列的**名字集合**取快照的 `models[].rawColumns`（所有版本的并集）。减属性时列不删（D2 §11.4），若按「该 ts 版本声明」绑定，减过属性的模型会少绑列
+- 列的**绑定类型**取 `rawColumns[].bindKind`，不能沿用 `RAW_CODEC` 里硬编码的 `float`（`writer.ts:371`）
+- 列的**取值集合**取 ts 时刻那份声明——这是本卡要定的口径
+
+⚠️ `ColumnKind` 今天是 `timestamp | float | double | bigint | varchar`（`writer.ts:50`），**没有 `bool` 与 `int`**。连接器的 `StmtBindParams` 已有 `setBoolean` / `setInt`，S5 补两个 kind 即可，不引入新依赖。
 
 这条同时消除了三类不可追溯错误：晚到数据、BullMQ 重试（退避可达分钟级）、多实例不同步。
 
@@ -98,7 +124,8 @@ localDeviceId + ts
 - 区间取半开 `[from, to)`
 - `ts` 早于该模型最早版本 → 丢弃 + 计数
 - `ts` 时刻设备没有 open usage → 丢弃 + 计数
-- 两类计数分开：`unknown-device`（设备不在快照）与 `out-of-range-ts`（在快照、但 ts 不落在任何区间）
+- 三类计数分开：`unknown-device`（设备不在快照）、`out-of-range-ts`（在快照、但 ts 不落在任何区间）、`metric-not-in-model`（设备报了该时刻声明里没有的属性）
+- `metric-not-in-model` 再按 `(modelCode, 属性名)` 打点：现场动作与版本边界不可能秒级同步，这条计数就是过渡带的进度条——「哪个模型还有设备在报已删除的属性」一眼可见
 
 ⚠️ 这条建立在 **`ts` 可信**上。D4 已接受「错钟设备的全部数据会被拒」，本卡不改该代价，只是把它延伸到口径判定。
 
@@ -110,22 +137,38 @@ localDeviceId + ts
 - `SUPERSEDED` 的含义是「已被后续版本排期覆盖」，**不代表已失效**
 - 「同一模型至多一个 ACTIVE」的 partial unique index 因此**保留不动**
 
-**允许指定未来的生效时刻**。由它带出的五条约束：
+**允许指定未来的生效时刻**。由它带出的八条约束：
 
 1. 新版本的 `effectiveFrom` 必须**严格大于**当前最新版本的 `effectiveFrom`。不做回溯——回溯会改写历史数据的解释
 2. **不做连锁推移**。改期若与后继版本重叠，拒绝，由操作者按顺序处理
 3. **改期同时改前驱的 `effectiveTo`**（`v1 [t0,t3)` 中 v2 从 t3 改到 t5 ⇒ v1 变 `[t0,t5)`）。这段区间在未来、尚无数据，安全
-4. **撤销只删版本行，不删列**（D2 §11.4）。撤销「唯一且未生效」的版本会让模型变成没有版本的空壳——**允许**，否则会形成「想撤销必须先发新版」的死循环
-5. **版本号不复用**。撤销 v2 后再发布就是 v3，`max(version)+1` 天然跳号
-6. 改期与撤销都**只能作用于 `effectiveFrom > now` 的版本**
+4. **撤销只删版本行，不删列**（D2 §11.4），并**把前驱的 `effectiveTo` 回填为 `null`**。不回填，前驱会停在「被已删版本覆盖」的边界上，之后的时间没有版本覆盖，该模型的全部数据被当作 `out-of-range-ts` 丢弃
+5. **撤销后模型若不再覆盖任何已建档设备的 `fromAt`，拒绝撤销**，并在 `data` 里列出受影响的设备。极端情形是「撤销唯一且未生效的版本，模型变成没有版本的空壳」——只有该模型没有任何设备档案时才允许
+6. **版本号不复用**。撤销 v2 后再发布就是 v3，`max(version)+1` 天然跳号
+7. 改期与撤销都**只能作用于 `effectiveFrom > now` 的版本**
+8. **建档校验的是「设备生效期落在模型覆盖的时段内」，不是「建档那一刻模型是否生效」**。建档时刻与生效时刻本来就是两件事——设备要到货、要安装，不可能要求上报与建档同一秒发生：
+   - `fromAt` 默认 `now`，可指定未来时刻。提前建单时子表即时建、档案即时 `ACTIVE`，`fromAt` 留在未来
+   - 校验条件：`fromAt ≥ 模型最早版本的 effectiveFrom`。不满足则 409，`data` 给出最早可生效时刻
+   - 由约束 3、4、5 可推出：版本区间连续、且只会向前延伸不会收缩。这条校验一旦通过，**该设备的时段此后永远有版本覆盖**
+   - `usage.version` 取 `fromAt` 时刻生效的版本，**可为空**。外键保留、用 `Restrict`：复合外键里有必填的 `modelCode`，`SetNull` 在 Prisma 与 PostgreSQL 上都不成立。撤销时在**同一事务**里先把引用该版本的 usage 置空，再删版本行。它只是出处、不参与判定（判定按 ts 走区间，见 §2.3），置空**不阻断撤销**
 
 **档案也支持排期，同一套机制**：
 
 - 子表立即建（物理提前、逻辑延后，与模型一致）
 - `IotDevice.status` 立即 `ACTIVE`
-- `IotDeviceModelUsage.fromAt` = 指定时刻；worker 按 `[fromAt, toAt)` 判定
+- `IotDeviceModelUsage.fromAt` = 指定时刻；`version` 取 `fromAt` 时刻生效的版本（出处，可空，不参与判定，见约束 8）；worker 按 `[fromAt, toAt)` 判定
+- **提前建单**：`fromAt` 在未来时，档案与子表当天就位，生效期之前的上报按 `out-of-range-ts` 丢弃。设备到货即插即用，不需要回头再改档案
 - **已排期未生效的设备算「已注册」**：同一 `localDeviceId` 再提交走幂等返回，不新建
 - 设备的改期与撤销**归 D5**，与注销共用一套语义
+
+**现场动作与版本边界不可能秒级重合，两种演进方向要用相反的先后顺序**：
+
+| 演进 | 正确顺序 | 按正确顺序时过渡带里发生什么 | 反序的代价 |
+| --- | --- | --- | --- |
+| **增属性** | 模型先发，设备后改 | 设备还没报 ⇒ 新列为 NULL，不丢数据 | 设备提前升级的窗口内，新属性被丢弃并计入 `metric-not-in-model` |
+| **删属性** | 设备先停报/升级，再发模型 | 没有设备再报 ⇒ 无事发生 | 模型提前生效的窗口内，旧属性被丢弃（原始数据不可改） |
+
+两种错序都不会写错列——物理列是并集、绑定按列名，错的只是「这段数据有没有被收下」。因此本卡不引入设备级版本边界：版本是模型级别的全局时刻，现场的分布由逐属性的 `metric-not-in-model` 计数暴露，而不是由额外状态去猜。
 
 ### 2.5 A4 时延口径与负结果缓存
 
@@ -139,7 +182,7 @@ localDeviceId + ts
 
 | 环节 | 预算 |
 | --- | --- |
-| 变更 → 重建写快照 | ≤ 1.0 秒（重建节拍 500ms + 重建约 100ms） |
+| 变更 → 重建写快照 | ≤ 0.6 秒（重建节拍 500ms + 重建约 100ms） |
 | 重建 → worker 拉到并应用 | ≤ 0.7 秒（轮询 500ms + 拉取应用 200ms） |
 
 **worker 轮询间隔定 500ms**（每实例 2 QPS，成本可忽略）。1 秒轮询会让最坏值逼近 2.5 秒，验收踩线。
@@ -149,6 +192,16 @@ localDeviceId + ts
 **负结果缓存删除**。快照本身就是缓存——「设备不存在」是快照的一个正常状态，随快照刷新自然消失。保留一个 5 分钟 TTL 的负结果层，等于给 A4 加一个 5 分钟的下界。
 
 ### 2.6 刷新与兜底
+
+**五个键，各司其职**。把它们混成一个，会让 worker 在快照重建完成前读到新版本号、判定「不比我新」而跳过拉取，然后停在旧快照上：
+
+| 键 | 谁写 | 含义 |
+| --- | --- | --- |
+| `iot:registry:rev` | 写路径 `INCR` | **期望**版本——变更发生了 |
+| `iot:registry:built` | 重建器条件写 | **已建**版本——快照里是哪一版 |
+| `iot:registry:snapshot` | 重建器条件写 | 载荷（`RegistrySnapshot`） |
+| `iot:registry:rebuild-lock` | 重建器 | `SET NX PX 2000`，只降低重复劳动 |
+| `iot:registry:worker-version:{instanceId}` | worker | 实例当前应用的版本，TTL 30 秒，供 A4 验收 |
 
 **写路径**（任意 iot 写入口，PG 事务提交之后）：
 
@@ -162,23 +215,24 @@ INCR iot:registry:rev
 **重建器**（server 侧一个 provider，每 500ms 一轮）：
 
 ```text
-snapshot key 不存在          → 重建
-GET rev > 已知已建版本        → 重建
-否则                          → 空转
+GET built；不存在（含 snapshot 不存在）→ 重建
+GET rev > built                        → 重建
+否则                                    → 空转
+每 60 秒无条件重建一次                   ← 兜底，见下
 ```
 
 - **节流，不是 trailing debounce**：每 500ms 最多一次、持续脏就持续重建。只在「最后一次变更后 X 毫秒」重建会让一次跑 30 秒的批量导入期间新设备全都不可见
-- **条件写**：Lua 比较版本再写，版本永不倒退。这一步保证正确性
-- **锁**：`SET rebuild-lock NX PX 2000`，只有持有者重建。锁只降低重复劳动（多实例各建一遍 = 多倍 PG 读），不承担正确性——条件写兜住了
-- **检查 key 是否存在**，而不只是版本：Redis 被 flush 或 key 被淘汰时 `rev` 与快照一起消失，只比版本会永远推不动
-- 重建失败：不推进「已知已建版本」，下一轮重试；连续失败记 error
+- **条件写**：Lua 比较版本再写 `snapshot` 与 `built`，版本永不倒退。这一步保证正确性
+- **同时检查 key 是否存在**，而不只是版本：Redis 被 flush 或 key 被淘汰时 `rev` 与 `built` 一起消失，只比版本会永远推不动
+- 重建失败：不推进 `built`，下一轮重试；连续失败记 error
+- **60 秒无条件重建是必须的，不是优化**：`PG commit → INCR` 之间进程崩溃，变更信号就丢了——`rev` 没动、重建器不会醒，server 重启后拿 `built` 比对仍然相等，这次变更永久不可见。无条件重建的成本是每 60 秒扫一次库
 
 **worker 侧**：
 
-- 每 500ms `GET iot:registry:version`，大于本地版本才拉全量
+- 每 500ms `GET iot:registry:built`，大于本地版本才拉全量
 - **拉取失败 → 保留旧快照继续跑**，记 error。可用性优先；滞后由下一次成功刷新纠正
 - 需要一条告警阈值：「旧快照已容忍 N 秒」
-- **冷启动拉不到 → 不启动消费者**，退避重试。用空快照跑会把全部数据当 `unknown-device` 丢掉，且计数看起来像设备故障。队列 Redis 与业务 Redis 是两个实例，业务 Redis 挂了队列还在——此时积压比静默丢数据好
+- **冷启动拉不到 → 不启动消费者与降采样环**，退避重试。用空快照跑会把全部数据当 `unknown-device` 丢掉，且计数看起来像设备故障。队列 Redis 与业务 Redis 是两个实例，业务 Redis 挂了队列还在——此时积压比静默丢数据好
 
 ### 2.7 降采样一致性：单写者
 
@@ -202,7 +256,7 @@ GET rev > 已知已建版本        → 重建
 - `device-registry` 的定位收窄为：**决定「数据长什么样、叫什么、落到哪一列」的知识**。决定「什么时候写、怎么写、写到哪」的，留在应用里
 - 该包**不装**：DDL 语句（server）、档案读写（server）、报文解析与写入（worker）、HTTP 与队列形状（contracts）
 
-**连带结论**：`p1.ts` / `p1-model.ts` / `registry.ts` / 部分 `types.ts` 是编译期档案的过渡物，S5 完成后删除。物模型的声明 / 校验 / 推导（`model-validate` / `model-derive` / `column-type` / `identifier`）当前只有 server 消费，**S5 收口后挪回 `apps/nestjs-server`**。届时包内只剩命名、设备标识、快照类型三块。
+**连带结论**：`p1.ts` / `p1-model.ts` / `registry.ts` / 部分 `types.ts` 是编译期档案的过渡物，S5 完成后删除。物模型的声明 / 校验 / 推导（`model-validate` / `model-derive` / `column-type` / `identifier`）当前只有 server 消费，**S5 收口后挪回 `apps/nestjs-server`**。这个收窄成立的前提是 §2.2 的 `rawColumns` / `dsColumns` 由 server 推导后进快照——worker 不再自己算列名与绑定类型。届时包内只剩命名、设备标识、快照类型三块。
 
 ## 3. 定完之后，什么能证明定对了
 
@@ -211,8 +265,15 @@ GET rev > 已知已建版本        → 重建
 | 判据 A | 注册一台新设备与一个新模型，**不重启 worker**，设备上报能落到新建的子表 |
 | 快照一致 | 所有 worker 实例的 `iot:registry:worker-version:*` 在注册返回后 2 秒内达到目标版本 |
 | 批量合并不放大 | 连续注册 100 台，重建次数 ≤ 变更时长 / 500ms + 2，不是 100 次 |
-| 口径按 ts | 在模型 v2 生效后，构造一条 `ts` 落在 v1 区间的晚到报文，落库值符合 v1 声明、列序符合最新超表 |
+| 口径按 ts | 在模型 v2 生效后，构造一条 `ts` 落在 v1 区间的晚到报文，落库值符合 v1 声明 |
+| 绑定类型 | 含 BOOL 与枚举（INT）测点的模型，写入后回读的值类型与声明一致，不被当作 float |
+| 减属性后仍可写 | 模型 v2 删掉一个属性后，v1 时期带该属性的报文仍能写入（列在、按名字绑定），值为 v1 声明所允许的 |
 | 档案排期 | 注册一台 `effectiveFrom` 在未来的设备，其子表已建；排期前的上报被计为 `out-of-range-ts`；到点后正常入库 |
+| 生效期越界拒绝 | 模型的版本全部排在未来时，`fromAt` 早于最早生效时刻 → 409，`data` 给出最早可生效时刻 |
+| 提前建单 | 模型 v1 明天生效，今天建档、`fromAt` 设为明天 → 成功；子表已建，今天之前的上报计 `out-of-range-ts` |
+| 空壳撤销被挡 | 模型有排期设备时撤销其唯一版本 → 拒绝，`data` 列出受影响设备；清空设备后再撤销则成功 |
+| 撤销回填 | 发布未来生效的 v2 后撤销：v2 行消失、v1 的 `effectiveTo` 回到 `null`，原本被 v2 覆盖的时段仍按 v1 解释 |
+| 变更信号丢失可自愈 | 手工把 `iot:registry:rev` 回退到 `built` 之下（模拟 INCR 丢失），60 秒内快照被无条件重建补齐 |
 | 降采样单写者 | 起两个 worker 实例，只有一个在跑降采样环；杀掉 leader 后由另一个接管 |
 | 版本不倒退 | 并发触发两次重建，最终快照版本等于 rev，且不会出现旧版本覆盖新版本 |
 
@@ -250,6 +311,9 @@ GET rev > 已知已建版本        → 重建
 | **快照类型放 `contracts`** | 快照由存储侧词汇构成，contracts 不含这些；且它是同版本发布的编译期共享类型，与 wire format 不同性质 |
 | **保留 `ResolveCache`** | 5 分钟 TTL 与 A4 的 2 秒直接冲突；全量快照之后 `resolve` 就是一次 `Map.get` |
 | **保留 `DEFAULT_METRIC_RANGES`** | 按 P1 三个 key 写死，对新模型无意义；判据 B 要求量程来自物模型 |
+| **快照只带 `PropertyDecl`，worker 自己推导列名与绑定类型** | worker 就得装 `model-derive` / `column-type`，与 §2.8「挪回 server」冲突；而且推导要在热点路径上按模型重复做 |
+| **撤销版本时不回填前驱的 `effectiveTo`** | 前驱停在「被已删版本覆盖」的边界上，其后没有版本覆盖，该模型的全部数据被当作 `out-of-range-ts` 丢弃 |
+| **按绑定类型全局用 `float`** | 八档声明里 BOOL / INT / BIGINT / VARCHAR 都不是 float；同名列在不同表里类型不同，绑错不报错或直接失败 |
 
 ## 7. 代价与已知未解
 
@@ -261,6 +325,9 @@ GET rev > 已知已建版本        → 重建
 | 4 | **快照随版本数单调增长** | 触发点见 §4 |
 | 5 | **选主的故障切换时长**未定 | S5 实施时定，参考值与 K 窗口的覆盖范围挂钩 |
 | 6 | **`effectiveFrom` 可空**：现列是 `DateTime?`，本卡要求非空 | S5 迁移时收紧 |
+| 7 | **快照随物理列并集增长**：`rawColumns` / `dsColumns` 只增不减，减属性的模型不会瘦回去 | 与第 4 条同源，触发点见 §4 |
+| 8 | **`usage.version` 可为空**：撤销版本时被置空，历史出处随之丢失 | 约束第 8 条的代价。它本就不参与判定；需要「设备当时用哪一版」时按 `fromAt` 与区间重算 |
+| 9 | **`usage.version` 退化为出处**，D5 换型时是否随新 usage 更新未定 | 归 D5 |
 
 ## 8. 来源等级
 
