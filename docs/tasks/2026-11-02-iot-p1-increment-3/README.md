@@ -30,7 +30,7 @@
 
 **S5「消费与降采样接线」** 交付完成——worker 的档案来源从编译期常量换成业务 Redis 的**全量快照**：server 每 500 ms 判定重建（键/快照缺失、`rev > built`、或距上次成功满 60 秒），先读 `rev` 再读库、Lua 条件写保证版本不倒退；worker 每 500 ms 轮询并在换入时建索引，冷启动拉不到快照就退避重试、**不启动消费环与降采样环**。消费环按 `localDeviceId + ts` 判定设备 usage 与模型版本区间，再按该时刻的声明过滤：测点集合、类型、量程全部来自物模型（`RAW_METRICS` / `DEFAULT_METRIC_RANGES` 已从仓库删除），BOOL / INT / 枚举按声明绑定，单位不符整条丢弃、过滤后为空整条丢弃。降采样环的 SQL 与行解析共用快照里的列清单，并且**只有 leader 持有环**（队列 Redis 抢锁 / 续期，续期失败立即关闭）。发布可指定 `effectiveFrom`、注册可指定 `fromAt`、新增撤销未生效版本接口（事务内清引用、删版本行、回填前驱）。
 
-**S5 验收证据**（2026-11-07）：`test/iot-scheduling.e2e-spec.ts` 3/3（真 PG + 真 TDengine）——发布未来版本后按 `fromAt` 选到 v2、回溯发布 400、撤销后 `usage.version` 置空 / 版本行消失 / 前驱 `effectiveTo` 为 `null` 且恢复 `ACTIVE`；`fromAt` 早于最早生效时刻 409 且 `data.earliestEffectiveFrom` 正确；有排期设备时撤销唯一版本 409 并列出设备。`test/iot-snapshot.e2e-spec.ts` 2/2——注册后 2 秒内 `built` 前进且快照含新设备；删掉 `built` 后自动重建。server 单测 272/272、全量 e2e 62/62；worker 单测 164/164、e2e 8/8。`pnpm check`、`pnpm doc:lint` 全绿。
+**S5 验收证据**（2026-11-07）：`test/iot-scheduling.e2e-spec.ts` 3/3（真 PG + 真 TDengine）——发布未来版本后按 `fromAt` 选到 v2、回溯发布 400、撤销后 `usage.version` 置空 / 版本行消失 / 前驱 `effectiveTo` 为 `null` 且恢复 `ACTIVE`；`fromAt` 早于最早生效时刻 409 且 `data.earliestEffectiveFrom` 正确；有排期设备时撤销唯一版本 409 并列出设备。`test/iot-snapshot.e2e-spec.ts` 2/2——注册后 2 秒内 `built` 前进且快照含新设备；删掉 `built` 后自动重建。server 单测 272/272、全量 e2e 62/62；worker 单测 164/164、e2e 9/9（`consumer-snapshot.e2e.ts` 覆盖判据 A / C 的运行期：只换快照不重启消费者，BOOL 与枚举测点按声明写入并回读）。`pnpm check`、`pnpm doc:lint` 全绿。
 
 **下一步**：S6「注销与遗产清理」——代码前置 D5（注销口径与清理范围）未定，开工前先定 D5。
 
