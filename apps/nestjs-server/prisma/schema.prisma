@@ -97,10 +97,14 @@ enum MenuType {
   BUTTON
 }
 
-/** 设备两态：注册失败不落库，不会出现失败态；没有「退役」语义 */
+/**
+ * 设备三态：注册失败不落库，不会出现失败态。
+ * `RETIRED` 表示注销 / 撤销——档案与数据保留，`deviceId` 永不复用，返修走同型号复活。
+ */
 enum IotDeviceStatus {
   PENDING
   ACTIVE
+  RETIRED
 }
 
 /** 版本三态：发布新版本时旧版本转 SUPERSEDED */

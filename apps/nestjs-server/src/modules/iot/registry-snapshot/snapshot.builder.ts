@@ -62,7 +62,9 @@ export async function buildRegistrySnapshot(
   const { devices, models } = await prisma.$transaction(
     async tx => {
       const devices = await tx.iotDevice.findMany({
-        where: { status: 'ACTIVE' },
+        // 退役设备的表必须仍在审计期望集里（D5 §2.2），快照因此纳入 ACTIVE + RETIRED；
+        // 消费侧不读状态——退役设备的 usage 已闭合，`ts ≥ toAt` 由区间判定拒收
+        where: { status: { in: ['ACTIVE', 'RETIRED'] } },
         include: { usages: true }
       });
       const models = await tx.iotDeviceModel.findMany({

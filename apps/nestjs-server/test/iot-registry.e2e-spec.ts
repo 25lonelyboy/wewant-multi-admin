@@ -106,7 +106,7 @@ describe('iot 设备档案 (e2e)', () => {
       current
     );
 
-    const names = (await repository.listSubtablesOfActiveDevices())
+    const names = (await repository.listSubtablesOfRegisteredDevices())
       .filter(ref => ref.deviceId === device.deviceId)
       .map(ref => ref.name);
     expect(names.sort()).toEqual(
@@ -115,6 +115,37 @@ describe('iot 设备档案 (e2e)', () => {
         subtableName(ALT_MODEL, device.deviceId)
       ].sort()
     );
+  });
+
+  it('RETIRED 设备：查档与在用清单查不到，但子表仍在审计期望集里', async () => {
+    const device = await prisma.iotDevice.create({
+      data: {
+        localDeviceId: 'e2e-reg-retired',
+        deviceId: 'E2EREGRETIRED001',
+        status: 'RETIRED',
+        statusChangedAt: new Date()
+      }
+    });
+    await prisma.iotDeviceModelUsage.create({
+      data: {
+        deviceId: device.deviceId,
+        modelCode: 'p1',
+        version: P1_VERSION,
+        fromAt: new Date(Date.now() - 86_400_000),
+        toAt: new Date()
+      }
+    });
+
+    expect(await repository.findActiveDevice('e2e-reg-retired')).toBeNull();
+    expect(
+      (await repository.listActiveDevices()).some(
+        row => row.localDeviceId === 'e2e-reg-retired'
+      )
+    ).toBe(false);
+    const refs = await repository.listSubtablesOfRegisteredDevices();
+    expect(
+      refs.some(ref => ref.name === subtableName('p1', device.deviceId))
+    ).toBe(true);
   });
 
   it('命名同源：返回的子表名等于 subtableName(modelCode, deviceId)', async () => {
@@ -132,7 +163,7 @@ describe('iot 设备档案 (e2e)', () => {
     const found = await repository.findActiveDevice('e2e-reg-name');
     expect(found?.subtable).toBe(subtableName('p1', device.deviceId));
 
-    const refs = await repository.listSubtablesOfActiveDevices();
+    const refs = await repository.listSubtablesOfRegisteredDevices();
     for (const ref of refs.filter(r => r.deviceId === device.deviceId)) {
       expect(ref.name).toBe(subtableName(ref.modelCode, ref.deviceId));
     }

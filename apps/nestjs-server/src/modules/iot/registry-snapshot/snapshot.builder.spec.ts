@@ -214,3 +214,26 @@ void test('bindKindOfColumnType：VARCHAR(N) 归 varchar，未知类型为 null'
   expect(bindKindOfColumnType('VARCHAR(64)')).toBe('varchar');
   expect(bindKindOfColumnType('BOWTIE')).toBeNull();
 });
+
+void test('设备查询纳入 RETIRED：退役设备的表仍在审计期望集里', async () => {
+  let where: unknown;
+  const tx = {
+    iotDevice: {
+      findMany: (args: { where: unknown }) => {
+        where = args.where;
+        return Promise.resolve([]);
+      }
+    },
+    iotDeviceModel: { findMany: () => Promise.resolve([]) }
+  };
+
+  await buildRegistrySnapshot(
+    {
+      $transaction: async (fn: (client: typeof tx) => Promise<unknown>) =>
+        fn(tx)
+    } as never,
+    1
+  );
+
+  expect(where).toEqual({ status: { in: ['ACTIVE', 'RETIRED'] } });
+});

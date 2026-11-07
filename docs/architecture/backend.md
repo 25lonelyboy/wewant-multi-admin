@@ -127,12 +127,12 @@ Prisma 7 + PostgreSQL，system 五表（User / Role / Menu / UserRole / RoleMenu
 | --- | --- | --- |
 | `IotDeviceModel` | 模型身份（`code`，已折小写） | 主键 |
 | `IotModelVersion` | 一个版本一份不可变的声明快照（`properties` / `services` / `events` 整份 JSON） | `(modelCode, version)` 唯一；状态 `PENDING` / `ACTIVE` / `SUPERSEDED` 在版本上；同一模型至多一个 `ACTIVE`（partial unique index，手写在迁移里）；`effectiveFrom` **非空**、`effectiveTo` 可空 |
-| `IotDevice` | 设备档案：自报编号 → 平台 `deviceId` | `localDeviceId` 与 `deviceId` 各自唯一；状态只有 `PENDING` / `ACTIVE`（注册失败不落库，没有失败态） |
+| `IotDevice` | 设备档案：自报编号 → 平台 `deviceId` | `localDeviceId` 与 `deviceId` 各自唯一；状态三态 `PENDING` / `ACTIVE` / `RETIRED`（注册失败不落库，没有失败态；`RETIRED` = 注销 / 撤销，档案与数据保留、`deviceId` 永不复用） |
 | `IotDeviceModelUsage` | 设备 × 版本 × 起止 | 复合外键指向 `IotModelVersion(modelCode, version)`、`ON DELETE RESTRICT`；`version` **可空**（版本撤销时置空，只作出处、不参与判定）；同一设备至多一条 `toAt IS NULL`（partial unique index，手写在建表迁移里） |
 
 - **当前模型不存字段**，由 `usage.toAt IS NULL` 推出；设备与模型之间没有直接外键，绑定只在 usage 上
 - 子表名的唯一来源是 `packages/device-registry` 的 `subtableName()`；期望集按 usage 展开，**含已闭合的历史**——换型号后旧模型的子表仍然合法
-- server 侧只读仓储 `src/modules/iot/registry/device-registry.repository.ts`：`findActiveDevice` / `listActiveDevices` 返回当前模型、open usage 的版本号与子表名，`listSubtablesOfActiveDevices` 展开审计期望集；只认 `ACTIVE` 设备、不缓存。注册路径的前置查档走它（`models.service` 的补建按模型筛，保留自己的查询）
+- server 侧只读仓储 `src/modules/iot/registry/device-registry.repository.ts`：`findActiveDevice` / `listActiveDevices` 返回当前模型、open usage 的版本号与子表名，`listSubtablesOfRegisteredDevices` 展开审计期望集（**设备过滤纳入 `ACTIVE` + `RETIRED`**）。查档与在用清单只认 `ACTIVE`、不缓存；期望集含退役设备，否则其子表会被永久判成孤儿。注册路径的前置查档走它（`models.service` 的补建按模型筛，保留自己的查询）
 - seed 注入 `p1` 模型与版本 1（`ACTIVE`）、100 台 P1 设备及各自的 open usage；模型声明与设备标识是 `prisma/seed.ts` 里的**本地种子 fixture**，create-only 幂等
 - worker **不读 PG**：档案与模型来自业务 Redis 的档案快照（见「档案快照（D1）」）。注册 / 发布 / 撤销在 PG 提交之后 `INCR iot:registry:rev`，重建器据此重建；递增失败只记 error，由 60 秒兜底补上
 

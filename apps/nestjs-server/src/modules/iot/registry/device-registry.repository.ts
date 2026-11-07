@@ -85,11 +85,12 @@ export class DeviceRegistryRepository {
   /**
    * 审计与建表脚本用的期望集：**设备 × 用过的模型**，含历史。
    *
-   * "Active" 修饰的是**设备**，不是子表——换型号后旧模型的子表仍然合法。
+   * 过滤纳入 `RETIRED`——退役设备的子表仍在期望集里，否则审计会把它们永久判成孤儿
+   * （D5 §2.2）。"Registered" 修饰的是**设备**，不是子表——换型号后旧模型的子表仍然合法。
    */
-  async listSubtablesOfActiveDevices(): Promise<SubtableRef[]> {
+  async listSubtablesOfRegisteredDevices(): Promise<SubtableRef[]> {
     const usages = await this.prisma.iotDeviceModelUsage.findMany({
-      where: { device: { status: 'ACTIVE' } },
+      where: { device: { status: { in: ['ACTIVE', 'RETIRED'] } } },
       select: { modelCode: true, device: { select: { deviceId: true } } },
       orderBy: [{ deviceId: 'asc' }, { fromAt: 'asc' }]
     });
