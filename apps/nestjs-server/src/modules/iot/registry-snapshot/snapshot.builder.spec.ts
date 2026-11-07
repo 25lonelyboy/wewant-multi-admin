@@ -189,6 +189,27 @@ void test('⭐ 任一列推导失败 ⇒ 整轮构建失败，不发布半份快
   ).rejects.toBeInstanceOf(SnapshotBuildError);
 });
 
+void test('properties 不是数组 ⇒ 响亮失败，不当作「零属性」放过', async () => {
+  await expect(
+    buildRegistrySnapshot(
+      readerOf(
+        [],
+        [
+          modelRow([
+            version(
+              1,
+              '2026-01-01T00:00:00.000Z',
+              null,
+              null as unknown as PropertyDecl[]
+            )
+          ])
+        ]
+      ),
+      1
+    )
+  ).rejects.toThrow(/properties 不是数组/);
+});
+
 void test('bindKindOfColumnType：VARCHAR(N) 归 varchar，未知类型为 null', () => {
   expect(bindKindOfColumnType('VARCHAR(64)')).toBe('varchar');
   expect(bindKindOfColumnType('BOWTIE')).toBeNull();

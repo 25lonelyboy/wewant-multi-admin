@@ -25,8 +25,24 @@ export class SnapshotBuildError extends Error {
 
 type SnapshotReader = Pick<PrismaClient, '$transaction'>;
 
-function asProperties(value: unknown): PropertyDecl[] {
-  return Array.isArray(value) ? (value as PropertyDecl[]) : [];
+/**
+ * `properties` 列存的是整份声明 JSON。**不是数组就是坏数据，整轮构建失败**。
+ *
+ * ⚠️ 不回落成空数组：一个损坏的版本会悄悄变成「零属性」，该模型的设备随后把所有测点判成
+ * `not-in-model` 丢掉——静默丢数据，且计数看起来像现场问题，而不是库里的数据坏了。
+ */
+function asProperties(
+  value: unknown,
+  modelCode: string,
+  version: number
+): PropertyDecl[] {
+  if (!Array.isArray(value)) {
+    const actual = value === null ? 'null' : typeof value;
+    throw new SnapshotBuildError(
+      `模型 ${modelCode} 版本 ${version} 的 properties 不是数组（实际 ${actual}）`
+    );
+  }
+  return value as PropertyDecl[];
 }
 
 /**
@@ -93,13 +109,18 @@ function toSnapshotModel(
   const dsByKey = new Map<string, SnapshotDsColumn>();
 
   for (const version of versions) {
-    for (const property of asProperties(version.properties)) {
+    const properties = asProperties(
+      version.properties,
+      modelCode,
+      version.version
+    );
+    for (const property of properties) {
       if (!rawByName.has(property.key)) {
         rawByName.set(property.key, toRawColumn(property, modelCode));
       }
     }
 
-    const derived = dsColumnsOf(asProperties(version.properties));
+    const derived = dsColumnsOf(properties);
     if (!derived.ok) {
       const detail = derived.issues
         .map(issue => `${issue.path}: ${issue.code}`)
@@ -144,7 +165,7 @@ function toSnapshotModel(
       effectiveFrom: version.effectiveFrom.toISOString(),
       effectiveTo:
         version.effectiveTo === null ? null : version.effectiveTo.toISOString(),
-      properties: asProperties(version.properties)
+      properties: asProperties(version.properties, modelCode, version.version)
     }))
   };
 }
