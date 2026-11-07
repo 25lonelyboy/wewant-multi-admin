@@ -1,19 +1,15 @@
-import { dsSubtableName, type DsLevel } from '@multi-admin/device-registry';
-import { DS_DATABASE, RAW_METRICS, type RawMetric } from '../schema.js';
+import {
+  dsSubtableName,
+  type BindKind,
+  type DsLevel,
+  type SnapshotDsColumn
+} from '@multi-admin/device-registry';
+import { DS_DATABASE } from '../schema.js';
 import type { TdRow } from '../tdengine/client.js';
 import type { WriteCodec, WriteColumn } from '../tdengine/writer.js';
 
-/** 一个测点在某窗口内的可再聚合量 */
-export interface DsMetricAggregate {
-  /** `SUM`；窗口内该测点缺值时为空 */
-  sum: number | null;
-  /** `COUNT`；窗口内该测点缺值时为 0 */
-  count: bigint;
-  /** `MIN`；缺值为空 */
-  min: number | null;
-  /** `MAX`；缺值为空 */
-  max: number | null;
-}
+/** 一列降采样结果的值——类型由列清单里的 `bindKind` 决定 */
+export type DsValue = number | bigint | boolean | string | null;
 
 /** 原始查询的一段窗口聚合，已解析成写入器可消费的形态 */
 export interface DsAggregateRow {
@@ -23,7 +19,10 @@ export interface DsAggregateRow {
   tbname: string;
   /** 窗口起始（epoch 毫秒，来自 `_wstart`） */
   ts: number;
-  metrics: Record<RawMetric, DsMetricAggregate>;
+  /** 本级要写出的降采样列；SQL 与绑定共用这一份清单 */
+  columns: readonly SnapshotDsColumn[];
+  /** 列名 → 值（已按 `bindKind` 收窄） */
+  metrics: Readonly<Record<string, DsValue>>;
 }
 
 /**
@@ -46,6 +45,31 @@ function toBigInt(value: unknown): bigint {
   return BigInt(value as number);
 }
 
+/** BOOL 列在不同驱动 / 版本下可能是布尔、0/1 或 'true' / 'false' */
+function toBoolOrNull(value: unknown): boolean | null {
+  if (isNull(value)) return null;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (value === 'true' || value === '1') return true;
+  if (value === 'false' || value === '0') return false;
+  return null;
+}
+
+function parseValue(value: unknown, bindKind: BindKind): DsValue {
+  switch (bindKind) {
+    case 'bigint':
+      return toBigInt(value);
+    case 'bool':
+      return toBoolOrNull(value);
+    case 'int':
+    case 'float':
+    case 'double':
+      return toNumberOrNull(value);
+    case 'varchar':
+      return isNull(value) ? null : String(value);
+  }
+}
+
 function toEpochMs(value: unknown): number {
   if (typeof value === 'bigint') return Number(value);
   if (typeof value === 'number') return value;
@@ -55,33 +79,33 @@ function toEpochMs(value: unknown): number {
   return num;
 }
 
-/** 聚合列在 SELECT 里的起始下标：`tbname`(0)、`ts`(1) 之后 */
+/** `tbname`(0)、`ts`(1) 之后是聚合列 */
 const AGGREGATE_OFFSET = 2;
-/** 每测点占 4 列（sum/count/min/max） */
-const AGGREGATE_COLUMNS_PER_METRIC = 4;
 
 /**
- * 把读查询的行按**固定列序**解析（列序见 `buildAggregateSql`，两处须同步）。
+ * 把读查询的行按**调用方传入的列清单**解析。
+ *
+ * ⚠️ 今天与 `buildAggregateSql` 靠「SELECT 列序 ↔ 按下标解析」显式耦合：两处必须传同一份
+ * `columns` 且顺序一致。列清单顺序改变时结果按名字仍然不变（`metrics` 按列名存）。
  */
 export function parseAggregateRows(
   rows: readonly TdRow[],
-  level: DsLevel
+  level: DsLevel,
+  columns: readonly SnapshotDsColumn[]
 ): DsAggregateRow[] {
   return rows.map(row => {
-    const metrics = {} as Record<RawMetric, DsMetricAggregate>;
-    RAW_METRICS.forEach((metric, index) => {
-      const base = AGGREGATE_OFFSET + index * AGGREGATE_COLUMNS_PER_METRIC;
-      metrics[metric] = {
-        sum: toNumberOrNull(row[base]),
-        count: toBigInt(row[base + 1]),
-        min: toNumberOrNull(row[base + 2]),
-        max: toNumberOrNull(row[base + 3])
-      };
-    });
+    const metrics: Record<string, DsValue> = {};
+    for (const [index, column] of columns.entries()) {
+      metrics[column.name] = parseValue(
+        row[AGGREGATE_OFFSET + index],
+        column.bindKind
+      );
+    }
     return {
       level,
       tbname: toTbname(row[0]),
       ts: toEpochMs(row[1]),
+      columns,
       metrics
     };
   });
@@ -93,41 +117,24 @@ function toTbname(value: unknown): string {
 }
 
 /**
- * 降采样库的列描述：每测点 `sum/count/min/max`，共 13 列（§14.1）。
+ * 降采样库的列描述：目标列与绑定类型**由行自带的列清单**生成，不再按 P1 测点硬编码。
  *
- * ⚠️ **列类型按超级表定义**（sum=DOUBLE / count=BIGINT / min·max=FLOAT），
- * 不是按 JS 值类型——连接器按声明类型编码。
  * ⭐ 目标子表名由行内的 `level` 推出 ⇒ 三级**共用一个列描述**、一个写入器。
  */
 export const DS_CODEC: WriteCodec<DsAggregateRow> = {
   database: DS_DATABASE,
   subtable: row => dsSubtableName(row.tbname, row.level),
-  signature: row => row.level,
+  signature: row =>
+    `${row.level}:${row.columns.map(column => column.name).join('+')}`,
   columns: row => {
     const columns: WriteColumn[] = [
       { name: 'ts', kind: 'timestamp', value: row.ts }
     ];
-    for (const metric of RAW_METRICS) {
-      const aggregate = row.metrics[metric];
+    for (const column of row.columns) {
       columns.push({
-        name: `sum_${metric}`,
-        kind: 'double',
-        value: aggregate.sum
-      });
-      columns.push({
-        name: `count_${metric}`,
-        kind: 'bigint',
-        value: aggregate.count
-      });
-      columns.push({
-        name: `min_${metric}`,
-        kind: 'float',
-        value: aggregate.min
-      });
-      columns.push({
-        name: `max_${metric}`,
-        kind: 'float',
-        value: aggregate.max
+        name: column.name,
+        kind: column.bindKind,
+        value: row.metrics[column.name] ?? null
       });
     }
     return columns;

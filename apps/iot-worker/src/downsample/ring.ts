@@ -1,9 +1,11 @@
+import { hostname } from 'node:os';
 import { Queue, UnrecoverableError, Worker, type Job } from 'bullmq';
 import { TELEMETRY_QUEUE_PREFIX } from '@multi-admin/contracts';
+import { Redis } from 'ioredis';
 import {
   DS_LEVELS,
-  p1DeviceRegistry,
-  type DsLevel
+  type DsLevel,
+  type SnapshotDsColumn
 } from '@multi-admin/device-registry';
 import { RAW_DATABASE } from '../schema.js';
 import type { WorkerConfig } from '../config.js';
@@ -13,6 +15,7 @@ import {
   UnrecoverableWriteError
 } from '../failure.js';
 import type { Logger } from '../logger.js';
+import type { SnapshotSource } from '../snapshot/client.js';
 import { connectTd, type TdRow, type TdSql } from '../tdengine/client.js';
 import { TdengineWriter } from '../tdengine/writer.js';
 import {
@@ -70,15 +73,6 @@ export interface RingDeps {
   writer?: TdengineWriter<DsAggregateRow>;
   queue?: Queue;
   worker?: Worker;
-  /** 要重算的模型编码；缺省从 P1 档案去重。单测注入假列表覆盖多模型分支 */
-  modelCodes?: readonly string[];
-}
-
-/** 档案里出现过的模型编码（去重）——建表与计算共用同一份来源 */
-export function registryModelCodes(): string[] {
-  return [
-    ...new Set(p1DeviceRegistry.allSubtables().map(sub => sub.modelCode))
-  ];
 }
 
 /**
@@ -86,20 +80,13 @@ export function registryModelCodes(): string[] {
  *
  * ⭐ **三级平级**：每条调度各自从原始超表算（§4），互不依赖、可各自重试。
  * ⭐ 每次只算**最近 K 个已闭合窗口**、不记游标——晚到数据落在最近 K 个窗口内即被自愈（§3.2）。
+ * ⭐ 模型清单与列清单**每 tick 从快照取**：新模型加入档案后本进程自己就能看到，不必重启。
  */
 export class DownsampleRing {
   private readonly connect: TdConnect;
   private readonly writer: TdengineWriter<DsAggregateRow>;
   private readonly queue: Queue;
   private readonly worker: Worker;
-  /**
-   * 要重算的模型编码——**构造时快照一次**。
-   *
-   * ⚠️ 新模型加入档案后本进程不会自己发现，须重启 worker 才参与计算（今日的档案是编译期常量，
-   * 无差别）。档案改成运行期可变（S2）之后，是「重读」还是「重启」由 D3 定；不要在这里默默改成
-   * 每 tick 重读——那会把一次档案读取失败变成静默停摆。
-   */
-  private readonly modelCodes: readonly string[];
 
   private sql: TdSql | null = null;
   private retryTimer: NodeJS.Timeout | null = null;
@@ -110,13 +97,13 @@ export class DownsampleRing {
   constructor(
     private readonly config: WorkerConfig,
     private readonly logger: Logger,
+    private readonly snapshot: SnapshotSource,
     deps: RingDeps = {}
   ) {
     // 级别口径漂移（DS_LEVELS ↔ LEVEL_SPECS）是静态错误，构造即响亮失败，不留到运行期才发现
     assertLevelCoverage();
 
     this.connect = deps.connect ?? connectTd;
-    this.modelCodes = deps.modelCodes ?? registryModelCodes();
     this.writer =
       deps.writer ??
       new TdengineWriter<DsAggregateRow>(
@@ -193,13 +180,19 @@ export class DownsampleRing {
     );
 
     let total = 0;
-    for (const modelCode of this.modelCodes) {
+    for (const model of this.snapshot.currentIndex().snapshot.models) {
+      // 该级没有降采样列（模型从未声明过聚合）⇒ 连表都没有，跳过
+      const columns = model.dsColumns.filter(
+        candidate => candidate.level === level
+      );
+      if (columns.length === 0) continue;
       total += await this.recomputeModel(
-        modelCode,
+        model.modelCode,
         level,
         spec,
         startMs,
-        endMs
+        endMs,
+        columns
       );
     }
     return total;
@@ -210,12 +203,13 @@ export class DownsampleRing {
     level: DsLevel,
     spec: DsLevelSpec,
     startMs: number,
-    endMs: number
+    endMs: number,
+    columns: readonly SnapshotDsColumn[]
   ): Promise<number> {
     const rows = await this.readAggregates(
-      buildAggregateSql(modelCode, spec, startMs, endMs)
+      buildAggregateSql(modelCode, spec, startMs, endMs, columns)
     );
-    const aggregates = parseAggregateRows(rows, level);
+    const aggregates = parseAggregateRows(rows, level, columns);
 
     if (aggregates.length === 0) {
       // 空窗口不是失败：这一段确实没有原始数据，落 0 行是正确结果
@@ -382,4 +376,158 @@ function isDsLevel(value: unknown): value is DsLevel {
     typeof value === 'string' &&
     (DS_LEVELS as readonly string[]).includes(value)
   );
+}
+
+/** 选主键——放**队列 Redis**（降采样的调度本来就在 BullMQ 上），不放业务 Redis */
+export const DOWNSAMPLE_LEADER_KEY = 'iot:downsample:leader';
+
+/** 锁 TTL = 3 × 调度的最大 tick 口径；续期失败即停止调度 */
+const LEADER_TTL_MS = 3 * 60_000;
+/** follower 每 PX/3 尝试一次、leader 每 PX/3 续期一次 */
+const LEADER_RETRY_MS = 60_000 / 3;
+
+/** 续期：比较 value 再 PEXPIRE，防止续上别人的锁 */
+const RENEW_LEADER = `
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('PEXPIRE', KEYS[1], ARGV[2])
+end
+return 0
+`;
+
+/** 只释放自己持有的锁 */
+const RELEASE_LEADER = `
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0
+`;
+
+export interface LeaderDeps {
+  /** 测试注入；生产用 `config.queueRedisUrl` 自建 */
+  redis?: Redis;
+  retryMs?: number;
+  ttlMs?: number;
+  /** 测试注入替身环 */
+  createRing?: () => DownsampleRing;
+}
+
+/**
+ * 降采样单写者选举。
+ *
+ * 降采样无并行收益（每级每 tick 一次、低频低量），而多实例并行的代价是模型集合不同、
+ * 同一模型声明版本不同、重叠窗口乱序覆盖——只有 leader 才持有 `DownsampleRing`，
+ * 三者一起消失。消费环不受影响，仍可多实例并行。
+ */
+export class DownsampleLeader {
+  private readonly redis: Redis;
+  private readonly id = `${hostname()}-${process.pid}`;
+  private readonly retryMs: number;
+  private readonly ttlMs: number;
+  private ring: DownsampleRing | null = null;
+  private timer: NodeJS.Timeout | null = null;
+  private ticking = false;
+  private closing = false;
+
+  constructor(
+    private readonly config: WorkerConfig,
+    private readonly logger: Logger,
+    private readonly snapshot: SnapshotSource,
+    private readonly deps: LeaderDeps = {}
+  ) {
+    this.retryMs = deps.retryMs ?? LEADER_RETRY_MS;
+    this.ttlMs = deps.ttlMs ?? LEADER_TTL_MS;
+    this.redis =
+      deps.redis ??
+      new Redis(config.queueRedisUrl, { maxRetriesPerRequest: null });
+  }
+
+  /** 立刻尝试一次，再按 PX/3 轮询；`start()` 自身不抛（queue Redis 抖动不得挡住启动） */
+  async start(): Promise<void> {
+    await this.tick();
+    if (this.closing) return;
+    this.timer = setInterval(() => {
+      void this.tick();
+    }, this.retryMs);
+    this.timer.unref();
+  }
+
+  /** 一轮：follower 抢锁，leader 续期。对外公开只为单测逐轮驱动。 */
+  async tick(): Promise<void> {
+    if (this.closing || this.ticking) return;
+    this.ticking = true;
+    try {
+      if (this.ring === null) {
+        await this.tryAcquire();
+      } else {
+        await this.renew();
+      }
+    } catch (error) {
+      this.logger.warn(
+        { err: error instanceof Error ? error.message : String(error) },
+        '降采样选主失败，本轮跳过'
+      );
+    } finally {
+      this.ticking = false;
+    }
+  }
+
+  async close(): Promise<void> {
+    if (this.closing) return;
+    this.closing = true;
+    if (this.timer !== null) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+    const ring = this.ring;
+    this.ring = null;
+    if (ring !== null) await ring.close();
+    await this.redis
+      .eval(RELEASE_LEADER, 1, DOWNSAMPLE_LEADER_KEY, this.id)
+      .catch(() => undefined);
+    await this.redis.quit().catch(() => this.redis.disconnect());
+  }
+
+  private async tryAcquire(): Promise<void> {
+    const acquired = await this.redis.set(
+      DOWNSAMPLE_LEADER_KEY,
+      this.id,
+      'PX',
+      this.ttlMs,
+      'NX'
+    );
+    if (acquired === null) return;
+
+    this.ring = this.deps.createRing
+      ? this.deps.createRing()
+      : new DownsampleRing(this.config, this.logger, this.snapshot);
+    this.logger.info({ instanceId: this.id }, '成为降采样 leader');
+    void this.ring.start();
+  }
+
+  private async renew(): Promise<void> {
+    let renewed: unknown;
+    try {
+      renewed = await this.redis.eval(
+        RENEW_LEADER,
+        1,
+        DOWNSAMPLE_LEADER_KEY,
+        this.id,
+        String(this.ttlMs)
+      );
+    } catch {
+      // ⚠️ 续期失败立刻停止调度，不带着可能失效的锁继续写
+      await this.stepDown('续期异常');
+      return;
+    }
+    if (renewed !== 1) {
+      await this.stepDown('锁已失效');
+    }
+  }
+
+  private async stepDown(reason: string): Promise<void> {
+    this.logger.warn({ instanceId: this.id, reason }, '降采样 leader 退出');
+    const ring = this.ring;
+    this.ring = null;
+    if (ring !== null) await ring.close();
+  }
 }
