@@ -1,6 +1,6 @@
 # S6 · 边界与口径落地：设计与实施计划
 
-- **状态**：待执行
+- **状态**：已完成（2026-11-07）
 - **日期**：2026-11-07
 - **前置**：D4 已定（时间戳边界、报文上限、读侧单位）；D5 已定（`RETIRED`、保留数据、同型号复活、改期与撤销、孤儿清理脚本）
 - **范围**：D4 的两条未落地项（时间戳边界、报文上限）+ D5 的全部代码面（注销 / 撤销 / 改期 / 复活 / 孤儿清理）
@@ -255,7 +255,7 @@ export async function cleanupOrphans(
 | `.env.example` | `IOT_MAX_MESSAGE_BYTES = 262144`、`INGEST_TS_MAX_FUTURE_MS = 86400000`、`INGEST_TS_MAX_PAST_MS = 7776000000` |
 | `docker-compose.yml` | server / worker 的 `environment` 白名单转发上述三个变量，否则 `.env` 里调了容器也收不到 |
 | `apps/iot-worker/package.json` | 新增 `subtable:cleanup` 脚本入口 |
-| `docs/engineering/build-and-verify.md` | 脚本表加 `subtable:cleanup`（dry-run 默认与三条闸）；e2e 套件清单加 `iot-lifecycle`；审计那句「正式删除归注销流程」改为「孤儿由清理脚本回收」 |
+| `docs/engineering/build-and-verify.md` | 脚本表加 `subtable:cleanup`（dry-run 默认与四条闸）；e2e 套件清单加 `iot-lifecycle`；审计那句「正式删除归注销流程」改为「孤儿由清理脚本回收」 |
 | `docs/architecture/contracts.md` | `localDeviceId` 的字符与长度规则 |
 | `docs/architecture/backend.md` | 时间戳边界与计数、报文上限与超限去向、worker env 列表、`RETIRED` 生命周期与三条新路由、快照纳入退役设备、清理脚本、**把「大于本地版本才拉」改为「版本不同即拉」** |
 | 任务 README | S6 交付段与验收证据；验证命令加 `iot-lifecycle.e2e-spec.ts` 与 `subtable:cleanup` dry-run |
@@ -303,7 +303,7 @@ worker e2e 前先 `docker compose stop worker`（两者消费同一队列，work
 | --- | --- | --- |
 | 给枚举加 `RETIRED` | 非空库上的结构变更 | 只有 `ALTER TYPE ... ADD VALUE`，不改写数据；不跑 `down -v`；测试库与本地库直接 `migrate deploy` |
 | e2e 建 / 删 TD 表 | 污染开发库 | 用例用 `e2e-life-` 前缀，`finally` 删自己建的表与行 |
-| 清理脚本 `--apply` | 删错表不可恢复 | 默认 dry-run；三条新鲜度闸；只删审计名单；原始优先 |
+| 清理脚本 `--apply` | 删错表不可恢复 | 默认 dry-run；四条闸（含 10 分钟新表保护期）；只删审计名单；原始优先 |
 | 手工构造过期快照 | 脚本误判孤儿 | 闸门直接拒绝，不做「尽力猜」 |
 
 ## 5. 不做
