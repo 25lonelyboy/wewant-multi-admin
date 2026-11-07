@@ -5,6 +5,8 @@ import { DevicesService } from './devices/devices.service.js';
 import { ModelsController } from './models/models.controller.js';
 import { ModelsService } from './models/models.service.js';
 import { DeviceRegistryRepository } from './registry/device-registry.repository.js';
+import { RegistryRevisionService } from './registry-snapshot/snapshot.revision.js';
+import { RegistrySnapshotRebuilder } from './registry-snapshot/snapshot.rebuilder.js';
 import { TdClientProvider } from './tdengine/td-client.provider.js';
 import { TelemetrySubscriberService } from './telemetry/telemetry-subscriber.service.js';
 
@@ -21,7 +23,9 @@ import { TelemetrySubscriberService } from './telemetry/telemetry-subscriber.ser
     ModelsService,
     DevicesService,
     DeviceIdIssuer,
-    DeviceRegistryRepository
+    DeviceRegistryRepository,
+    RegistryRevisionService,
+    RegistrySnapshotRebuilder
   ]
 })
 export class IotModule {}
