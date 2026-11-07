@@ -27,10 +27,11 @@ const PREFIX = 'e2e_sched_';
 const MODEL_A = `${PREFIX}a`;
 const MODEL_B = `${PREFIX}b`;
 const MODEL_C = `${PREFIX}c`;
+const MODEL_D = `${PREFIX}d`;
 const DEVICE_A = 'e2e-sched-a';
 const DEVICE_B = 'e2e-sched-b';
 const DEVICE_C = 'e2e-sched-c';
-const MODELS = [MODEL_A, MODEL_B, MODEL_C];
+const MODELS = [MODEL_A, MODEL_B, MODEL_C, MODEL_D];
 
 interface Envelope<T> {
   code: number;
@@ -255,5 +256,41 @@ describe('iot 排期与撤销 (e2e)', () => {
     expect(
       await prisma.iotModelVersion.count({ where: { modelCode: MODEL_C } })
     ).toBe(1);
+  });
+
+  it('⭐ 发布不允许补记：晚于最新版本但早于 now 一律 400', async () => {
+    const now = Date.now();
+    // 直接落一条「很久以前生效」的版本：时间校验必须发生在 TD 结构校验之前
+    await prisma.iotDeviceModel.create({ data: { code: MODEL_D } });
+    await prisma.iotModelVersion.create({
+      data: {
+        modelCode: MODEL_D,
+        version: 1,
+        status: 'ACTIVE',
+        properties: [],
+        services: [],
+        events: [],
+        effectiveFrom: new Date(now - 86_400_000)
+      }
+    });
+
+    const backfill = await post(
+      '/api/v1/iot/models',
+      modelCode(MODEL_D, iso(now - 3_600_000))
+    );
+    expect(backfill.status).toBe(400);
+    expect(JSON.stringify((backfill.body as Envelope<unknown>).data)).toContain(
+      'not-in-future'
+    );
+
+    // 未来时刻通过时间校验，随后因没有 TD 超表报结构不一致
+    const future = await post(
+      '/api/v1/iot/models',
+      modelCode(MODEL_D, iso(now + 3_600_000))
+    );
+    expect(future.status).toBe(409);
+    expect(JSON.stringify((future.body as Envelope<unknown>).data)).toContain(
+      'schema-mismatch'
+    );
   });
 });

@@ -153,4 +153,30 @@ describe('iot 档案快照重建 (e2e)', () => {
     expect(await redis.get(BUILT_KEY)).not.toBeNull();
     expect(await redis.get(SNAPSHOT_KEY)).not.toBeNull();
   });
+
+  it('⭐ payload 被单独淘汰后自动重建（built 还在、版本不变）', async () => {
+    const redis = app.get<{
+      del(key: string): Promise<number>;
+      get(key: string): Promise<string | null>;
+    }>(REDIS_CLIENT);
+
+    const buildDeadline = Date.now() + 2_000;
+    while (
+      (await redis.get(SNAPSHOT_KEY)) === null &&
+      Date.now() < buildDeadline
+    ) {
+      await sleep(50);
+    }
+    expect(await redis.get(SNAPSHOT_KEY)).not.toBeNull();
+
+    // 大键先被淘汰：built 与 rev 都还在，等版本写入必须被允许
+    await redis.del(SNAPSHOT_KEY);
+
+    const deadline = Date.now() + 2_000;
+    while ((await redis.get(SNAPSHOT_KEY)) === null && Date.now() < deadline) {
+      await sleep(50);
+    }
+    expect(await redis.get(SNAPSHOT_KEY)).not.toBeNull();
+    expect(await redis.get(BUILT_KEY)).not.toBeNull();
+  });
 });

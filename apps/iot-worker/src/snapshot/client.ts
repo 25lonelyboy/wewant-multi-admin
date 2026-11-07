@@ -156,7 +156,10 @@ export class RegistrySnapshotClient {
       return;
     }
 
-    if (this.index === null || built > this.index.snapshot.version) {
+    // ⚠️ 与本地版本**不同**就换入，不是「大于」：Redis 全量丢失后版本从 0 重新计数，
+    // 用 `>` 会让运行中的 worker 永远停在旧快照上。正常路径由条件写保证版本不倒退，
+    // 因此低于本地的 built 只可能来自存储被重置，换入是安全的。
+    if (this.index === null || built !== this.index.snapshot.version) {
       const payload = await this.redis.get(SNAPSHOT_KEY);
       if (payload === null) {
         if (initial) throw new Error('业务 Redis 里还没有快照（payload 缺失）');

@@ -225,6 +225,16 @@ export class ModelsService {
         }
       );
     }
+    // 补记同样会改写历史数据的解释：已有模型的版本只能在未来生效
+    if (effectiveFrom.getTime() <= Date.now()) {
+      throw new BizException(
+        BizCode.VALIDATION_FAILED,
+        '新版本的生效时刻必须在未来',
+        {
+          issues: [{ path: 'effectiveFrom', code: 'not-in-future' }]
+        }
+      );
+    }
 
     const history = this.historicalProperties(versions);
     const issues = this.kindChanges(decl, history);

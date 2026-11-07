@@ -29,14 +29,57 @@ const LOCK_TTL_MS = 2_000;
  */
 const FORCE_REBUILD_MS = 60_000;
 
-/** 条件写：版本不倒退。比较与两次 SET 必须在同一段 Lua 里，不能拆成两条命令。 */
+/**
+ * 条件写：版本不倒退。比较与两次 SET 必须在同一段 Lua 里，不能拆成两条命令。
+ *
+ * ⚠️ 版本相等时，只有 payload 还在才跳过：`snapshot` 是 ~1 MB 的大键，内存压力下会先被
+ * 淘汰而 `built` 留下。此时等版本也必须重写，否则冷启动的 worker 永远拉不到快照。
+ */
 const CONDITIONAL_WRITE = `
 local built = tonumber(redis.call('GET', KEYS[1]) or '-1')
-if tonumber(ARGV[1]) <= built then return 0 end
+local version = tonumber(ARGV[1])
+if version < built then return 0 end
+if version == built and redis.call('EXISTS', KEYS[2]) == 1 then return 0 end
 redis.call('SET', KEYS[2], ARGV[2])
 redis.call('SET', KEYS[1], ARGV[1])
 return 1
 `;
+
+/** 只抬高 `rev`，不覆盖并发的 `INCR` */
+const RAISE_REV = `
+if tonumber(redis.call('GET', KEYS[1]) or '0') < tonumber(ARGV[1]) then
+  redis.call('SET', KEYS[1], ARGV[1])
+end
+return 1
+`;
+
+/**
+ * 判定这一轮要不要重建、用哪个版本号写。
+ *
+ * ⭐ **兜底重建必须写更高的版本**：条件写拒绝「版本不大于 `built`」的写入，而
+ * `PG commit → INCR` 丢失时恰好 `rev == built`——沿用 `rev` 会让兜底重建被自己拒掉，
+ * 变更永远发布不出去。抬高一版同时让 worker 看到变化。
+ * ⭐ 版本取 `max(rev, built)`：任一键被单独淘汰时，剩下的较大值不能被较小的 `rev` 覆盖。
+ */
+export interface RebuildDecisionInput {
+  rev: number;
+  built: number;
+  payloadExists: boolean;
+  forced: boolean;
+}
+
+export interface RebuildDecision {
+  rebuild: boolean;
+  version: number;
+}
+
+export function decideRebuild(input: RebuildDecisionInput): RebuildDecision {
+  const base = Math.max(input.rev, input.built);
+  if (!input.forced && input.payloadExists && base <= input.built) {
+    return { rebuild: false, version: base };
+  }
+  return { rebuild: true, version: input.forced ? base + 1 : base };
+}
 
 /** 只删自己持有的锁，防误删他人的 */
 const RELEASE_LOCK = `
@@ -115,7 +158,13 @@ export class RegistrySnapshotRebuilder
       this.lastBuiltAt === 0 ||
       Date.now() - this.lastBuiltAt >= FORCE_REBUILD_MS;
 
-    if (exists === 1 && !forced && rev <= built) return;
+    const pre = decideRebuild({
+      rev,
+      built,
+      payloadExists: exists === 1,
+      forced
+    });
+    if (!pre.rebuild) return;
 
     const token = `${hostname()}-${process.pid}-${randomUUID()}`;
     const locked = await this.redis.set(
@@ -128,33 +177,52 @@ export class RegistrySnapshotRebuilder
     if (locked === null) return;
 
     try {
+      // 抢锁期间别的实例可能已经写完，按最新状态重算一次
+      const [builtNowRaw, payloadNow, revNowRaw] = await Promise.all([
+        this.redis.get(REGISTRY_BUILT_KEY),
+        this.redis.exists(REGISTRY_SNAPSHOT_KEY),
+        this.redis.get(REGISTRY_REV_KEY)
+      ]);
+      const builtNow = builtNowRaw === null ? -1 : Number(builtNowRaw);
+      const revNow = revNowRaw === null ? 0 : Number(revNowRaw);
+      const decision = decideRebuild({
+        rev: revNow,
+        built: builtNow,
+        payloadExists: payloadNow === 1,
+        forced
+      });
+      if (!decision.rebuild) return;
+      // payload 缺失时不能跳过——那正是要修的损坏态
+      if (payloadNow === 1 && builtNow >= pre.version) return;
+
       // ⚠️ 先读 rev 再读库：反过来会把读库期间的新变更标成已建
-      const version = await this.readRev();
       const snapshot = await buildRegistrySnapshot(
         this.prisma,
-        version,
+        decision.version,
         new Date()
       );
-      await this.redis.eval(
+      const written = await this.redis.eval(
         CONDITIONAL_WRITE,
         2,
         REGISTRY_BUILT_KEY,
         REGISTRY_SNAPSHOT_KEY,
-        String(version),
+        String(decision.version),
         JSON.stringify(snapshot)
       );
+      if (written === 1) {
+        // 兜底抬版后把 rev 抬到同一版本，否则后续 INCR 长期追不上 built
+        await this.redis.eval(
+          RAISE_REV,
+          1,
+          REGISTRY_REV_KEY,
+          String(decision.version)
+        );
+      }
       this.lastBuiltAt = Date.now();
     } finally {
       await this.redis
         .eval(RELEASE_LOCK, 1, REGISTRY_REBUILD_LOCK_KEY, token)
         .catch(() => undefined);
     }
-  }
-
-  private async readRev(): Promise<number> {
-    const value = await this.redis.get(REGISTRY_REV_KEY);
-    if (value === null) return 0;
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
   }
 }
