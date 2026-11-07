@@ -10,8 +10,10 @@ import type { WorkerConfig } from '../config.js';
 import type { Logger } from '../logger.js';
 
 /** server 侧写入的键——与 `apps/nestjs-server` 的 `snapshot.keys.ts` 同值 */
-const BUILT_KEY = 'iot:registry:built';
+export const BUILT_KEY = 'iot:registry:built';
 export const SNAPSHOT_KEY = 'iot:registry:snapshot';
+/** 期望版本号——写路径在 PG 提交后 `INCR`；清理脚本用它判断快照是否落后 */
+export const REGISTRY_REV_KEY = 'iot:registry:rev';
 const WORKER_VERSION_KEY_PREFIX = 'iot:registry:worker-version:';
 
 /** worker 实例当前应用的版本——供 A4 验收轮询，TTL 30 秒 */

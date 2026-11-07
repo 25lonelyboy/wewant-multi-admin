@@ -17,7 +17,8 @@
     "test:coverage": "node scripts/coverage.mjs",
     "tdengine:init": "tsx scripts/tdengine-init.ts",
     "downsample:verify": "tsx scripts/downsample-verify.ts",
-    "subtable:audit": "tsx scripts/subtable-audit.ts"
+    "subtable:audit": "tsx scripts/subtable-audit.ts",
+    "subtable:cleanup": "tsx scripts/subtable-cleanup.ts"
   },
   "dependencies": {
     "@multi-admin/contracts": "workspace:*",
