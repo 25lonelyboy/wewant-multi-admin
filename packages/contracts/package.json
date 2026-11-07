@@ -27,6 +27,7 @@
     "build": "tsdown",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --cache --max-warnings 0",
+    "test": "node --import tsx --test \"src/**/*.spec.ts\"",
     "format": "prettier --check ."
   },
   "keywords": [],
@@ -36,8 +37,10 @@
   "devDependencies": {
     "@multi-admin/eslint-config": "workspace:*",
     "@multi-admin/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
     "eslint": "catalog:",
     "prettier": "catalog:",
-    "tsdown": "catalog:"
+    "tsdown": "catalog:",
+    "tsx": "catalog:"
   }
 }

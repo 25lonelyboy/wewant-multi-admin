@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { BizCode, normalizeLocalId } from '@multi-admin/contracts';
+import { BizCode, checkLocalDeviceId } from '@multi-admin/contracts';
 import {
   DS_DATABASE,
   DS_LEVELS,
@@ -77,10 +77,7 @@ export class DevicesService {
     dto: RegisterDeviceDto,
     dryRun: boolean
   ): Promise<RegisterDeviceResult> {
-    const localDeviceId = normalizeLocalId(dto.localDeviceId);
-    if (localDeviceId === '') {
-      throw this.invalid('localDeviceId');
-    }
+    const localDeviceId = this.checkedLocalDeviceId(dto.localDeviceId);
     const modelCodeCheck = checkModelCode(dto.modelCode);
     if (!modelCodeCheck.ok) {
       throw this.invalid('modelCode');
@@ -373,6 +370,20 @@ export class DevicesService {
     return new BizException(BizCode.VALIDATION_FAILED, '设备注册参数非法', {
       issues: [{ path: field, code: 'invalid' }]
     });
+  }
+
+  /**
+   * 路径参数与请求体里的 `localDeviceId` 都过这一个函数：它要进 MQTT 主题段与 HTTP 路径，
+   * 非法编号无法稳定路由，也不能带进 SQL。
+   */
+  private checkedLocalDeviceId(raw: string): string {
+    const checked = checkLocalDeviceId(raw);
+    if (!checked.ok) {
+      throw new BizException(BizCode.VALIDATION_FAILED, '设备注册参数非法', {
+        issues: [{ path: 'localDeviceId', code: checked.reason }]
+      });
+    }
+    return checked.value;
   }
 
   private conflict(

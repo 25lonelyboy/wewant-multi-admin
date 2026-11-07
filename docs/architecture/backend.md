@@ -144,6 +144,7 @@ Prisma 7 + PostgreSQL，system 五表（User / Role / Menu / UserRole / RoleMenu
 - **TDengine 一次 `ALTER STABLE ADD COLUMN` 只能加一列**（3.4.2.8 实测多列写法语法错误），加列按列展开成多条语句；分钟级新建超表自带 `KEEP 1095`（全案唯一的超表级 KEEP）。
 - **排期**：发布可带 `effectiveFrom`（缺省 `now`）。已有模型的版本必须**严格晚于**当前最新版本的生效时刻、且**晚于 `now`**——既不回溯也不补记（两者都会改写历史数据的解释）；模型的**首个版本**不受此限（尚无历史数据可改写）。事务里前驱 → `SUPERSEDED` 且 `effectiveTo = 新版本.effectiveFrom`；`SUPERSEDED` 只表示「已被后续版本排期覆盖」，不代表已失效。注册可带 `fromAt`（缺省 `now`，**允许早于 now** 作补登），校验 `fromAt ≥ 模型最早版本的 effectiveFrom`，不满足 ⇒ 409 并在 `data.earliestEffectiveFrom` 给出最早可生效时刻；`usage.version` 取 `fromAt` 时刻生效的那一版。
 - **撤销未生效版本**：`DELETE /api/v1/iot/models/:modelCode/versions/:version`。只允许 `effectiveFrom > now` 且是**最新**版本（删中间版本会在前驱与后继之间留无覆盖空档）；撤销后模型必须仍覆盖全部已建档设备的 `fromAt`，否则 409 并列出受影响设备。同一事务内：置空引用该版本的 usage → 删版本行 → 前驱 `effectiveTo` 回填 `null` 并恢复 `ACTIVE`（否则模型没有 `ACTIVE` 版本，后续注册一律 `model-not-active`）。版本号不复用。
+- **`localDeviceId` 是标识符**：设备注册、注销、改期的入口都先过 contracts 的 `checkLocalDeviceId`——归一化后须匹配 `^[a-z0-9][a-z0-9._:-]*$`、长度 ≤ 64，不合法即 400 `VALIDATION_FAILED`，`data.issues[].code` 为 `empty` / `too-long` / `invalid-char`。它要进 MQTT 主题段与 HTTP 路径，非法编号无法稳定路由。
 - **设备 `deviceId` 由平台签发**（16 位、首字母 + 字母数字，`^[A-Z][A-Z0-9]{15}$`），接口不接收。它进子表名与 TAGS 标签值；从库里读回时再过一次 `checkDeviceId` 防脏数据。
 - **幂等是结果幂等**：同 `localDeviceId` 已 `ACTIVE` 且应有子表齐（有聚合时 1 + 3，无聚合时只有 1）即返回首次结果；文档在、表缺一张报 409「结构不一致」，**不自动补**。同一 `localDeviceId` 已注册在别的模型 ⇒ 409。
 - **失败整体回滚**：本次建的表按 `createdTables` 清单**逆序**删除（只删清单里的名字，不按前缀匹配），单张失败重试三次、仍失败记 error 并继续；PG 不落库、没有失败态，`localDeviceId` 不被占用、重试天然可行。`ALTER` 已加上的列不退（TDengine 删不掉列），残留表由审计兜底。

@@ -22,3 +22,33 @@ export function localDeviceIdForIndex(index: number): string {
 export function normalizeLocalId(value: string): string {
   return value.trim().toLowerCase();
 }
+
+/** 本地编号长度上限（归一化后） */
+export const LOCAL_DEVICE_ID_MAX_LENGTH = 64;
+
+/** 归一化后的合法形态：小写字母或数字开头，只含小写字母、数字与 `.` `_` `:` `-` */
+const LOCAL_DEVICE_ID_PATTERN = /^[a-z0-9][a-z0-9._:-]*$/;
+
+export type LocalDeviceIdFailure = 'empty' | 'too-long' | 'invalid-char';
+
+export type LocalDeviceIdCheck =
+  { ok: true; value: string } | { ok: false; reason: LocalDeviceIdFailure };
+
+/**
+ * 本地编号的标识符校验：它要进 MQTT 主题段与 HTTP 路径，不许出现 `/`、`?`、空白等字符。
+ *
+ * 校验与归一化是同一次调用（同 `device-registry` 的标识符函数）：大写先折小写、
+ * 不拒绝；返回的 `value` 才是应当落库与拼 URL 的形态。
+ */
+export function checkLocalDeviceId(raw: string): LocalDeviceIdCheck {
+  const value = normalizeLocalId(raw);
+  if (value === '') return { ok: false, reason: 'empty' };
+  // 长度先判：超长无论字符集如何都必须缩短，先报它更可操作
+  if (value.length > LOCAL_DEVICE_ID_MAX_LENGTH) {
+    return { ok: false, reason: 'too-long' };
+  }
+  if (!LOCAL_DEVICE_ID_PATTERN.test(value)) {
+    return { ok: false, reason: 'invalid-char' };
+  }
+  return { ok: true, value };
+}

@@ -240,6 +240,56 @@ describe('iot 注册路径 (e2e)', () => {
       ).toBe(0);
     });
 
+    it('localDeviceId 不是标识符 ⇒ 400 并给出原因，不落库', async () => {
+      const cases: Array<{ raw: string; reason: string }> = [
+        { raw: 'e2e/reg', reason: 'invalid-char' },
+        { raw: 'e2e reg', reason: 'invalid-char' },
+        { raw: 'a'.repeat(65), reason: 'too-long' },
+        { raw: '   ', reason: 'empty' }
+      ];
+      for (const item of cases) {
+        const res = await post('/iot/devices', {
+          localDeviceId: item.raw,
+          modelCode: `${PREFIX}whatever`
+        });
+        const error = expectError(res, 400);
+        expect(error.code).toBe(BizCode.VALIDATION_FAILED);
+        expect(JSON.stringify(error.data)).toContain(item.reason);
+      }
+      expect(
+        await prisma.iotDevice.count({
+          where: { localDeviceId: { startsWith: 'e2e/reg' } }
+        })
+      ).toBe(0);
+    });
+
+    it('大写 localDeviceId 归一化后注册成功', async () => {
+      const modelCode = `${PREFIX}upper`;
+      expectData(
+        await post('/iot/models', {
+          modelCode,
+          properties: [{ key: 'temperature', kind: 'float', aggregates: [] }],
+          services: [],
+          events: []
+        })
+      );
+      models.add(modelCode);
+
+      const result = expectData<DeviceResult>(
+        await post('/iot/devices', {
+          localDeviceId: 'E2E-REG-UPPER',
+          modelCode
+        })
+      );
+      expect(result.localDeviceId).toBe('e2e-reg-upper');
+      registrations.push({ modelCode, deviceId: result.deviceId });
+
+      const row = await prisma.iotDevice.findUniqueOrThrow({
+        where: { localDeviceId: 'e2e-reg-upper' }
+      });
+      expect(row.status).toBe('ACTIVE');
+    });
+
     it('布尔档位声明 sum 400：推导不出降采样列', async () => {
       const res = await post('/iot/models', {
         modelCode: `${PREFIX}badagg`,
