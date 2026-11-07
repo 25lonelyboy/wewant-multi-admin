@@ -51,7 +51,7 @@ function printReport(report: AuditReport, listAll: boolean): void {
   printBucket(
     '孤儿原始子表',
     report.orphanRaw,
-    '开发环境重置库；正式流程走注销',
+    '用 subtable:cleanup 回收（缺省 dry-run）',
     listAll
   );
   printBucket(

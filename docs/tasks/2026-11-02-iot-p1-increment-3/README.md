@@ -1,12 +1,12 @@
 # IoT 平台 P1 · 增量 3「物模型」· L1 阶段目标
 
-- **状态**：L1 已定稿；S0 已完成（2026-11-02）；D2、D4 已收口（2026-11-03）；S0.5 已完成（2026-11-04）；S1 已完成（2026-11-04）；D2 补版本与版本快照（2026-11-04）；S3 已完成（2026-11-04）；D3 已定稿（2026-11-05）；S2 已完成（2026-11-05）；S4 已完成（2026-11-06）；D1 已定稿（2026-11-07）；S5 已完成（2026-11-07）；D5 已定稿（2026-11-07）；S6 实施计划已定稿（2026-11-07）
+- **状态**：L1 已定稿；S0 已完成（2026-11-02）；D2、D4 已收口（2026-11-03）；S0.5 已完成（2026-11-04）；S1 已完成（2026-11-04）；D2 补版本与版本快照（2026-11-04）；S3 已完成（2026-11-04）；D3 已定稿（2026-11-05）；S2 已完成（2026-11-05）；S4 已完成（2026-11-06）；D1 已定稿（2026-11-07）；S5 已完成（2026-11-07）；D5 已定稿（2026-11-07）；S6 已完成（2026-11-07）
 - **时间窗**：2026-11-02 ~ 11-15（每周 8–10 h）｜下一里程碑 M2 = 2026-12-06
 - **判据**：[阶段地图](../../governance/iot-stage-map.md) §2 —— 新增设备只按物模型注册即可接入，**不改代码**
 - **覆盖层**：治理（并改存储与计算的接口面）
 - **规划上下文**：L0 阶段地图 §1–§3；缺口来源见 [backlog](../../governance/backlog.md) 中物模型相关 7 项
 
-## 当前状态（2026-11-06）
+## 当前状态（2026-11-07）
 
 **已完成**：S0「债务清理与护栏」四项 + 两个计划外缺陷修复（worker 镜像起不来、探针 fail-open）；**D2** 六个子问题全部定案；**D4** 三项全部定案；**S0.5「单设备单子表」** 交付完成——契约与档案去掉采集点层（`TelemetryPayload.localPointId`、`DeviceRecord.singlePoint/points`、`SubtableRef.pointKey` 均已删除，查档失败只剩 `unknown-device`），超表改 `{模型编码}`、子表改 `{模型编码}_{deviceId}`（P1 占位模型编码 `p1`），超表与降采样表的单位列全部删除（降采样行 16 → 13 列）。两条本机实测通过（`ADD COLUMN` 传播到已有子表、列名上限 64 / 表名上限 192）。提交在 master、未推送。
 
@@ -34,7 +34,11 @@
 
 **D5「注销口径与遗产清理」** 已定稿（2026-11-07）——注销不物理删除，设备状态增加 `RETIRED`、同一事务闭合 `usage.toAt`；数据与表保留到自然过期（原始 1095 天、降采样 3650 天，表永久保留），快照纳入退役设备以保证审计不红；返修走同型号复活，换型留后续；排期设备可改期，撤销与注销共用入口（零长区间）；批内同键维持 last-wins + 计数；新增 dry-run 的孤儿清理脚本，审计保持只读。
 
-**下一步**：执行 S6——时间戳边界（+24 h / −90 d）与报文上限（256 KB）、`RETIRED` 生命周期（注销 / 撤销 / 改期 / 复活）、孤儿清理脚本。计划见 [S6 实施计划](2026-11-07-s6-implementation-plan.md)。
+**S6「边界与口径落地」** 交付完成——D4 的两条未落地项与 D5 的全部代码面：时间戳边界（`INGEST_TS_MAX_FUTURE_MS` / `INGEST_TS_MAX_PAST_MS`，闭区间）在消费环查档之前拒收、独立计数 `clockOutOfRange`、日志按秒聚合；报文上限（`IOT_MAX_MESSAGE_BYTES`，默认 256 KiB）在 `send()` 第一行按字节拒收、独立去向 `oversized`、窗口与聚合日志各加一列；`IotDeviceStatus` 加 `RETIRED`（迁移只有一条 `ALTER TYPE … ADD VALUE`），快照与期望集纳入退役设备，仓储方法改名 `listSubtablesOfRegisteredDevices`；生命周期三条新路径——`DELETE` 共用注销与撤销（`toAt = max(now, fromAt)`、行锁、幂等）、`PATCH` 改期（当前与目标都在未来、按新区间重算版本）、`POST` 同型号复活（沿用 `deviceId` 与子表、全版本并集校验、缺表 409 不补）；`localDeviceId` 收紧为标识符（contracts 的 `checkLocalDeviceId`，注册 / 注销 / 改期共用）；孤儿清理脚本 `subtable:cleanup`（缺省 dry-run、三条闸、原始优先、失败重试后继续）。同批修正注册 e2e 与「新版本必须在未来生效」的口径漂移（6 条演进用例补 `effectiveFrom`）。
+
+**S6 验收证据**（2026-11-07）：contracts 单测 6/6；worker 单测 177/177、e2e 10/10（含 `subtable-cleanup.e2e.ts` 的真 TDengine 路径：dry-run 名单与 `--apply` 实删逐名一致、重跑归零）；server 单测 286/286、全量 e2e 77/77——新增 `iot-lifecycle.e2e-spec.ts` 10/10，覆盖注销生效与幂等、注销后快照仍含设备、零长撤销、改期与版本重算、已生效 409、目标早于模型最早版本 409、同型号复活、换型 409、缺表 409、未知设备 404 与非法编号 400；`RETIRED` 迁移在本地非空开发库 `migrate deploy` 成功（未重建库）；`pnpm check`、`pnpm doc:lint` 全绿。
+
+**下一步**：增量 3 的计划子任务已全部完成。已知未解见 [S6 计划](2026-11-07-s6-implementation-plan.md) §8 与本文「已知未修」——告警接收方落地时拆 `out-of-range-ts` 的三因、降采样读取侧按注册表裁剪另立。
 
 **未决**：无。D5 已定稿（[决策卡](2026-11-07-d5-decision-card.md)）。
 
@@ -46,14 +50,16 @@ pnpm --filter @multi-admin/nestjs-server run test:e2e -- test/iot-registry.e2e-s
 pnpm --filter @multi-admin/nestjs-server run test:e2e -- test/iot-registration.e2e-spec.ts
 pnpm --filter @multi-admin/nestjs-server run test:e2e -- test/iot-scheduling.e2e-spec.ts
 pnpm --filter @multi-admin/nestjs-server run test:e2e -- test/iot-snapshot.e2e-spec.ts
+pnpm --filter @multi-admin/nestjs-server run test:e2e -- test/iot-lifecycle.e2e-spec.ts
 pnpm --filter @multi-admin/iot-worker run subtable:audit     # 四桶应全空、退出 0（无快照时退出 2）
+pnpm --filter @multi-admin/iot-worker run subtable:cleanup   # 缺省 dry-run：打印待删名单、不删任何表
 pnpm --filter @multi-admin/iot-worker run downsample:verify  # 无流量时应退出 1
 pnpm check
 ```
 
 **环境注意**：跑 iot-worker 的 e2e 前先 `docker compose stop worker`——两者消费同一队列，worker 会抢走测试 job；worker 现需业务 Redis 的 `REDIS_URL`（快照来源，**指向宿主 `127.0.0.1`**，`.env` 里的 compose 服务名在宿主机解析不到），e2e 用例自行写入 P1 快照。表结构变更后需 `docker compose down -v` 再 `pnpm ops:env-up` 重建（本地开发库可丢）。
 
-**已知未修**（均有触发点，明细在 `.superpowers/sdd/progress.md`，缺口已登记 [backlog](../../governance/backlog.md)）：e2e 的降采样侧证据是构造必然；`healthcheck-core` 的重试分支无单测；结构体内部字段不可查；错钟设备的全部数据会被拒、现象与设备掉线相同（D4 代价，告警接收方缺位）；`asProperties` 在 JSON 损坏时静默返回 `[]`，会建出只有 `ts` 的超表而不是报错（`models.service` / `devices.service` 各一份实现，连同 `toJson` 重复定义）；`DEVICE_ID_ATTEMPTS` 用尽后抛 `duplicate-device`，实际语义是「签发不出唯一编号」；`translateError` 用正则匹配 `already exists` 猜 TDengine 错误，未按错误码判定。
+**已知未修**（均有触发点，明细在 `.superpowers/sdd/progress.md`，缺口已登记 [backlog](../../governance/backlog.md)）：e2e 的降采样侧证据是构造必然；`healthcheck-core` 的重试分支无单测；结构体内部字段不可查；错钟设备的全部数据会被拒、现象与设备掉线相同（D4 代价，告警接收方缺位）；注销后的 `out-of-range-ts` 混装「排期前 / 注销后」两因，告警接收方落地时再拆；复活要求子表齐全，模型演进过的退役设备可能因历史漏建复活失败（报 `schema-mismatch`，由人工或后续补建处理）；清理脚本的新鲜度闸只能降低误删概率（dry-run + 人工确认是第二道闸），降采样仍会读孤儿原始子表（读取侧裁剪另立）；`asProperties` 在 JSON 损坏时静默返回 `[]`，会建出只有 `ts` 的超表而不是报错（`models.service` / `devices.service` 各一份实现，连同 `toJson` 重复定义）；`DEVICE_ID_ATTEMPTS` 用尽后抛 `duplicate-device`，实际语义是「签发不出唯一编号」；`translateError` 用正则匹配 `already exists` 猜 TDengine 错误，未按错误码判定。
 
 ## 过程文件
 
