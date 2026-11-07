@@ -138,10 +138,12 @@ export class TelemetrySubscriberService
       queueRedisUrl: this.config.queueRedisUrl,
       spillDir: this.config.iotSpillDir,
       spillMaxBytes: this.config.iotSpillMaxBytes,
+      maxMessageBytes: this.config.iotMaxMessageBytes,
       logger: {
         info: message => this.logger.log(message),
         warn: message => this.logger.warn(message),
-        error: message => this.logger.error(message)
+        error: message => this.logger.error(message),
+        debug: message => this.logger.debug(message)
       },
       onSpillOverflow: message => this.stopSubscribing(message),
       onSpillFailure: message => this.logger.error(message)
@@ -190,6 +192,8 @@ export class TelemetrySubscriberService
       this.counter.recordEnqueued();
     } else if (disposition === 'spilled') {
       this.counter.recordSpilled();
+    } else if (disposition === 'oversized') {
+      this.counter.recordOversized();
     } else {
       this.counter.recordDropped();
     }
@@ -220,13 +224,14 @@ export class TelemetrySubscriberService
       window.enqueued +
       window.spilled +
       window.dropped +
+      window.oversized +
       window.unreadable +
       rejected;
     if (active === 0) return window;
 
     this.logger.log(
       `telemetry 每秒：入队 ${window.enqueued} / 落缓冲 ${window.spilled} / 丢弃 ${window.dropped}` +
-        ` / 无法读取编号 ${window.unreadable} / ${window.devices} 台设备` +
+        ` / 超限 ${window.oversized} / 无法读取编号 ${window.unreadable} / ${window.devices} 台设备` +
         (rejected > 0 ? `（身份不一致拦截 ${rejected} 条）` : '')
     );
     return window;

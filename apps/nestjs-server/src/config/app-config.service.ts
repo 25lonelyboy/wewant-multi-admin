@@ -67,6 +67,10 @@ export class AppConfigService {
     return this.config.get('IOT_SPILL_MAX_BYTES', { infer: true });
   }
 
+  get iotMaxMessageBytes(): number {
+    return this.config.get('IOT_MAX_MESSAGE_BYTES', { infer: true });
+  }
+
   get jwtAccessSecret(): Env['JWT_ACCESS_SECRET'] {
     return this.config.get('JWT_ACCESS_SECRET', { infer: true });
   }

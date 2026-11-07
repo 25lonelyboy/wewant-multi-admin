@@ -31,25 +31,32 @@ const JOB_OPTIONS = {
  * - `enqueued`：进了队列
  * - `spilled`：队列不可达，落本地缓冲（待补投）
  * - `dropped`：缓冲已超限、或落缓冲本身失败——这一条真的丢了
+ * - `oversized`：报文本身超过字节上限，**在入队之前**就被拒收。它不是 `dropped` 的子集：
+ *   丢弃是"下游暂时不可用"，超限是"这条报文永远不合格"
  */
-export type SendDisposition = 'enqueued' | 'spilled' | 'dropped';
+export type SendDisposition = 'enqueued' | 'spilled' | 'dropped' | 'oversized';
 
-/** 只用到三个方法，收窄依赖便于测试替身 */
+/** 只用到四个方法，收窄依赖便于测试替身 */
 export interface ProducerLogger {
   info(message: string): void;
   warn(message: string): void;
   error(message: string): void;
+  debug(message: string): void;
 }
 
 export interface TelemetryProducerOptions {
   queueRedisUrl: string;
   spillDir: string;
   spillMaxBytes: number;
+  /** 单条报文字节上限；超限在尝试入队之前拒收（落盘路径因此一并覆盖） */
+  maxMessageBytes: number;
   logger: ProducerLogger;
   /** 本地缓冲超限——订阅端据此**停订阅** */
   onSpillOverflow: (message: string) => void;
   /** 写本地失败（磁盘满、权限错）——那时真的会丢，必须响亮 */
   onSpillFailure: (message: string) => void;
+  /** 测试注入固定时钟（超限日志限频用）；生产缺省 `Date.now` */
+  now?: () => number;
 }
 
 /**
@@ -61,12 +68,17 @@ export class TelemetryProducer {
   private readonly queue: Queue;
   private readonly spill: TelemetrySpill;
   private readonly logger: ProducerLogger;
+  private readonly now: () => number;
   private drainTimer: NodeJS.Timeout | null = null;
   private draining = false;
   private overflowed = false;
+  private oversizedTotal = 0;
+  private oversizedInWindow = 0;
+  private oversizedLoggedAt = 0;
 
   constructor(private readonly options: TelemetryProducerOptions) {
     this.logger = options.logger;
+    this.now = options.now ?? Date.now;
     this.spill = new TelemetrySpill(options.spillDir, options.spillMaxBytes);
 
     // ⚠️ 构造 Queue **不 await、不 ping**：队列 Redis 不可达**不得**阻断 API 与订阅端启动。
@@ -109,8 +121,17 @@ export class TelemetryProducer {
   /**
    * 入队；失败则落本地。**不抛**——接入热路径不该被下游异常打断。
    * 返回本条的真实去向，供调用方按去向计数。
+   *
+   * ⚠️ 字节上限判定放在第一行：入队与落本地两条路都收同一条报文，判定必须**先于**两条路，
+   * 否则队列不可达时超限报文会绕过校验落进本地缓冲。按**字节**算，不按字符串 `.length`
+   * ——后者是 UTF-16 码元数，中文 JSON 下差近三倍。
    */
   async send(raw: string): Promise<SendDisposition> {
+    const bytes = Buffer.byteLength(raw, 'utf8');
+    if (bytes > this.options.maxMessageBytes) {
+      this.recordOversized(bytes);
+      return 'oversized';
+    }
     if (this.overflowed) return 'dropped';
     try {
       await this.queue.add(JOB_NAME, raw, JOB_OPTIONS);
@@ -131,6 +152,28 @@ export class TelemetryProducer {
     } catch {
       // 关闭期错误不影响退出
     }
+  }
+
+  /**
+   * 超限日志限频：一台误配置设备会让每条报文都超限，逐条 warn 会刷爆日志。
+   * 每满 1 秒打一条 warn（本秒与累计条数），逐条细节降为 debug。
+   */
+  private recordOversized(bytes: number): void {
+    this.oversizedTotal += 1;
+    this.oversizedInWindow += 1;
+    const now = this.now();
+    if (now - this.oversizedLoggedAt >= 1000) {
+      this.logger.warn(
+        `报文超限（${bytes} > ${this.options.maxMessageBytes} 字节），拒收；` +
+          `本秒 ${this.oversizedInWindow} 条，累计 ${this.oversizedTotal} 条`
+      );
+      this.oversizedInWindow = 0;
+      this.oversizedLoggedAt = now;
+      return;
+    }
+    this.logger.debug(
+      `报文超限（${bytes} > ${this.options.maxMessageBytes} 字节），拒收`
+    );
   }
 
   private async spillOnly(raw: string): Promise<SendDisposition> {

@@ -36,6 +36,13 @@ export const envSchema = z.object({
   IOT_SPILL_DIR: z.string().min(1).default('./.spill'),
   /** 本地缓冲上限（字节）；超过即**停订阅 + 告警**，不静默丢数据 */
   IOT_SPILL_MAX_BYTES: z.coerce.number().int().positive().default(268_435_456),
+  /**
+   * 单条上行报文的字节上限（默认 256 KiB）。超限报文在**入队之前**拒收并计入独立去向
+   * `oversized`——它是"报文本身不合格"，不是"丢弃"（缓冲满 / 落盘失败）。
+   * ⚠️ EMQX 的 `max_packet_size` 保持默认 1 MB 作硬顶：留出 256 KiB–1 MB 这一段，
+   * 误配置的设备才能被应用侧计数到。
+   */
+  IOT_MAX_MESSAGE_BYTES: z.coerce.number().int().positive().default(262_144),
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
   JWT_ACCESS_TTL: z.string().default('15m'),

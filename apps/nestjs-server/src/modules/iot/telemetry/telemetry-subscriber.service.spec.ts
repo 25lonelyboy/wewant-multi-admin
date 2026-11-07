@@ -189,6 +189,24 @@ describe('TelemetrySubscriberService 每秒窗口（按去向分列）', () => {
     expect(window.enqueued).toBe(0);
   });
 
+  it('超限拒收的报文单独成列，不计入入队与丢弃', async () => {
+    const service = new SubscriberWithFake(stubConfig).use(
+      producerReturning('oversized')
+    );
+    service.handleMessage(
+      'wewant/devices/sim-001/telemetry',
+      payload('sim-001')
+    );
+    await settled();
+
+    expect(service.receivedTotal).toBe(0);
+    const window = service.report();
+    expect(window.oversized).toBe(1);
+    expect(window.dropped).toBe(0);
+    expect(window.enqueued).toBe(0);
+    expect(lastLog()).toContain('超限 1');
+  });
+
   it('身份不一致的拦截数单独成列，不与入队数混', async () => {
     const service = new SubscriberWithFake(stubConfig).use(
       producerReturning('enqueued')
@@ -222,7 +240,7 @@ describe('TelemetrySubscriberService 每秒窗口（按去向分列）', () => {
     service.report();
     // 整条模板连续匹配：证明「无法读取编号」是并列列，而非挂在「丢弃」下的括号附注
     expect(lastLog()).toContain(
-      '入队 2 / 落缓冲 0 / 丢弃 0 / 无法读取编号 1 / 1 台设备'
+      '入队 2 / 落缓冲 0 / 丢弃 0 / 超限 0 / 无法读取编号 1 / 1 台设备'
     );
   });
 });

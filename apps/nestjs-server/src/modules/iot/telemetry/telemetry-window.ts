@@ -12,6 +12,11 @@ export interface TelemetryWindow {
   /** 既没入队也没落缓冲——真的丢了 */
   dropped: number;
   /**
+   * 报文本身超过字节上限，在入队之前就被拒收。⚠️ 它不是 `dropped` 的子集：丢弃是
+   * "缓冲满 / 落盘失败"，超限是"报文不合格"，两者排障动作不同。
+   */
+  oversized: number;
+  /**
    * 读不出设备编号的条数（`readLocalDeviceId` 返回 `null`：JSON 解析失败，或解析成功但
    * `localDeviceId` 缺失 / 非字符串 / 空串）。⭐ 与去向**正交**——这类报文原样入队，
    * 同样会 `enqueued` / `spilled` / `dropped`，故单列、不是某个去向的子集。
@@ -29,6 +34,7 @@ export class TelemetryWindowCounter {
   private enqueued = 0;
   private spilled = 0;
   private dropped = 0;
+  private oversized = 0;
   private unreadable = 0;
   private devices = new Set<string>();
 
@@ -42,6 +48,10 @@ export class TelemetryWindowCounter {
 
   recordDropped(): void {
     this.dropped += 1;
+  }
+
+  recordOversized(): void {
+    this.oversized += 1;
   }
 
   recordUnreadable(): void {
@@ -58,12 +68,14 @@ export class TelemetryWindowCounter {
       enqueued: this.enqueued,
       spilled: this.spilled,
       dropped: this.dropped,
+      oversized: this.oversized,
       unreadable: this.unreadable,
       devices: this.devices.size
     };
     this.enqueued = 0;
     this.spilled = 0;
     this.dropped = 0;
+    this.oversized = 0;
     this.unreadable = 0;
     this.devices = new Set<string>();
     return window;
