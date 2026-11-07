@@ -141,7 +141,7 @@
 | D1 决策卡 §2.1 / §2.2 | 「全部 ACTIVE 档案」→「全部在册档案（`ACTIVE` + `RETIRED`）」 |
 | D1 决策卡 §7 第 2 条 | 旧快照窗口的口径改为「封存历史」：`ts < toAt` 仍收、`ts ≥ toAt` 拒 |
 | 注册路径的冲突码 | 拆分 `device-not-active`：`RETIRED` 走复活、其余非 `ACTIVE` 报 `device-not-active` |
-| `DeviceRegistryRepository.listSubtablesOfActiveDevices` | 过滤条件与审计同口径纳入 `RETIRED`，避免两套期望集 |
+| `DeviceRegistryRepository.listSubtablesOfRegisteredDevices` | 过滤条件与审计同口径纳入 `RETIRED`，避免两套期望集 |
 
 ## 3. 定完之后，什么能证明定对了
 
