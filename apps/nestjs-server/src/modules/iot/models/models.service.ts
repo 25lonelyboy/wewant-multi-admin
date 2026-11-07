@@ -22,6 +22,7 @@ import {
 import { BizException } from '../../../common/errors/biz.exception.js';
 import { PrismaService } from '../../../database/prisma.service.js';
 import { Prisma } from '../../../generated/prisma/client.js';
+import { RegistryRevisionService } from '../registry-snapshot/snapshot.revision.js';
 import { TdClientProvider } from '../tdengine/td-client.provider.js';
 import type { TdSql } from '../tdengine/td-client.js';
 import {
@@ -83,7 +84,8 @@ export class ModelsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly td: TdClientProvider
+    private readonly td: TdClientProvider,
+    private readonly revision: RegistryRevisionService
   ) {}
 
   async publish(
@@ -178,6 +180,8 @@ export class ModelsService {
         created.push({ db: DS_DATABASE, name: dsNames[index], kind: 'stable' });
       }
       await this.createModelRows(decl, version, effectiveFrom);
+      // PG 已提交：版本号递增失败只记 error，不影响接口返回
+      await this.revision.bump();
     } catch (error) {
       await dropCreatedTables(td, created, this.logger, {
         modelCode: decl.modelCode
@@ -319,6 +323,9 @@ export class ModelsService {
         nextVersion,
         effectiveFrom
       );
+      // ⚠️ 位置在版本切换提交之后、补建降采样子表之前：④ 是 DDL，不改变快照内容；
+      // 等它跑完再 bump 会让新版本在所有设备补建完之前对 worker 不可见。
+      await this.revision.bump();
     } catch (error) {
       await dropCreatedTables(td, created, this.logger, {
         modelCode: decl.modelCode
@@ -483,7 +490,7 @@ export class ModelsService {
       });
     }
 
-    return this.prisma.$transaction(async tx => {
+    const result = await this.prisma.$transaction(async tx => {
       const model = await tx.iotDeviceModel.findUnique({
         where: { code: modelCode.value },
         include: { versions: { orderBy: { effectiveFrom: 'asc' } } }
@@ -572,6 +579,10 @@ export class ModelsService {
         clearedUsages: cleared.count
       };
     });
+
+    // PG 已提交；撤销改了版本区间与出处，让 worker 尽快看到
+    await this.revision.bump();
+    return result;
   }
 
   /** 所有版本里出现过的属性，键 → 首次出现的声明（用于识别“历史遗留列”与档位变化） */

@@ -24,6 +24,7 @@ import {
   DeviceRegistryRepository,
   type DeviceRow
 } from '../registry/device-registry.repository.js';
+import { RegistryRevisionService } from '../registry-snapshot/snapshot.revision.js';
 import { DeviceIdIssuer } from './device-id-issuer.js';
 import type { RegisterDeviceDto } from './dto/device.dto.js';
 
@@ -68,7 +69,8 @@ export class DevicesService {
     private readonly prisma: PrismaService,
     private readonly td: TdClientProvider,
     private readonly issuer: DeviceIdIssuer,
-    private readonly registry: DeviceRegistryRepository
+    private readonly registry: DeviceRegistryRepository,
+    private readonly revision: RegistryRevisionService
   ) {}
 
   async register(
@@ -265,6 +267,8 @@ export class DevicesService {
         usageVersion,
         fromAt
       );
+      // PG 已提交：版本号递增失败只记 error，不影响接口返回（漏掉的由 60 秒兜底补上）
+      await this.revision.bump();
       return result;
     } catch (error) {
       await dropCreatedTables(td, created, this.logger, {
