@@ -109,7 +109,9 @@ function makeConsumer(
   });
   return new TelemetryConsumer(config, createLogger(config), fakeSnapshot(), {
     writer,
-    worker: fakeWorker()
+    worker: fakeWorker(),
+    // 本文件的 ts 是任意毫秒小值：固定时钟让它们落在时间戳上下界内
+    now: () => 10_000
   });
 }
 

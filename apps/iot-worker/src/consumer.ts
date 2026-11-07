@@ -33,6 +33,8 @@ interface Waiter {
 export interface ConsumerDeps {
   writer?: TdengineWriter;
   worker?: Worker;
+  /** 测试注入固定时钟（时间戳边界判定用）；生产缺省 `Date.now` */
+  now?: () => number;
 }
 
 /**
@@ -48,6 +50,7 @@ export interface ConsumerDeps {
 export class TelemetryConsumer {
   private readonly worker: Worker;
   private readonly writer: TdengineWriter;
+  private readonly now: () => number;
 
   private buffer: PendingRow[] = [];
   private waiters: Waiter[] = [];
@@ -60,6 +63,11 @@ export class TelemetryConsumer {
   private rejected = 0;
   private unknownDevice = 0;
   private outOfRangeTs = 0;
+  /** 时钟越界（`ts` 超出允许的上下界）——与 `outOfRangeTs`（`ts` 不落在 usage 区间）是两回事 */
+  private clockOutOfRange = 0;
+  private clockOutWindowCount = 0;
+  private readonly clockOutDevices = new Set<string>();
+  private clockOutLoggedAt = 0;
   private metricNotInModel = 0;
   private metricInvalidValue = 0;
   private unitMismatch = 0;
@@ -72,6 +80,7 @@ export class TelemetryConsumer {
     private readonly snapshot: SnapshotSource,
     deps: ConsumerDeps = {}
   ) {
+    this.now = deps.now ?? Date.now;
     this.writer =
       deps.writer ??
       new TdengineWriter(
@@ -118,6 +127,7 @@ export class TelemetryConsumer {
       rejected: this.rejected,
       unknownDevice: this.unknownDevice,
       outOfRangeTs: this.outOfRangeTs,
+      clockOutOfRange: this.clockOutOfRange,
       metricNotInModel: this.metricNotInModel,
       metricInvalidValue: this.metricInvalidValue,
       unitMismatch: this.unitMismatch,
@@ -181,6 +191,18 @@ export class TelemetryConsumer {
     if ('reason' in envelope) {
       this.rejected += 1;
       this.logger.warn({ reason: envelope.reason }, '报文不符，丢弃');
+      return null;
+    }
+
+    // 时钟边界在校验设备之前：越界与设备是否存在无关，先挡能避免把错钟设备计成
+    // `unknown-device`。边界取闭区间——恰好等于上/下界放行（D4「超界拒收」）。
+    const now = this.now();
+    const earliest = now - this.config.tsMaxPastMs;
+    const latest = now + this.config.tsMaxFutureMs;
+    if (envelope.ts < earliest || envelope.ts > latest) {
+      this.rejected += 1;
+      this.clockOutOfRange += 1;
+      this.logClockOutOfRange(envelope, now, earliest, latest);
       return null;
     }
 
@@ -264,6 +286,51 @@ export class TelemetryConsumer {
       ts: envelope.ts,
       metrics: filtered.accepted
     };
+  }
+
+  /**
+   * 时钟越界的日志：错钟设备会让**每一条**报文都越界，逐条 warn 会刷屏——与超限同一纪律，
+   * 按秒打一条累计（条数与设备数），逐条细节降为 debug。
+   *
+   * ⚠️ `reason` 用 `clock-out-of-range`，不要写成 `ts-out-of-range`：既有的 `outOfRangeTs`
+   * 是「ts 不落在 usage 区间」，两者差一个词序、语义完全不同，混了排障必读错。
+   */
+  private logClockOutOfRange(
+    envelope: { localDeviceId: string; ts: number },
+    now: number,
+    earliest: number,
+    latest: number
+  ): void {
+    this.clockOutWindowCount += 1;
+    this.clockOutDevices.add(envelope.localDeviceId);
+    const bounds = {
+      reason: 'clock-out-of-range',
+      now,
+      earliest,
+      latest,
+      tsMaxPastMs: this.config.tsMaxPastMs,
+      tsMaxFutureMs: this.config.tsMaxFutureMs
+    };
+
+    if (now - this.clockOutLoggedAt >= 1000) {
+      this.logger.warn(
+        {
+          ...bounds,
+          count: this.clockOutWindowCount,
+          devices: this.clockOutDevices.size
+        },
+        '时间戳越界，已丢弃（按秒聚合）'
+      );
+      this.clockOutWindowCount = 0;
+      this.clockOutDevices.clear();
+      this.clockOutLoggedAt = now;
+      return;
+    }
+
+    this.logger.debug(
+      { ...bounds, localDeviceId: envelope.localDeviceId, ts: envelope.ts },
+      '时间戳越界，丢弃'
+    );
   }
 
   private scheduleFlush(): Promise<void> {

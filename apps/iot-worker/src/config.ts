@@ -73,7 +73,25 @@ const envSchema = z.object({
   /** 降采样开关：关掉只跑消费环（排障用） */
   DOWNSAMPLE_ENABLED: booleanEnv(true),
   /** 每次重算的窗口数 K——晚到数据只要落在最近 K 个窗口内即被自愈 */
-  DOWNSAMPLE_LOOKBACK_WINDOWS: z.coerce.number().int().positive().default(3)
+  DOWNSAMPLE_LOOKBACK_WINDOWS: z.coerce.number().int().positive().default(3),
+  /**
+   * 事件时间戳的允许上界：`ts` 最多超前处理时刻这么久（毫秒，默认 +24 h）。
+   * 错钟设备（时钟快）是唯一来源——`ts` 是设备事件时间，不受网络延迟与队列积压影响。
+   */
+  INGEST_TS_MAX_FUTURE_MS: z.coerce
+    .number()
+    .int()
+    .nonnegative()
+    .default(24 * 3_600_000),
+  /**
+   * 事件时间戳的允许下界：`ts` 最多落后处理时刻这么久（毫秒，默认 90 天）。
+   * 补传是合法场景，下界主要挡 RTC 复位到很久以前的设备。
+   */
+  INGEST_TS_MAX_PAST_MS: z.coerce
+    .number()
+    .int()
+    .nonnegative()
+    .default(90 * 24 * 3_600_000)
 });
 
 export interface WorkerConfig {
@@ -98,6 +116,10 @@ export interface WorkerConfig {
   ingestConcurrency: number;
   downsampleEnabled: boolean;
   downsampleLookbackWindows: number;
+  /** 事件时间戳允许超前处理时刻的上界（毫秒） */
+  tsMaxFutureMs: number;
+  /** 事件时间戳允许落后处理时刻的下界（毫秒） */
+  tsMaxPastMs: number;
 }
 
 /** 读取并校验环境变量；不合法直接抛，不让进程带着半截配置跑起来 */
@@ -125,6 +147,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
     ingestFlushIntervalMs: parsed.data.INGEST_FLUSH_INTERVAL_MS,
     ingestConcurrency: parsed.data.INGEST_CONCURRENCY,
     downsampleEnabled: parsed.data.DOWNSAMPLE_ENABLED,
-    downsampleLookbackWindows: parsed.data.DOWNSAMPLE_LOOKBACK_WINDOWS
+    downsampleLookbackWindows: parsed.data.DOWNSAMPLE_LOOKBACK_WINDOWS,
+    tsMaxFutureMs: parsed.data.INGEST_TS_MAX_FUTURE_MS,
+    tsMaxPastMs: parsed.data.INGEST_TS_MAX_PAST_MS
   };
 }

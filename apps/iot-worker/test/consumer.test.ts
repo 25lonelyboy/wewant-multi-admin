@@ -19,8 +19,8 @@ const TEMPERATURE: PropertyDecl = {
   aggregates: ['sum']
 };
 
-/** `sim-001` 在快照里，声明了一个 float 测点 */
-function fakeSnapshot(): SnapshotSource {
+/** `sim-001` 在快照里，声明了一个 float 测点；`toAt` 可把 usage 闭合（模拟注销） */
+function fakeSnapshot(toAt: string | null = null): SnapshotSource {
   const snapshot: RegistrySnapshot = {
     version: 1,
     builtAt: '2020-01-01T00:00:00.000Z',
@@ -45,7 +45,7 @@ function fakeSnapshot(): SnapshotSource {
         deviceId: 'ABCDEFGHIJKLMNOP',
         modelCode: 'p1',
         fromAt: '2020-01-01T00:00:00.000Z',
-        toAt: null
+        toAt
       }
     ]
   };
@@ -141,7 +141,12 @@ function spyLogger(): SpyLogger {
 function makeConsumer(
   writer: TdengineWriter,
   batchSize: number,
-  deps: { worker?: Worker; logger?: Logger } = {}
+  deps: {
+    worker?: Worker;
+    logger?: Logger;
+    now?: () => number;
+    snapshot?: SnapshotSource;
+  } = {}
 ): TelemetryConsumer {
   const config = loadConfig({
     ...process.env,
@@ -152,10 +157,11 @@ function makeConsumer(
   return new TelemetryConsumer(
     config,
     deps.logger ?? createLogger(config),
-    fakeSnapshot(),
+    deps.snapshot ?? fakeSnapshot(),
     {
       writer,
-      worker: deps.worker ?? fakeWorker().worker
+      worker: deps.worker ?? fakeWorker().worker,
+      ...(deps.now === undefined ? {} : { now: deps.now })
     }
   );
 }
@@ -394,6 +400,97 @@ void test('worker.on("failed") ⇒ 记录 jobId、尝试次数与错误码', asy
       elevated: true,
       err: 'Table does not exist'
     });
+  } finally {
+    await consumer.close();
+  }
+});
+
+/** 固定处理时刻，让上下界可计算 */
+const NOW = Date.parse('2027-01-01T00:00:00.000Z');
+const MAX_FUTURE = 24 * 3_600_000;
+const MAX_PAST = 90 * 24 * 3_600_000;
+
+void test('时钟越界：超前 1 ms 拒，恰好等于上界放行', async () => {
+  const { writer } = fakeWriter(rows => rows.length);
+  const consumer = makeConsumer(writer, 1, { now: () => NOW });
+  try {
+    const run = processor(consumer);
+    await run(job(payload(NOW + MAX_FUTURE + 1)));
+    assert.equal(consumer.stats.clockOutOfRange, 1);
+    assert.equal(consumer.stats.rejected, 1);
+    assert.equal(consumer.stats.written, 0);
+    assert.equal(consumer.stats.unknownDevice, 0, '越界与设备是否存在无关');
+
+    // 闭区间：恰好等于上界放行
+    await run(job(payload(NOW + MAX_FUTURE)));
+    assert.equal(consumer.stats.clockOutOfRange, 1);
+    assert.equal(consumer.stats.written, 1);
+  } finally {
+    await consumer.close();
+  }
+});
+
+void test('时钟越界：落后 1 ms 拒，恰好等于下界放行', async () => {
+  const { writer } = fakeWriter(rows => rows.length);
+  const consumer = makeConsumer(writer, 1, { now: () => NOW });
+  try {
+    const run = processor(consumer);
+    await run(job(payload(NOW - MAX_PAST - 1)));
+    assert.equal(consumer.stats.clockOutOfRange, 1);
+    assert.equal(consumer.stats.written, 0);
+
+    await run(job(payload(NOW - MAX_PAST)));
+    assert.equal(consumer.stats.clockOutOfRange, 1);
+    assert.equal(consumer.stats.written, 1);
+  } finally {
+    await consumer.close();
+  }
+});
+
+void test('时钟越界按秒聚合：首条 warn 带两个边界与设备数，同秒内逐条降为 debug', async () => {
+  const { logger, calls } = spyLogger();
+  const { writer } = fakeWriter(rows => rows.length);
+  let now = NOW;
+  const consumer = makeConsumer(writer, 1, { logger, now: () => now });
+  try {
+    const run = processor(consumer);
+    await run(job(payload(NOW + MAX_FUTURE + 1)));
+    await run(job(payload(NOW + MAX_FUTURE + 2)));
+
+    const warns = calls.filter(call => call.level === 'warn');
+    assert.equal(warns.length, 1, '同一秒内只打一条 warn');
+    const fields = warns[0]?.fields as Record<string, unknown>;
+    assert.equal(fields.reason, 'clock-out-of-range');
+    assert.equal(fields.now, NOW);
+    assert.equal(fields.earliest, NOW - MAX_PAST);
+    assert.equal(fields.latest, NOW + MAX_FUTURE);
+    assert.equal(fields.count, 1);
+    assert.equal(fields.devices, 1);
+    assert.equal(calls.filter(call => call.level === 'debug').length, 1);
+
+    // 下一秒再越界：重新起一条 warn
+    now = NOW + 1_000;
+    await run(job(payload(NOW + 1_000 + MAX_FUTURE + 1)));
+    assert.equal(calls.filter(call => call.level === 'warn').length, 2);
+    assert.equal(consumer.stats.clockOutOfRange, 3);
+  } finally {
+    await consumer.close();
+  }
+});
+
+void test('注销后（usage 已闭合）：ts ≥ toAt 落 outOfRangeTs，不计 unknownDevice', async () => {
+  const toAt = new Date(NOW).toISOString();
+  const { writer } = fakeWriter(rows => rows.length);
+  const consumer = makeConsumer(writer, 1, {
+    now: () => NOW,
+    snapshot: fakeSnapshot(toAt)
+  });
+  try {
+    await processor(consumer)(job(payload(NOW)));
+    assert.equal(consumer.stats.outOfRangeTs, 1);
+    assert.equal(consumer.stats.unknownDevice, 0);
+    assert.equal(consumer.stats.clockOutOfRange, 0, 'ts 本身在时钟边界内');
+    assert.equal(consumer.stats.written, 0);
   } finally {
     await consumer.close();
   }
