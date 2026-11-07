@@ -48,13 +48,13 @@ export type PendingRow = {
  * 而不是与 JS 值的类型一致：连接器按声明类型编码，选错会写坏或报错。
  */
 export type ColumnKind =
-  'timestamp' | 'float' | 'double' | 'bigint' | 'varchar';
+  'timestamp' | 'bool' | 'int' | 'float' | 'double' | 'bigint' | 'varchar';
 
 /** INSERT 的一列：列名、绑定类型、该行的取值 */
 export interface WriteColumn {
   name: string;
   kind: ColumnKind;
-  value: number | bigint | string | null;
+  value: number | bigint | string | boolean | null;
 }
 
 /**
@@ -123,23 +123,29 @@ export function insertSql(
 function bindColumn(
   params: TdParams,
   kind: ColumnKind,
-  values: (number | bigint | string | null)[]
+  values: (number | bigint | string | boolean | null)[]
 ): void {
   switch (kind) {
     case 'timestamp':
       params.setTimestamp(values as number[]);
       break;
+    case 'bool':
+      params.setBoolean(values as boolean[]);
+      break;
+    case 'int':
+      params.setInt(values as number[]);
+      break;
     case 'float':
-      params.setFloat(values);
+      params.setFloat(values as number[]);
       break;
     case 'double':
-      params.setDouble(values);
+      params.setDouble(values as number[]);
       break;
     case 'bigint':
-      params.setBigint(values);
+      params.setBigint(values as (bigint | number)[]);
       break;
     case 'varchar':
-      params.setVarchar(values);
+      params.setVarchar(values as string[]);
       break;
   }
 }

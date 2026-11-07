@@ -4,6 +4,7 @@ export * from './naming.js';
 export * from './device-id.js';
 export * from './p1.js';
 export * from './column-type.js';
+export * from './snapshot.js';
 export * from './identifier.js';
 export * from './model-types.js';
 export * from './model-validate.js';
