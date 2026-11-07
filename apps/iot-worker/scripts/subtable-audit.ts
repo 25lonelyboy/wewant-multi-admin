@@ -1,7 +1,11 @@
-import { p1DeviceRegistry } from '@multi-admin/device-registry';
 import { loadConfig } from '../src/config.js';
+import { readSnapshotOnce } from '../src/snapshot/read.js';
 import { connectTd, destroyTd } from '../src/tdengine/client.js';
-import { auditSubtables, type AuditReport } from '../src/subtables/audit.js';
+import {
+  auditSubtables,
+  expectedFromSnapshot,
+  type AuditReport
+} from '../src/subtables/audit.js';
 
 interface CliOptions {
   json: boolean;
@@ -63,7 +67,15 @@ function printReport(report: AuditReport, listAll: boolean): void {
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const config = loadConfig();
-  const expected = p1DeviceRegistry.allSubtables();
+  const snapshot = await readSnapshotOnce(config.redisUrl);
+  if (snapshot === null) {
+    console.error(
+      '✖ 业务 Redis 里没有档案快照（iot:registry:snapshot）：先启动 server 让它重建快照，再跑审计'
+    );
+    process.exitCode = 2;
+    return;
+  }
+  const expected = expectedFromSnapshot(snapshot);
   const sql = await connectTd(config.tdengineUrl);
 
   try {

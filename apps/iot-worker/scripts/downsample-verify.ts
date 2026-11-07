@@ -1,9 +1,10 @@
 import {
   DS_LEVELS,
-  p1DeviceRegistry,
+  subtableName,
   type DsLevel
 } from '@multi-admin/device-registry';
 import { loadConfig } from '../src/config.js';
+import { readSnapshotOnce } from '../src/snapshot/read.js';
 import { connectTd, destroyTd } from '../src/tdengine/client.js';
 import { RAW_DATABASE } from '../src/schema.js';
 import {
@@ -186,10 +187,23 @@ async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const config = loadConfig();
 
-  // 期望标签：建表端按注册表写死 ⇒ 这里也用注册表作为期望来源
-  const subtables = p1DeviceRegistry.allSubtables();
-  const modelCodes = [...new Set(subtables.map(sub => sub.modelCode))];
-  const deviceIds = new Map(subtables.map(sub => [sub.name, sub.deviceId]));
+  const snapshot = await readSnapshotOnce(config.redisUrl);
+  if (snapshot === null) {
+    console.error(
+      '✖ 业务 Redis 里没有档案快照（iot:registry:snapshot）：先启动 server 让它重建快照，再跑对账'
+    );
+    process.exitCode = 2;
+    return;
+  }
+  const models = snapshot.models;
+  // 期望标签：建表端按快照写死 ⇒ 这里也用快照作为期望来源
+  const deviceIds = new Map<string, string>();
+  for (const device of snapshot.devices) {
+    deviceIds.set(
+      subtableName(device.modelCode, device.deviceId),
+      device.deviceId
+    );
+  }
   const deviceIdFor = (rawName: string): string | null =>
     deviceIds.get(rawName) ?? null;
 
@@ -206,11 +220,16 @@ async function main(): Promise<void> {
 
     let failures = 0;
     let informational = 0;
-    for (const modelCode of modelCodes) {
+    for (const model of models) {
       for (const level of options.levels) {
+        const columns = model.dsColumns.filter(
+          column => column.level === level
+        );
+        // 模型从未声明聚合 ⇒ 该级没有表，跳过
+        if (columns.length === 0) continue;
         const result = await verifyLevel(
           sql,
-          modelCode,
+          model.modelCode,
           level,
           options.nowMs,
           {
@@ -218,6 +237,7 @@ async function main(): Promise<void> {
             windows: options.windows,
             skip: options.skip
           },
+          columns,
           deviceIdFor
         );
         const counts = printLevel(result);
@@ -228,7 +248,10 @@ async function main(): Promise<void> {
       }
     }
 
-    const tableIssues = await checkTablesNonEmpty(sql, modelCodes);
+    const dsModels = models
+      .filter(model => model.dsColumns.length > 0)
+      .map(model => model.modelCode);
+    const tableIssues = await checkTablesNonEmpty(sql, dsModels);
     if (tableIssues.length === 0) {
       console.log('  输出表：✔ 各模型三条存在且非空');
     } else {

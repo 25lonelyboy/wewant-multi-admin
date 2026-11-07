@@ -26,6 +26,16 @@ export function rawStableName(modelCode: string): string {
   return modelCode.toLowerCase();
 }
 
+/**
+ * 子表名：`{模型编码}_{deviceId}`。
+ *
+ * ⚠️ TDengine 的标识符**不分大小写、存储时折成小写** ⇒ 这里直接给折小写后的形态，
+ * 建表脚本与写入端才拿到同一个字符串。**标签值不折**，设备标识仍以原样入标签。
+ */
+export function subtableName(modelCode: string, deviceId: string): string {
+  return `${modelCode}_${deviceId}`.toLowerCase();
+}
+
 /** 降采样超表名：`{模型编码}_{级别}`，折小写（同 `rawStableName`） */
 export function dsStableName(modelCode: string, level: DsLevel): string {
   return `${modelCode}_${level}`.toLowerCase();

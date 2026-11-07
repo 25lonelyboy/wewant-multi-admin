@@ -1,8 +1,42 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { dsColumnsOf } from './model-derive.js';
-import { P1_MODEL } from './p1-model.js';
-import type { PropertyDecl, PropertyKind } from './model-types.js';
+import {
+  AGGREGATES,
+  type ModelDeclaration,
+  type PropertyDecl,
+  type PropertyKind
+} from './model-types.js';
+
+/** P1 三测点——测试夹具，与种子数据同形 */
+const P1_MODEL: ModelDeclaration = {
+  modelCode: 'p1',
+  properties: [
+    {
+      key: 'temperature',
+      kind: 'float',
+      unit: '°C',
+      range: { min: -50, max: 200 },
+      aggregates: AGGREGATES
+    },
+    {
+      key: 'vibration',
+      kind: 'float',
+      unit: 'mm/s',
+      range: { min: 0, max: 100 },
+      aggregates: AGGREGATES
+    },
+    {
+      key: 'current',
+      kind: 'float',
+      unit: 'A',
+      range: { min: 0, max: 100 },
+      aggregates: AGGREGATES
+    }
+  ],
+  services: [],
+  events: []
+};
 
 void test('P1 三测点推出 12 列，列名与列类型逐字一致', () => {
   const result = dsColumnsOf(P1_MODEL.properties);

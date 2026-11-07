@@ -3,9 +3,10 @@ import {
   dsLevelSuffix,
   dsStableName,
   dsSubtableName,
-  type DsLevel
+  type DsLevel,
+  type SnapshotDsColumn
 } from '@multi-admin/device-registry';
-import { DS_DATABASE, RAW_METRICS, type RawMetric } from '../schema.js';
+import { DS_DATABASE } from '../schema.js';
 import type { TdRow } from '../tdengine/client.js';
 import type { DsLevelSpec } from './level.js';
 import { levelSpec } from './level.js';
@@ -13,7 +14,7 @@ import { buildAggregateSql } from './query.js';
 import {
   parseAggregateRows,
   type DsAggregateRow,
-  type DsMetricAggregate
+  type DsValue
 } from './rows.js';
 import { closedWindowRange, type WindowSpec } from './window.js';
 
@@ -51,7 +52,10 @@ interface VerifiedRow {
   rawName: string;
   ts: number;
   deviceId: string | null;
-  metrics: Record<RawMetric, DsMetricAggregate>;
+  /** 该级参与比对的列；两侧共用同一份清单 */
+  columns: readonly SnapshotDsColumn[];
+  /** 列名 → 值 */
+  metrics: Readonly<Record<string, DsValue>>;
 }
 
 /** 已校验的窗口范围 */
@@ -120,24 +124,21 @@ export function checkedWindowRange(
 }
 
 /**
- * 降采样读 SELECT 的列名，**一处定义**：`tbname`、`ts`、每测点 `sum/count/min/max`、`deviceId`。
+ * 降采样读 SELECT 的列名，由**该级的列清单**生成：`tbname`、`ts`、各聚合列、`deviceId`。
  *
  * ⭐ 前两段的**列序刻意与 `query.ts` 的 `buildAggregateSql` 对齐**，于是两侧可共用
- * `parseAggregateRows`；`DS_DEVICE_ID_INDEX` 由本函数推导，`buildDsReadSql` 也用它拼 SELECT——
- * 三者绑在同一条列表上，改列序即同步（并有单测把与 `buildAggregateSql` 的对齐钉死，漂移即失败）。
+ * `parseAggregateRows`；`deviceId` 下标由本函数推导，`buildDsReadSql` 也用它拼 SELECT。
  */
-export function dsSelectColumns(): string[] {
-  const aggregates = RAW_METRICS.flatMap(metric => [
-    `sum_${metric}`,
-    `count_${metric}`,
-    `min_${metric}`,
-    `max_${metric}`
-  ]);
-  return ['tbname', 'ts', ...aggregates, 'deviceId'];
+export function dsSelectColumns(
+  columns: readonly SnapshotDsColumn[]
+): string[] {
+  return ['tbname', 'ts', ...columns.map(column => column.name), 'deviceId'];
 }
 
 /** `deviceId` 在降采样读结果里的列下标——由 `dsSelectColumns` 推导，改列序即随之改变 */
-export const DS_DEVICE_ID_INDEX = dsSelectColumns().indexOf('deviceId');
+export function dsDeviceIdIndex(columns: readonly SnapshotDsColumn[]): number {
+  return dsSelectColumns(columns).indexOf('deviceId');
+}
 
 /**
  * 把差异按窗口是否落在**环的 K 契约区**内分开。
@@ -173,10 +174,11 @@ export function buildDsReadSql(
   modelCode: string,
   spec: DsLevelSpec,
   startMs: number,
-  endMs: number
+  endMs: number,
+  columns: readonly SnapshotDsColumn[]
 ): string {
   return [
-    `SELECT ${dsSelectColumns().join(', ')}`,
+    `SELECT ${dsSelectColumns(columns).join(', ')}`,
     `FROM ${DS_DATABASE}.${dsStableName(modelCode, spec.level)}`,
     `WHERE ts >= ${startMs} AND ts < ${endMs}`
   ].join(' ');
@@ -210,6 +212,7 @@ export function expectedRows(
     rawName: row.tbname,
     ts: row.ts,
     deviceId: null, // 原始聚合读不含标签；期望标签由调用方按注册表另配
+    columns: row.columns,
     metrics: row.metrics
   }));
 }
@@ -217,20 +220,34 @@ export function expectedRows(
 /** 降采样侧：读结果 → 对账行（含 deviceId 标签列） */
 export function parseDsRows(
   rows: readonly TdRow[],
-  level: DsLevel
+  level: DsLevel,
+  columns: readonly SnapshotDsColumn[]
 ): VerifiedRow[] {
-  const parsed = parseAggregateRows(rows, level);
+  const parsed = parseAggregateRows(rows, level, columns);
+  const deviceIdIndex = dsDeviceIdIndex(columns);
   return parsed.map((row, index) => ({
     key: verifiedKey(row.tbname, row.ts),
     rawName: stripLevel(row.tbname, level),
     ts: row.ts,
-    deviceId: nullSafeString(rows[index]?.[DS_DEVICE_ID_INDEX]),
+    deviceId: nullSafeString(rows[index]?.[deviceIdIndex]),
+    columns: row.columns,
     metrics: row.metrics
   }));
 }
 
-function fmt(value: string | number | bigint | null): string {
+function fmt(value: DsValue): string {
   return value === null ? 'NULL' : String(value);
+}
+
+/** count（BIGINT）与布尔精确比较；sum/min/max 数值按浮点容差 */
+function valuesEqual(a: DsValue, b: DsValue): boolean {
+  if (a === null || b === null) return a === b;
+  if (typeof a === 'bigint' || typeof b === 'bigint') {
+    return String(a) === String(b);
+  }
+  if (typeof a === 'boolean' || typeof b === 'boolean') return a === b;
+  if (typeof a === 'string' || typeof b === 'string') return a === b;
+  return floatEqual(a, b);
 }
 
 function nullSafeEqual(a: string | null, b: string | null): boolean {
@@ -318,21 +335,11 @@ export function compareAggregates(
       push('deviceId', fmt(expectedDeviceId), fmt(act.deviceId));
     }
 
-    for (const metric of RAW_METRICS) {
-      const e = exp.metrics[metric];
-      const a = act.metrics[metric];
-      // count 精确（BIGINT）
-      if (e.count !== a.count) {
-        push(`count_${metric}`, e.count.toString(), a.count.toString());
-      }
-      if (!floatEqual(e.sum, a.sum)) {
-        push(`sum_${metric}`, fmt(e.sum), fmt(a.sum));
-      }
-      if (!floatEqual(e.min, a.min)) {
-        push(`min_${metric}`, fmt(e.min), fmt(a.min));
-      }
-      if (!floatEqual(e.max, a.max)) {
-        push(`max_${metric}`, fmt(e.max), fmt(a.max));
+    for (const column of exp.columns) {
+      const e = exp.metrics[column.name] ?? null;
+      const a = act.metrics[column.name] ?? null;
+      if (!valuesEqual(e, a)) {
+        push(column.name, fmt(e), fmt(a));
       }
     }
   }
@@ -391,19 +398,22 @@ async function readAndCompare(
   spec: DsLevelSpec,
   level: DsLevel,
   range: CheckRange,
+  columns: readonly SnapshotDsColumn[],
   deviceIdFor: (rawName: string) => string | null
 ): Promise<PassResult> {
   const rawAggregates = parseAggregateRows(
     await query.query(
-      buildAggregateSql(modelCode, spec, range.startMs, range.endMs)
+      buildAggregateSql(modelCode, spec, range.startMs, range.endMs, columns)
     ),
-    level
+    level,
+    columns
   );
   const dsRows = parseDsRows(
     await query.query(
-      buildDsReadSql(modelCode, spec, range.startMs, range.endMs)
+      buildDsReadSql(modelCode, spec, range.startMs, range.endMs, columns)
     ),
-    level
+    level,
+    columns
   );
   const expected = expectedRows(rawAggregates, level);
   return {
@@ -432,6 +442,7 @@ export async function verifyLevel(
   level: DsLevel,
   nowMs: number,
   options: CheckRangeOptions,
+  columns: readonly SnapshotDsColumn[],
   deviceIdFor: (rawName: string) => string | null = () => null
 ): Promise<LevelVerifyResult> {
   const spec = levelSpec(level);
@@ -443,6 +454,7 @@ export async function verifyLevel(
     spec,
     level,
     range,
+    columns,
     deviceIdFor
   );
   if (pass.mismatches.length > 0) {
@@ -453,6 +465,7 @@ export async function verifyLevel(
       spec,
       level,
       range,
+      columns,
       deviceIdFor
     );
   }

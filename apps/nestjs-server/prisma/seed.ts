@@ -6,7 +6,11 @@
 import { pathToFileURL } from 'node:url';
 import * as argon2 from 'argon2';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { P1_MODEL, p1DeviceRecords } from '@multi-admin/device-registry';
+import { localDeviceIdForIndex } from '@multi-admin/contracts';
+import {
+  AGGREGATES,
+  type ModelDeclaration
+} from '@multi-admin/device-registry';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import {
   BUTTON_ACTIONS,
@@ -230,6 +234,70 @@ export async function runSeed(prisma: PrismaClient): Promise<void> {
   // 6. iot：p1 模型 + 版本 1，以及 100 台 P1 设备与各自的 open usage。
   // 设备标识一律取自 p1DeviceRecords()——那份映射有「有数据即冻结」的约束，不在此重新推导。
   await seedP1Registry(prisma);
+}
+
+/**
+ * P1 的物模型与设备档案——**种子数据**，不是运行期档案（运行期来自注册接口与快照）。
+ * 三个数值测点，各声明四类聚合；量程与 worker 的过滤口径同源。
+ */
+const P1_MODEL_CODE = 'p1';
+const P1_DEVICE_COUNT = 100;
+
+const P1_MODEL: ModelDeclaration = {
+  modelCode: P1_MODEL_CODE,
+  properties: [
+    {
+      key: 'temperature',
+      kind: 'float',
+      unit: '°C',
+      range: { min: -50, max: 200 },
+      aggregates: AGGREGATES
+    },
+    {
+      key: 'vibration',
+      kind: 'float',
+      unit: 'mm/s',
+      range: { min: 0, max: 100 },
+      aggregates: AGGREGATES
+    },
+    {
+      key: 'current',
+      kind: 'float',
+      unit: 'A',
+      range: { min: 0, max: 100 },
+      aggregates: AGGREGATES
+    }
+  ],
+  services: [],
+  events: []
+};
+
+const DEVICE_ID_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+const DEVICE_ID_LEAD_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const DEVICE_ID_LENGTH = 16;
+
+/** 由序号**确定性**地推出平台标识；映射一旦有数据就冻结，不重新推导 */
+function deriveDeviceId(index: number): string {
+  let state = Math.imul(index, 2654435761) >>> 0;
+  let out = '';
+  for (let i = 0; i < DEVICE_ID_LENGTH; i += 1) {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    const alphabet = i === 0 ? DEVICE_ID_LEAD_ALPHABET : DEVICE_ID_ALPHABET;
+    out += alphabet.charAt(state % alphabet.length);
+  }
+  return out;
+}
+
+function p1DeviceRecords(count = P1_DEVICE_COUNT): {
+  localDeviceId: string;
+  deviceId: string;
+  modelCode: string;
+}[] {
+  return Array.from({ length: count }, (_, i) => ({
+    localDeviceId: localDeviceIdForIndex(i + 1),
+    deviceId: deriveDeviceId(i + 1),
+    modelCode: P1_MODEL_CODE
+  }));
 }
 
 const P1_MODEL_VERSION = 1;

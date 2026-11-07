@@ -1,8 +1,9 @@
 import {
   DS_LEVELS,
   dsStableName,
-  p1DeviceRegistry,
-  rawStableName
+  rawStableName,
+  subtableName,
+  type SubtableRef
 } from '@multi-admin/device-registry';
 import { loadConfig } from '../src/config.js';
 import { connectTd, destroyTd, type TdSql } from '../src/tdengine/client.js';
@@ -16,6 +17,41 @@ import {
   createRawStableStatement,
   createSubtableStatement
 } from '../src/schema.js';
+
+/**
+ * ⚠️ **dev-only**：本脚本是本地开发用的「P1 遗留」建库捷径，与运行期档案无关。
+ * 生产与 e2e 的建表走 server 注册接口；本脚本的 P1 测点与 100 台设备命名在这里写死。
+ */
+const P1_MODEL_CODE = 'p1';
+const P1_METRICS = ['temperature', 'vibration', 'current'] as const;
+const P1_DEVICE_COUNT = 100;
+
+const DEVICE_ID_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+const DEVICE_ID_LEAD_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const DEVICE_ID_LENGTH = 16;
+
+/** 与 seed 同源的确定性映射；映射一旦有数据就冻结 */
+function deriveDeviceId(index: number): string {
+  let state = Math.imul(index, 2654435761) >>> 0;
+  let out = '';
+  for (let i = 0; i < DEVICE_ID_LENGTH; i += 1) {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    const alphabet = i === 0 ? DEVICE_ID_LEAD_ALPHABET : DEVICE_ID_ALPHABET;
+    out += alphabet.charAt(state % alphabet.length);
+  }
+  return out;
+}
+
+function p1Subtables(): SubtableRef[] {
+  return Array.from({ length: P1_DEVICE_COUNT }, (_, i) => {
+    const deviceId = deriveDeviceId(i + 1);
+    return {
+      name: subtableName(P1_MODEL_CODE, deviceId),
+      deviceId,
+      modelCode: P1_MODEL_CODE
+    };
+  });
+}
 
 /**
  * 窗口对齐取**服务器时区**，配错了不会报错、只会把数据分进错的窗口——所以这里显式断言。
@@ -66,14 +102,14 @@ async function main(): Promise<void> {
     }
     console.log(`  ✔ 建库：${RAW_DATABASE} / ${DS_DATABASE}`);
 
-    const subtables = p1DeviceRegistry.allSubtables();
+    const subtables = p1Subtables();
     // ⚠️ 建表与降采样计算必须同形：都按档案里出现过的模型编码逐个处理
     const modelCodes = [...new Set(subtables.map(sub => sub.modelCode))];
 
     for (const modelCode of modelCodes) {
-      await sql.exec(createRawStableStatement(modelCode));
+      await sql.exec(createRawStableStatement(modelCode, P1_METRICS));
       console.log(`  ✔ 超表：${RAW_DATABASE}.${rawStableName(modelCode)}`);
-      for (const statement of createDsStableStatements(modelCode)) {
+      for (const statement of createDsStableStatements(modelCode, P1_METRICS)) {
         await sql.exec(statement);
       }
       await sql.exec(alterDsMinuteKeepStatement(modelCode));

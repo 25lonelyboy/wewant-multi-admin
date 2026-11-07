@@ -1,8 +1,8 @@
 import {
   DS_LEVELS,
-  dsStableName,
   dsSubtableName,
-  rawStableName
+  subtableName,
+  type RegistrySnapshot
 } from '@multi-admin/device-registry';
 import type { TdRow } from '../tdengine/client.js';
 import { DS_DATABASE, RAW_DATABASE } from '../schema.js';
@@ -16,6 +16,27 @@ export interface ExpectedSubtable {
   name: string;
   deviceId: string;
   modelCode: string;
+}
+
+/**
+ * 期望集来自档案快照：`devices[]` 展开原始子表名（含历史 usage，换型后旧子表仍合法）。
+ *
+ * ⚠️ 期望集为空时 `auditSubtables` 会拒绝判定——快照没读到时不能把整库判成孤儿。
+ */
+export function expectedFromSnapshot(
+  snapshot: RegistrySnapshot
+): ExpectedSubtable[] {
+  const byName = new Map<string, ExpectedSubtable>();
+  for (const device of snapshot.devices) {
+    const name = subtableName(device.modelCode, device.deviceId);
+    if (byName.has(name)) continue;
+    byName.set(name, {
+      name,
+      deviceId: device.deviceId,
+      modelCode: device.modelCode
+    });
+  }
+  return [...byName.values()];
 }
 
 export interface AuditReport {
@@ -61,27 +82,24 @@ export async function auditSubtables(
   }
 
   const rows = await query.query(
-    `SELECT stable_name, table_name FROM information_schema.ins_tables ` +
+    `SELECT db_name, stable_name, table_name FROM information_schema.ins_tables ` +
       `WHERE db_name IN ('${RAW_DATABASE}', '${DS_DATABASE}')`
   );
 
-  const modelCodes = [...new Set(expected.map(sub => sub.modelCode))];
-  const rawStables = new Set(modelCodes.map(rawStableName));
-  const dsStables = new Set(
-    modelCodes.flatMap(modelCode =>
-      DS_LEVELS.map(level => dsStableName(modelCode, level))
-    )
-  );
+  const rawDb = RAW_DATABASE.toLowerCase();
+  const dsDb = DS_DATABASE.toLowerCase();
   const existingRaw = new Set<string>();
   const existingDs = new Set<string>();
 
   for (const row of rows) {
-    const stable = textCell(row[0]).toLowerCase();
-    const table = textCell(row[1]).toLowerCase();
+    const db = textCell(row[0]).toLowerCase();
+    const stable = textCell(row[1]).toLowerCase();
+    const table = textCell(row[2]).toLowerCase();
     // 超表自身的行不算子表
     if (table === '' || table === stable) continue;
-    if (rawStables.has(stable)) existingRaw.add(table);
-    else if (dsStables.has(stable)) existingDs.add(table);
+    // ⭐ 不看 stable 是否仍在期望模型里：整个模型退场后，它的子表必须仍被报成孤儿
+    if (db === rawDb) existingRaw.add(table);
+    else if (db === dsDb) existingDs.add(table);
   }
 
   const wantRaw = new Set(expected.map(sub => sub.name));
