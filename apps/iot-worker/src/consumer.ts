@@ -3,24 +3,22 @@ import {
   TELEMETRY_INGEST_QUEUE,
   TELEMETRY_QUEUE_PREFIX
 } from '@multi-admin/contracts';
-import { p1DeviceRegistry } from '@multi-admin/device-registry';
 import type { WorkerConfig } from './config.js';
-import { detect } from './detection.js';
+import { parseEnvelope } from './detection.js';
 import {
   classifyWriteError,
   UnrecoverableWriteError,
   type WriteFailure
 } from './failure.js';
+import { filterByDeclaration } from './filter.js';
 import type { Logger } from './logger.js';
-import { ResolveCache } from './registry-cache.js';
+import { resolvePoint } from './resolve.js';
+import type { SnapshotSource } from './snapshot/client.js';
 import {
   RAW_CODEC,
   TdengineWriter,
   type PendingRow
 } from './tdengine/writer.js';
-
-/** 查档结果的缓存有效期：档案一变，最多等这么久生效 */
-const CACHE_TTL_MS = 5 * 60 * 1000;
 
 interface Waiter {
   resolve: () => void;
@@ -49,7 +47,6 @@ export interface ConsumerDeps {
  */
 export class TelemetryConsumer {
   private readonly worker: Worker;
-  private readonly cache: ResolveCache;
   private readonly writer: TdengineWriter;
 
   private buffer: PendingRow[] = [];
@@ -61,15 +58,20 @@ export class TelemetryConsumer {
   private received = 0;
   private written = 0;
   private rejected = 0;
-  private unknownMetrics = 0;
+  private unknownDevice = 0;
+  private outOfRangeTs = 0;
+  private metricNotInModel = 0;
+  private metricInvalidValue = 0;
+  private unitMismatch = 0;
+  private emptyAfterFilter = 0;
   private duplicateInBatch = 0;
 
   constructor(
     private readonly config: WorkerConfig,
     private readonly logger: Logger,
+    private readonly snapshot: SnapshotSource,
     deps: ConsumerDeps = {}
   ) {
-    this.cache = new ResolveCache(p1DeviceRegistry, CACHE_TTL_MS);
     this.writer =
       deps.writer ??
       new TdengineWriter(
@@ -114,7 +116,12 @@ export class TelemetryConsumer {
       received: this.received,
       written: this.written,
       rejected: this.rejected,
-      unknownMetrics: this.unknownMetrics,
+      unknownDevice: this.unknownDevice,
+      outOfRangeTs: this.outOfRangeTs,
+      metricNotInModel: this.metricNotInModel,
+      metricInvalidValue: this.metricInvalidValue,
+      unitMismatch: this.unitMismatch,
+      emptyAfterFilter: this.emptyAfterFilter,
       duplicateInBatch: this.duplicateInBatch
     };
   }
@@ -152,7 +159,12 @@ export class TelemetryConsumer {
     });
   }
 
-  /** 解析 → 检测 → 查档 → 攒批用的行；不该入库的返回 `null`（正常 ack） */
+  /**
+   * 解析 → 按 ts 判设备与版本 → 按声明过滤 → 攒批用的行；不该入库的返回 `null`（正常 ack）。
+   *
+   * ⚠️ 顺序与旧版相反（旧版先检测后查档）：先拿到 `localDeviceId` 与 `ts`，才能从快照取该时刻
+   * 的声明。倒过来之后，未知设备与未知属性都能带上 `localDeviceId` 打日志。
+   */
   private toRow(data: unknown): PendingRow | null {
     this.received += 1;
 
@@ -165,38 +177,26 @@ export class TelemetryConsumer {
       return null;
     }
 
-    const detected = detect(data);
-    if (!detected.ok) {
+    const envelope = parseEnvelope(data);
+    if ('reason' in envelope) {
       this.rejected += 1;
-      // ⭐ 全列皆未知也要把上报的 key 带出来——"告警必须带 key"，否则人只知道"有未知测点"
-      if (detected.unknownMetricKeys.length > 0) {
-        this.unknownMetrics += detected.unknownMetricKeys.length;
-        this.logger.warn(
-          { reason: detected.reason, keys: detected.unknownMetricKeys },
-          '报文测点全不可用，丢弃（带上报的 key）'
-        );
-      } else {
-        this.logger.warn({ reason: detected.reason }, '报文不符，丢弃');
-      }
+      this.logger.warn({ reason: envelope.reason }, '报文不符，丢弃');
       return null;
     }
 
-    const { sample } = detected;
-    if (sample.unknownMetricKeys.length > 0) {
-      this.unknownMetrics += sample.unknownMetricKeys.length;
-      // ⚠️ 告警必须带上报的那个 key，否则人只知道"有未知测点"，不知道多了什么
-      this.logger.warn(
-        { localDeviceId: sample.localDeviceId, keys: sample.unknownMetricKeys },
-        '未知测点，只丢这些测点'
-      );
-    }
-
-    const resolved = this.cache.resolve(sample.localDeviceId);
+    const resolved = resolvePoint(
+      this.snapshot.currentIndex(),
+      envelope.localDeviceId,
+      envelope.ts
+    );
     if (!resolved.ok) {
       this.rejected += 1;
+      if (resolved.reason === 'unknown-device') this.unknownDevice += 1;
+      else this.outOfRangeTs += 1;
       this.logger.warn(
         {
-          localDeviceId: sample.localDeviceId,
+          localDeviceId: envelope.localDeviceId,
+          ts: envelope.ts,
           reason: resolved.reason
         },
         '查档失败，丢弃'
@@ -204,15 +204,65 @@ export class TelemetryConsumer {
       return null;
     }
 
+    const filtered = filterByDeclaration(envelope.metrics, resolved.properties);
+    // ⚠️ 单位错意味着这台设备的量纲解释整体不可信 ⇒ 整条丢弃，不只丢那个测点（D2 §10）
+    if (filtered.unitMismatch) {
+      this.unitMismatch += 1;
+      this.rejected += 1;
+      this.logger.warn(
+        {
+          localDeviceId: envelope.localDeviceId,
+          modelCode: resolved.modelCode,
+          ts: envelope.ts
+        },
+        '载荷单位与模型声明不符，整条丢弃'
+      );
+      return null;
+    }
+
+    if (filtered.notInModel.length > 0) {
+      this.metricNotInModel += filtered.notInModel.length;
+      // ⚠️ 告警必须带上报的那个 key：现场动作与版本边界不可能秒级重合，这条计数是过渡带的进度条
+      this.logger.warn(
+        {
+          localDeviceId: envelope.localDeviceId,
+          modelCode: resolved.modelCode,
+          keys: filtered.notInModel
+        },
+        '测点不在该时刻的声明里，只丢这些测点'
+      );
+    }
+    if (filtered.invalid.length > 0) {
+      this.metricInvalidValue += filtered.invalid.length;
+      this.logger.warn(
+        {
+          localDeviceId: envelope.localDeviceId,
+          modelCode: resolved.modelCode,
+          keys: filtered.invalid
+        },
+        '测点值非法，只丢这些测点'
+      );
+    }
+
+    // ⚠️ 全被过滤掉要丢整条：否则会写出只有 ts 的空行
+    if (filtered.accepted.length === 0) {
+      this.emptyAfterFilter += 1;
+      this.rejected += 1;
+      this.logger.warn(
+        {
+          localDeviceId: envelope.localDeviceId,
+          modelCode: resolved.modelCode,
+          ts: envelope.ts
+        },
+        '过滤后无可用测点，整条丢弃'
+      );
+      return null;
+    }
+
     return {
       subtable: resolved.subtable,
-      ts: sample.ts,
-      metrics: Object.fromEntries(
-        sample.metrics.map(metric => [
-          metric.key,
-          { value: metric.value, unit: metric.unit }
-        ])
-      )
+      ts: envelope.ts,
+      metrics: filtered.accepted
     };
   }
 

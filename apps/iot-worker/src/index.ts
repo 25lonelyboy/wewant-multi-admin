@@ -1,6 +1,6 @@
 import { loadConfig } from './config.js';
 import { TelemetryConsumer } from './consumer.js';
-import { DownsampleRing } from './downsample/ring.js';
+import { DownsampleLeader } from './downsample/ring.js';
 import { startHeartbeat } from './heartbeat.js';
 import { createLogger } from './logger.js';
 import { createRedis } from './redis-store.js';
@@ -21,18 +21,19 @@ const logger = createLogger(config);
 const snapshot = new RegistrySnapshotClient(config, logger);
 await snapshot.start();
 
-const consumer = new TelemetryConsumer(config, logger);
+const consumer = new TelemetryConsumer(config, logger, snapshot);
 consumer.start();
 
 // 心跳：事件环在转 + 队列 Redis 可达时定时刷新键；卡死则键过期，容器探针据此判 unhealthy
 const heartbeat = startHeartbeat(createRedis(config.queueRedisUrl), logger);
 
 // 降采样环与消费环**并列**、各自独立队列：任一条跑挂不得带走另一条（§3.5）
-const ring = config.downsampleEnabled
-  ? new DownsampleRing(config, logger)
+// ⭐ 只有 leader 才持有环：任何时刻一个写者、一份快照，模型集合 / 版本 / 重叠窗口三类不一致一起消失
+const leader = config.downsampleEnabled
+  ? new DownsampleLeader(config, logger, snapshot)
   : null;
-// ⚠️ 不 await：调度注册不得因为 queue Redis 抖动挡住进程启动（C1）；start() 自身不抛
-void ring?.start();
+// ⚠️ 不 await：选主不得因为 queue Redis 抖动挡住进程启动（C1）；start() 自身不抛
+void leader?.start();
 
 logger.info(
   {
@@ -53,7 +54,7 @@ const shutdown = async (signal: string): Promise<void> => {
   try {
     await Promise.all([
       consumer.close(),
-      ring?.close() ?? Promise.resolve(),
+      leader?.close() ?? Promise.resolve(),
       heartbeat.stop(),
       snapshot.close()
     ]);

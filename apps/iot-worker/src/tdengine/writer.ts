@@ -1,11 +1,7 @@
 import { createRequire } from 'node:module';
 import type * as TdClient from '@tdengine/websocket';
-import {
-  MAX_BIND_ROWS,
-  RAW_DATABASE,
-  RAW_METRICS,
-  type RawMetric
-} from '../schema.js';
+import type { AcceptedMetric } from '../filter.js';
+import { MAX_BIND_ROWS, RAW_DATABASE } from '../schema.js';
 
 // 单次 bind 行数上限由 schema 侧一处定义，配位层（config）与写入层共用（行 2）
 export { MAX_BIND_ROWS } from '../schema.js';
@@ -27,18 +23,15 @@ const td = require('@tdengine/websocket') as typeof TdClient;
  */
 const FORCE_STMT1_MIN_VERSION = '99.0.0.0';
 
-/** 一个测点在某一行的取值 */
-export interface MetricSample {
-  value: number;
-  /** 设备上报的单位：供模型声明比对，不落列 */
-  unit: string;
-}
-
-/** 一行待写数据；`metrics` 里**缺哪个测点就整列不写** ⇒ 按 §4.5 落成 `NONE`、保留旧值 */
+/**
+ * 一行待写数据；`metrics` 里**缺哪个测点就整列不写** ⇒ 按 §4.5 落成 `NONE`、保留旧值。
+ *
+ * 列名与绑定类型都来自该 `ts` 的声明（`AcceptedMetric`），没有全局测点集合。
+ */
 export type PendingRow = {
   subtable: string;
   ts: number;
-  metrics: Partial<Record<RawMetric, MetricSample>>;
+  metrics: readonly AcceptedMetric[];
 };
 
 /**
@@ -361,25 +354,23 @@ export function groupRows<Row>(
  * 原始库的列描述。
  *
  * ⚠️ 一行只写它**带了的**测点（列随测点集合变）⇒ 签名取"带了哪些测点"，
- * 缺测点的行落成 `NONE`、保留旧值（§4.5）。
+ * 缺测点的行落成 `NONE`、保留旧值（§4.5）。签名对 key 排序，避免同集合不同顺序被拆成两组。
+ * ⚠️ 列名与绑定类型都来自声明（`AcceptedMetric.bindKind`），不硬编码 `float`。
  */
 export const RAW_CODEC: WriteCodec<PendingRow> = {
   database: RAW_DATABASE,
   subtable: row => row.subtable,
-  signature: row => presentMetrics(row).join('+'),
-  columns: row => {
-    const columns: WriteColumn[] = [
-      { name: 'ts', kind: 'timestamp', value: row.ts }
-    ];
-    for (const metric of presentMetrics(row)) {
-      const sample = row.metrics[metric];
-      if (sample === undefined) continue;
-      columns.push({ name: metric, kind: 'float', value: sample.value });
-    }
-    return columns;
-  }
+  signature: row =>
+    row.metrics
+      .map(metric => metric.key)
+      .sort()
+      .join('+'),
+  columns: row => [
+    { name: 'ts', kind: 'timestamp', value: row.ts },
+    ...row.metrics.map(metric => ({
+      name: metric.key,
+      kind: metric.bindKind,
+      value: metric.value
+    }))
+  ]
 };
-
-function presentMetrics(row: PendingRow): RawMetric[] {
-  return RAW_METRICS.filter(metric => row.metrics[metric] !== undefined);
-}

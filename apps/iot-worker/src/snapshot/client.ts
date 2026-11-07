@@ -11,7 +11,7 @@ import type { Logger } from '../logger.js';
 
 /** server 侧写入的键——与 `apps/nestjs-server` 的 `snapshot.keys.ts` 同值 */
 const BUILT_KEY = 'iot:registry:built';
-const SNAPSHOT_KEY = 'iot:registry:snapshot';
+export const SNAPSHOT_KEY = 'iot:registry:snapshot';
 const WORKER_VERSION_KEY_PREFIX = 'iot:registry:worker-version:';
 
 /** worker 实例当前应用的版本——供 A4 验收轮询，TTL 30 秒 */
@@ -32,6 +32,11 @@ export interface SnapshotIndex {
   snapshot: RegistrySnapshot;
   byLocalId: Map<string, SnapshotDevice[]>;
   byModelCode: Map<string, SnapshotModel>;
+}
+
+/** 消费环只依赖这一面——单测可注入手写索引，不必连 Redis */
+export interface SnapshotSource {
+  currentIndex(): SnapshotIndex;
 }
 
 export type SnapshotClientDeps = {
@@ -189,7 +194,7 @@ export class RegistrySnapshotClient {
   }
 }
 
-function parseSnapshot(payload: string): RegistrySnapshot {
+export function parseSnapshot(payload: string): RegistrySnapshot {
   const parsed: unknown = JSON.parse(payload);
   if (typeof parsed !== 'object' || parsed === null) {
     throw new Error('快照不是对象');

@@ -19,10 +19,6 @@ export { DS_DATABASE, DS_MINUTE_KEEP_DAYS, RAW_DATABASE };
  */
 export const MAX_BIND_ROWS = 32767;
 
-/** P1 的三个测点——列名即载荷里的 `metrics[].key` */
-export const RAW_METRICS = ['temperature', 'vibration', 'current'] as const;
-export type RawMetric = (typeof RAW_METRICS)[number];
-
 export const RAW_KEEP_DAYS = 1095;
 export const DS_KEEP_DAYS = 3650;
 /** 每个数据文件的跨度：`KEEP` 到期以它为粒度发生 */
@@ -39,9 +35,16 @@ export function createDatabaseStatements(): string[] {
   ];
 }
 
-/** 原始超表（一台设备对应模型一张）：`ts` + 每测点值列；标签只留 `deviceId` */
-export function createRawStableStatement(modelCode: string): string {
-  const columns = RAW_METRICS.map(metric => `${metric} FLOAT`).join(', ');
+/**
+ * 原始超表（一台设备对应模型一张）：`ts` + 每测点值列；标签只留 `deviceId`。
+ *
+ * ⚠️ 仅供 **dev-only** 建表脚本（`scripts/tdengine-init.ts`）使用；运行期档案来自快照。
+ */
+export function createRawStableStatement(
+  modelCode: string,
+  metrics: readonly string[]
+): string {
+  const columns = metrics.map(metric => `${metric} FLOAT`).join(', ');
   return `CREATE STABLE IF NOT EXISTS ${RAW_DATABASE}.${rawStableName(modelCode)} (ts TIMESTAMP, ${columns}) TAGS (deviceId VARCHAR(${DEVICE_ID_WIDTH}))`;
 }
 
@@ -54,14 +57,19 @@ export function createSubtableStatement(subtable: SubtableRef): string {
   return `CREATE TABLE IF NOT EXISTS ${RAW_DATABASE}.${subtable.name} USING ${RAW_DATABASE}.${rawStableName(subtable.modelCode)} TAGS ('${subtable.deviceId}')`;
 }
 
-/** 降采样超表：每测点四个**可再聚合量** */
-export function createDsStableStatements(modelCode: string): string[] {
-  const columns = RAW_METRICS.flatMap(metric => [
-    `sum_${metric} DOUBLE`,
-    `count_${metric} BIGINT`,
-    `min_${metric} FLOAT`,
-    `max_${metric} FLOAT`
-  ]).join(', ');
+/** 降采样超表：每测点四个**可再聚合量**（dev-only 脚本用） */
+export function createDsStableStatements(
+  modelCode: string,
+  metrics: readonly string[]
+): string[] {
+  const columns = metrics
+    .flatMap(metric => [
+      `sum_${metric} DOUBLE`,
+      `count_${metric} BIGINT`,
+      `min_${metric} FLOAT`,
+      `max_${metric} FLOAT`
+    ])
+    .join(', ');
 
   return DS_LEVELS.map(
     level =>
