@@ -115,7 +115,7 @@ void test('降采样队列：调度注册 + 真实 worker 消费 recompute，结
     connection: { url: config.queueRedisUrl }
   });
   let worker: ReturnType<typeof spawnWorker> | null = null;
-  const redis = await writeSnapshot(config.redisUrl);
+  let redis: Awaited<ReturnType<typeof writeSnapshot>> | null = null;
 
   const dsRow = async (): Promise<unknown[] | undefined> => {
     const rows = await sql.query(
@@ -126,6 +126,7 @@ void test('降采样队列：调度注册 + 真实 worker 消费 recompute，结
   };
 
   try {
+    redis = await writeSnapshot(config.redisUrl);
     // 0) 清掉本窗口可能留下的旧行，保证断言只指向本轮
     await sql
       .exec(
@@ -197,7 +198,7 @@ void test('降采样队列：调度注册 + 真实 worker 消费 recompute，结
     await lockRedis.del('iot:downsample:leader').catch(() => 0);
     await lockRedis.quit().catch(() => lockRedis.disconnect());
     await queue.close();
-    await clearSnapshot(redis);
+    if (redis !== null) await clearSnapshot(redis);
     await rawWriter.close();
     await sql.close();
     destroyTd();

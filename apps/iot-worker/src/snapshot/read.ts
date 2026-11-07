@@ -13,11 +13,13 @@ export async function readSnapshotOnce(
 ): Promise<RegistrySnapshot | null> {
   // 脚本面向一次性读取：地址错就快速失败，不无限重连（否则排障时会挂住）
   const redis = new Redis(redisUrl, {
+    lazyConnect: true,
     maxRetriesPerRequest: 1,
     enableOfflineQueue: false,
     retryStrategy: () => null
   });
   try {
+    await redis.connect();
     const payload = await redis.get(SNAPSHOT_KEY);
     if (payload === null) return null;
     return parseSnapshot(payload);

@@ -134,11 +134,12 @@ void test('判据③ 强杀重投不丢：真实 worker 进程被杀在 flush �
     connection: { url: config.queueRedisUrl }
   });
   let worker: ReturnType<typeof spawnWorker> | null = null;
+  let redis: Awaited<ReturnType<typeof writeSnapshot>> | null = null;
 
   await queue.obliterate({ force: true }).catch(() => undefined);
-  const redis = await writeSnapshot(config.redisUrl);
 
   try {
+    redis = await writeSnapshot(config.redisUrl);
     // 1) 起 worker#1：攒批靠条数（1000）、flush 间隔 60s ⇒ 杀之前绝不会 flush
     worker = spawnWorker(60_000);
 
@@ -214,7 +215,7 @@ void test('判据③ 强杀重投不丢：真实 worker 进程被杀在 flush �
       .catch(() => undefined);
     await queue.close();
     await sql.close();
-    await clearSnapshot(redis);
+    if (redis !== null) await clearSnapshot(redis);
     destroyTd();
   }
 });

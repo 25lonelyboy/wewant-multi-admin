@@ -123,10 +123,12 @@ export async function writeSnapshot(
   snapshot: RegistrySnapshot = p1Snapshot()
 ): Promise<Redis> {
   const redis = new Redis(redisUrl, {
+    lazyConnect: true,
     maxRetriesPerRequest: 1,
     enableOfflineQueue: false,
     retryStrategy: () => null
   });
+  await redis.connect();
   await redis.set('iot:registry:snapshot', JSON.stringify(snapshot));
   await redis.set('iot:registry:built', String(snapshot.version));
   return redis;
