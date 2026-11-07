@@ -140,6 +140,7 @@ function makeRing(deps: {
 }): DownsampleRing {
   const config = loadConfig({
     ...process.env,
+    REDIS_URL: process.env.REDIS_URL ?? 'redis://127.0.0.1:6379',
     LOG_LEVEL: 'silent',
     DOWNSAMPLE_LOOKBACK_WINDOWS: '3'
   });

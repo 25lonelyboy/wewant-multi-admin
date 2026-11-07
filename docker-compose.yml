@@ -155,8 +155,8 @@ services:
       start_period: 30s
 
   # 遥测消费者：与 server 并列的第二个运行时，可独立启停 / 多实例 / 扩缩。
-  # ⚠️ 无 migrate / seed（本进程不碰 PG）；队尾与库都健康才起——它是专职进程，
-  # 不适用 C1「不可达不得阻断启动」（那条约束只针对 API 与订阅端）。
+  # ⚠️ 无 migrate / seed（本进程不碰 PG）；队尾、库与业务缓存（档案快照来源）都健康才起
+  # ——它是专职进程，不适用 C1「不可达不得阻断启动」（那条约束只针对 API 与订阅端）。
   worker:
     build:
       context: .
@@ -167,6 +167,7 @@ services:
     environment:
       NODE_ENV: production
       QUEUE_REDIS_URL: ${QUEUE_REDIS_URL:-redis://redis-queue:6379}
+      REDIS_URL: ${REDIS_URL:?请在 .env 中设置带凭据的 REDIS_URL（redis://:<REDIS_PASSWORD>@redis:6379）}
       TDENGINE_URL: ${TDENGINE_URL:-ws://root:taosdata@tdengine:6041}
     healthcheck:
       test: ['CMD', 'node', 'dist/healthcheck.js']
@@ -175,6 +176,8 @@ services:
       retries: 2
       start_period: 30s
     depends_on:
+      redis:
+        condition: service_healthy
       redis-queue:
         condition: service_healthy
       tdengine:

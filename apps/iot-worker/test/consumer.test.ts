@@ -98,6 +98,7 @@ function makeConsumer(
 ): TelemetryConsumer {
   const config = loadConfig({
     ...process.env,
+    REDIS_URL: process.env.REDIS_URL ?? 'redis://127.0.0.1:6379',
     LOG_LEVEL: 'silent',
     INGEST_BATCH_SIZE: String(batchSize)
   });

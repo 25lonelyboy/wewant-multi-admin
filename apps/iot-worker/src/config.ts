@@ -34,6 +34,12 @@ const envSchema = z.object({
     .default('info'),
   /** 队列 Redis——与业务缓存的 `REDIS_URL` 不是一个实例 */
   QUEUE_REDIS_URL: z.string().min(1).default('redis://127.0.0.1:6380'),
+  /** 业务缓存 Redis——档案快照的来源。⚠️ 必填：与队列实例不同，不能回落到队列地址 */
+  REDIS_URL: z.string().min(1),
+  /** 快照轮询间隔；500ms 是 A4（2 秒内全部实例可见）的预算，别随手改大 */
+  REGISTRY_POLL_MS: z.coerce.number().int().positive().default(500),
+  /** 旧快照容忍时长；超过即升为 error，提示刷新已长时间失败 */
+  REGISTRY_STALE_ALERT_MS: z.coerce.number().int().positive().default(60_000),
   /** TDengine taosAdapter 的 WebSocket 入口（REST 与 WebSocket 同端口） */
   TDENGINE_URL: z.string().min(1).default('ws://root:taosdata@127.0.0.1:6041'),
   /** 期望的服务器时区——窗口对齐靠它，不匹配则启动即失败 */
@@ -75,6 +81,12 @@ export interface WorkerConfig {
   logLevel: 'silent' | 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace';
   /** 队列 Redis——与业务缓存的 `REDIS_URL` 不是一个实例 */
   queueRedisUrl: string;
+  /** 业务缓存 Redis——档案快照的来源 */
+  redisUrl: string;
+  /** 快照轮询间隔（毫秒） */
+  registryPollMs: number;
+  /** 旧快照容忍时长（毫秒） */
+  registryStaleAlertMs: number;
   /** TDengine taosAdapter 的 WebSocket 入口（REST 与 WebSocket 同端口） */
   tdengineUrl: string;
   /** 期望的服务器时区——窗口对齐靠它，不匹配则启动即失败 */
@@ -103,6 +115,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
     nodeEnv: parsed.data.NODE_ENV,
     logLevel: parsed.data.LOG_LEVEL,
     queueRedisUrl: parsed.data.QUEUE_REDIS_URL,
+    redisUrl: parsed.data.REDIS_URL,
+    registryPollMs: parsed.data.REGISTRY_POLL_MS,
+    registryStaleAlertMs: parsed.data.REGISTRY_STALE_ALERT_MS,
     tdengineUrl: parsed.data.TDENGINE_URL,
     tdengineTimezone: parsed.data.TDENGINE_TIMEZONE,
     tdengineConnections: parsed.data.TDENGINE_CONNECTIONS,

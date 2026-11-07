@@ -4,6 +4,7 @@ import { DownsampleRing } from './downsample/ring.js';
 import { startHeartbeat } from './heartbeat.js';
 import { createLogger } from './logger.js';
 import { createRedis } from './redis-store.js';
+import { RegistrySnapshotClient } from './snapshot/client.js';
 import { destroyTd } from './tdengine/client.js';
 
 /**
@@ -14,6 +15,11 @@ import { destroyTd } from './tdengine/client.js';
  */
 const config = loadConfig();
 const logger = createLogger(config);
+
+// ⭐ 冷启动门禁：快照拉不到就不构造消费环与降采样环。用空快照跑会把全部数据当
+// `unknown-device` 丢掉，且计数看起来像设备故障；业务 Redis 挂了、队列还在时，积压比静默丢数据好。
+const snapshot = new RegistrySnapshotClient(config, logger);
+await snapshot.start();
 
 const consumer = new TelemetryConsumer(config, logger);
 consumer.start();
@@ -48,7 +54,8 @@ const shutdown = async (signal: string): Promise<void> => {
     await Promise.all([
       consumer.close(),
       ring?.close() ?? Promise.resolve(),
-      heartbeat.stop()
+      heartbeat.stop(),
+      snapshot.close()
     ]);
     logger.info(consumer.stats, 'iot-worker 已停止');
     destroyTd();
