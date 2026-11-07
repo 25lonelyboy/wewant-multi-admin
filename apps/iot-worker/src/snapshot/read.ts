@@ -11,7 +11,12 @@ import { parseSnapshot, SNAPSHOT_KEY } from './client.js';
 export async function readSnapshotOnce(
   redisUrl: string
 ): Promise<RegistrySnapshot | null> {
-  const redis = new Redis(redisUrl, { maxRetriesPerRequest: 1 });
+  // 脚本面向一次性读取：地址错就快速失败，不无限重连（否则排障时会挂住）
+  const redis = new Redis(redisUrl, {
+    maxRetriesPerRequest: 1,
+    enableOfflineQueue: false,
+    retryStrategy: () => null
+  });
   try {
     const payload = await redis.get(SNAPSHOT_KEY);
     if (payload === null) return null;

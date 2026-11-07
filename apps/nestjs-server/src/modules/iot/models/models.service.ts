@@ -569,7 +569,13 @@ export class ModelsService {
               version: predecessor.version
             }
           },
-          data: { effectiveTo: null }
+          data: {
+            effectiveTo: null,
+            // 删掉的是最新版本：前驱重新成为「发布流程上的当前版本」，
+            // 否则模型没有 ACTIVE 版本，后续注册会一律 model-not-active。
+            status: 'ACTIVE',
+            statusChangedAt: new Date()
+          }
         });
       }
 

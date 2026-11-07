@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import type { Queue, Worker } from 'bullmq';
 import {
   dsSubtableName,
-  p1DeviceRegistry,
+  subtableName,
   type DsLevel
 } from '@multi-admin/device-registry';
 import { loadConfig } from '../src/config.js';
@@ -14,6 +14,12 @@ import { TdengineWriter } from '../src/tdengine/writer.js';
 import { levelSpec } from '../src/downsample/level.js';
 import { DownsampleRing } from '../src/downsample/ring.js';
 import { lastClosedBoundary } from '../src/downsample/window.js';
+import {
+  P1_DEVICE_COUNT,
+  P1_MODEL_CODE,
+  p1DeviceId,
+  p1SnapshotSource
+} from './snapshot-fixture.js';
 
 /**
  * ⚠️ 不消费的 worker / queue 替身：本 e2e **只驱动 `recompute`**，不能起真实消费 worker——
@@ -61,12 +67,19 @@ const num = (value: unknown): number =>
 void test('降采样环：默认 now 驱动三级，降采样表在对应窗口收到行', async () => {
   const sql = await connectTd(config.tdengineUrl, RAW_DATABASE);
   const rawWriter = new TdengineWriter(config.tdengineUrl);
-  const ring = new DownsampleRing(config, logger, {
+  const ring = new DownsampleRing(config, logger, p1SnapshotSource(), {
     queue: inertQueue,
     worker: inertWorker
   });
 
-  const subs = p1DeviceRegistry.allSubtables();
+  const subs = Array.from({ length: P1_DEVICE_COUNT }, (_, i) => {
+    const deviceId = p1DeviceId(i + 1);
+    return {
+      name: subtableName(P1_MODEL_CODE, deviceId),
+      deviceId,
+      modelCode: P1_MODEL_CODE
+    };
+  });
   const targets: {
     level: DsLevel;
     subtable: (typeof subs)[number];
@@ -98,7 +111,9 @@ void test('降采样环：默认 now 驱动三级，降采样表在对应窗口�
         {
           subtable: subtable.name,
           ts: rawTs,
-          metrics: { temperature: { value: plan.value, unit: '°C' } }
+          metrics: [
+            { key: 'temperature', bindKind: 'float', value: plan.value }
+          ]
         }
       ]);
       assert.equal(affected, 1, '原始行应落库');

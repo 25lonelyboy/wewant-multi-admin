@@ -3,9 +3,15 @@ import { test } from 'node:test';
 import { UnrecoverableError, type Job, type Queue, type Worker } from 'bullmq';
 import { loadConfig } from '../src/config.js';
 import { createLogger } from '../src/logger.js';
-import { dsSubtableName } from '@multi-admin/device-registry';
+import {
+  DS_LEVELS,
+  dsSubtableName,
+  type Aggregate,
+  type SnapshotDsColumn
+} from '@multi-admin/device-registry';
 import { DS_CODEC, type DsAggregateRow } from '../src/downsample/rows.js';
 import { DownsampleRing, type TdConnect } from '../src/downsample/ring.js';
+import { buildIndex, type SnapshotSource } from '../src/snapshot/client.js';
 import type { TdRow, TdSql } from '../src/tdengine/client.js';
 import type { TdengineWriter } from '../src/tdengine/writer.js';
 
@@ -131,12 +137,52 @@ function fakeWriter(
   return { writer, written, invalidations: () => invalidations };
 }
 
+const METRICS = ['temperature', 'vibration', 'current'] as const;
+const BIND: Record<Aggregate, SnapshotDsColumn['bindKind']> = {
+  sum: 'double',
+  count: 'bigint',
+  min: 'float',
+  max: 'float'
+};
+
+function dsColumns(): SnapshotDsColumn[] {
+  return DS_LEVELS.flatMap(level =>
+    METRICS.flatMap(property =>
+      (['sum', 'count', 'min', 'max'] as const).map(aggregate => ({
+        level,
+        name: `${aggregate}_${property}`,
+        aggregate,
+        property,
+        bindKind: BIND[aggregate]
+      }))
+    )
+  );
+}
+
+function snapshotSource(
+  modelCodes: readonly string[] = ['p1']
+): SnapshotSource {
+  const snapshot = {
+    version: 1,
+    builtAt: '2020-01-01T00:00:00.000Z',
+    models: modelCodes.map(modelCode => ({
+      modelCode,
+      rawColumns: [],
+      dsColumns: dsColumns(),
+      versions: []
+    })),
+    devices: []
+  };
+  const index = buildIndex(snapshot);
+  return { currentIndex: () => index };
+}
+
 function makeRing(deps: {
   connect: TdConnect;
   writer: TdengineWriter<DsAggregateRow>;
   queue: Queue;
   worker: Worker;
-  modelCodes?: readonly string[];
+  snapshot?: SnapshotSource;
 }): DownsampleRing {
   const config = loadConfig({
     ...process.env,
@@ -144,7 +190,13 @@ function makeRing(deps: {
     LOG_LEVEL: 'silent',
     DOWNSAMPLE_LOOKBACK_WINDOWS: '3'
   });
-  return new DownsampleRing(config, createLogger(config), deps);
+  const { snapshot, ...ringDeps } = deps;
+  return new DownsampleRing(
+    config,
+    createLogger(config),
+    snapshot ?? snapshotSource(),
+    ringDeps
+  );
 }
 
 const NOW = 1_791_850_011_067;
@@ -183,7 +235,7 @@ void test('⭐ 多模型：每个模型编码各跑一次聚合查询、各写�
     writer,
     queue,
     worker,
-    modelCodes: ['p1', 'meter']
+    snapshot: snapshotSource(['p1', 'meter'])
   });
   try {
     const count = await ring.recompute('1m', NOW);

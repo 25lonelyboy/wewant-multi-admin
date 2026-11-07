@@ -5,7 +5,8 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { Queue } from 'bullmq';
 import { TELEMETRY_QUEUE_PREFIX } from '@multi-admin/contracts';
-import { dsSubtableName, p1DeviceRegistry } from '@multi-admin/device-registry';
+import { dsSubtableName, subtableName } from '@multi-admin/device-registry';
+import { Redis } from 'ioredis';
 import { loadConfig } from '../src/config.js';
 import { DS_DATABASE, RAW_DATABASE } from '../src/schema.js';
 import { connectTd, destroyTd } from '../src/tdengine/client.js';
@@ -13,6 +14,12 @@ import { TdengineWriter } from '../src/tdengine/writer.js';
 import { levelSpec } from '../src/downsample/level.js';
 import { DOWNSAMPLE_QUEUE } from '../src/downsample/ring.js';
 import { lastClosedBoundary } from '../src/downsample/window.js';
+import {
+  P1_MODEL_CODE,
+  clearSnapshot,
+  p1DeviceId,
+  writeSnapshot
+} from './snapshot-fixture.js';
 
 /**
  * 降采样队列的**真实 job 路径**——补上别处缺失的一段。
@@ -35,8 +42,12 @@ process.on('unhandledRejection', reason => {
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const config = loadConfig({ ...process.env, LOG_LEVEL: 'silent' });
 
-/** 挑一台**远离其它 e2e** 的设备（其余用例用 [0..2]） */
-const subtable = p1DeviceRegistry.allSubtables()[51];
+/** 挑一台**远离其它 e2e** 的设备（其余用例用 [0..2]）；52 号与 1-based 序号对齐 */
+const subtable = {
+  name: subtableName(P1_MODEL_CODE, p1DeviceId(52)),
+  deviceId: p1DeviceId(52),
+  modelCode: P1_MODEL_CODE
+};
 const spec = levelSpec('1m');
 
 /** `1m` 的最后**已闭合**窗口起点——调度器每轮重算的就是这一段（K=1） */
@@ -55,6 +66,7 @@ function spawnWorker(): { child: ChildProcess; stderr: () => string } {
       NODE_ENV: 'test',
       LOG_LEVEL: 'silent',
       QUEUE_REDIS_URL: config.queueRedisUrl,
+      REDIS_URL: config.redisUrl,
       TDENGINE_URL: config.tdengineUrl,
       // 只重算最近 1 个已闭合窗口，缩小写入面
       DOWNSAMPLE_ENABLED: 'true',
@@ -103,6 +115,7 @@ void test('降采样队列：调度注册 + 真实 worker 消费 recompute，结
     connection: { url: config.queueRedisUrl }
   });
   let worker: ReturnType<typeof spawnWorker> | null = null;
+  const redis = await writeSnapshot(config.redisUrl);
 
   const dsRow = async (): Promise<unknown[] | undefined> => {
     const rows = await sql.query(
@@ -126,7 +139,7 @@ void test('降采样队列：调度注册 + 真实 worker 消费 recompute，结
         {
           subtable: subtable.name,
           ts: rawTs,
-          metrics: { temperature: { value, unit: '°C' } }
+          metrics: [{ key: 'temperature', bindKind: 'float', value }]
         }
       ]),
       1,
@@ -177,7 +190,14 @@ void test('降采样队列：调度注册 + 真实 worker 消费 recompute，结
         `DELETE FROM ${DS_DATABASE}.${dsSubtableName(subtable.name, '1m')} WHERE ts = ${windowStart}`
       )
       .catch(() => undefined);
+    // 真实 worker 被强杀时 leader 锁仍在有效期内，显式清掉，避免污染后续用例
+    const lockRedis = new Redis(config.queueRedisUrl, {
+      maxRetriesPerRequest: 1
+    });
+    await lockRedis.del('iot:downsample:leader').catch(() => 0);
+    await lockRedis.quit().catch(() => lockRedis.disconnect());
     await queue.close();
+    await clearSnapshot(redis);
     await rawWriter.close();
     await sql.close();
     destroyTd();

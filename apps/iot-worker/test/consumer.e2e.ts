@@ -12,21 +12,21 @@ import { connectTd, destroyTd } from '../src/tdengine/client.js';
 import { TdengineWriter, type PendingRow } from '../src/tdengine/writer.js';
 import {
   dsSubtableName,
-  p1DeviceRegistry,
-  rawStableName
+  rawStableName,
+  subtableName
 } from '@multi-admin/device-registry';
 import { DS_DATABASE, RAW_DATABASE } from '../src/schema.js';
 import { LEVEL_SPECS } from '../src/downsample/level.js';
 import { lastClosedBoundary } from '../src/downsample/window.js';
 import type { TdSql } from '../src/tdengine/client.js';
+import {
+  P1_MODEL_CODE,
+  p1DeviceId,
+  p1SnapshotSource
+} from './snapshot-fixture.js';
 
-const RESOLVED = ((): { modelCode: string; subtable: string } => {
-  const resolved = p1DeviceRegistry.resolve('sim-001');
-  assert.ok(resolved.ok, 'sim-001 应在 P1 档案里');
-  return resolved;
-})();
-const SUBTABLE = RESOLVED.subtable;
-const RAW_TABLE = `${RAW_DATABASE}.${rawStableName(RESOLVED.modelCode)}`;
+const SUBTABLE = subtableName(P1_MODEL_CODE, p1DeviceId(1));
+const RAW_TABLE = `${RAW_DATABASE}.${rawStableName(P1_MODEL_CODE)}`;
 
 /**
  * 删掉这段数据在三级降采样里可能产生的窗口行。
@@ -106,7 +106,7 @@ void test('队列 → 消费者 → TDengine：合法报文落库，坏报文与
   await queue.obliterate({ force: true }).catch(() => undefined);
 
   const sql = await connectTd(config.tdengineUrl, RAW_DATABASE);
-  const consumer = new TelemetryConsumer(config, logger);
+  const consumer = new TelemetryConsumer(config, logger, p1SnapshotSource());
   consumer.start();
 
   const ts = Date.now();
@@ -151,7 +151,7 @@ void test('队列 → 消费者 → TDengine：合法报文落库，坏报文与
     assert.equal(stats.received, 4);
     assert.equal(stats.written, 3);
     assert.equal(stats.rejected, 1);
-    assert.equal(stats.unknownMetrics, 1);
+    assert.equal(stats.metricNotInModel, 1);
   } finally {
     await consumer.close();
     await deleteDsWindows(sql, ts, ts + 2);
@@ -217,7 +217,12 @@ void test('部分成功 ⇒ 整批重投：消息重试且不丢数据', async (
 
   const sql = await connectTd(partialConfig.tdengineUrl, RAW_DATABASE);
   const { writer, calls } = partialFirstWriter(partialConfig.tdengineUrl);
-  const consumer = new TelemetryConsumer(partialConfig, logger, { writer });
+  const consumer = new TelemetryConsumer(
+    partialConfig,
+    logger,
+    p1SnapshotSource(),
+    { writer }
+  );
   consumer.start();
 
   const base = Date.now();

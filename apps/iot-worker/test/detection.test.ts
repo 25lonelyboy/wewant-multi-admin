@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { detect } from '../src/detection.js';
+import { parseEnvelope } from '../src/detection.js';
 
 const raw = (payload: unknown): string => JSON.stringify(payload);
 
@@ -13,160 +13,93 @@ const full = {
   ]
 };
 
-void test('合法报文解析出测点', () => {
-  const result = detect(raw(full));
-  assert.equal(result.ok, true);
-  if (!result.ok) return;
-  assert.equal(result.sample.localDeviceId, 'sim-001');
-  assert.equal(result.sample.metrics.length, 2);
-  assert.deepEqual(result.sample.unknownMetricKeys, []);
+void test('合法报文解析出身份、ts 与原始测点', () => {
+  const result = parseEnvelope(raw(full));
+  assert.ok(!('reason' in result));
+  if ('reason' in result) return;
+  assert.equal(result.localDeviceId, 'sim-001');
+  assert.equal(result.ts, 1759603200000);
+  assert.deepEqual(result.metrics, [
+    { key: 'temperature', value: 62.4, unit: '°C' },
+    { key: 'current', value: 4.31, unit: 'A' }
+  ]);
 });
 
 void test('非 JSON / 顶层非对象判为 malformed', () => {
   for (const bad of ['not-json', '42', 'null', '[]']) {
-    assert.deepEqual(detect(bad), {
-      ok: false,
-      reason: 'malformed',
-      unknownMetricKeys: []
-    });
+    assert.deepEqual(parseEnvelope(bad), { reason: 'malformed' });
   }
 });
 
 void test('localDeviceId 缺失或空白判为 missing-device', () => {
-  assert.deepEqual(detect(raw({ ts: 1, metrics: [] })), {
-    ok: false,
-    reason: 'missing-device',
-    unknownMetricKeys: []
+  assert.deepEqual(parseEnvelope(raw({ ts: 1, metrics: [] })), {
+    reason: 'missing-device'
   });
-  assert.deepEqual(detect(raw({ localDeviceId: '   ', ts: 1, metrics: [] })), {
-    ok: false,
-    reason: 'missing-device',
-    unknownMetricKeys: []
-  });
+  assert.deepEqual(
+    parseEnvelope(raw({ localDeviceId: '   ', ts: 1, metrics: [] })),
+    { reason: 'missing-device' }
+  );
 });
 
 void test('ts 非有限数字判为 bad-ts', () => {
   assert.deepEqual(
-    detect(raw({ localDeviceId: 'a', ts: 'now', metrics: [] })),
-    {
-      ok: false,
-      reason: 'bad-ts',
-      unknownMetricKeys: []
-    }
+    parseEnvelope(raw({ localDeviceId: 'a', ts: 'now', metrics: [] })),
+    { reason: 'bad-ts' }
   );
   assert.deepEqual(
-    detect(
+    parseEnvelope(
       raw({ localDeviceId: 'a', ts: Number.POSITIVE_INFINITY, metrics: [] })
     ),
-    { ok: false, reason: 'bad-ts', unknownMetricKeys: [] }
+    { reason: 'bad-ts' }
   );
 });
 
-void test('未知测点只丢那一个，同一条里合法的测点照留', () => {
-  const result = detect(
-    raw({
-      ...full,
-      metrics: [
-        { key: 'temperature', value: 62.4, unit: '°C' },
-        { key: 'pressure', value: 101.3, unit: 'kPa' }
-      ]
-    })
-  );
-  assert.equal(result.ok, true);
-  if (!result.ok) return;
-  assert.deepEqual(result.sample.unknownMetricKeys, ['pressure']);
+void test('metrics 缺失、非数组或没有有效项判为 no-metrics', () => {
+  assert.deepEqual(parseEnvelope(raw({ localDeviceId: 'a', ts: 1 })), {
+    reason: 'no-metrics'
+  });
   assert.deepEqual(
-    result.sample.metrics.map(metric => metric.key),
-    ['temperature']
+    parseEnvelope(raw({ localDeviceId: 'a', ts: 1, metrics: 'x' })),
+    { reason: 'no-metrics' }
   );
-});
-
-void test('值非有限数的测点被丢掉，但不算"未知测点"', () => {
-  const result = detect(
-    raw({
-      ...full,
-      metrics: [
-        { key: 'temperature', value: 'hot', unit: '°C' },
-        { key: 'current', value: 4.31, unit: 'A' }
-      ]
-    })
-  );
-  assert.equal(result.ok, true);
-  if (!result.ok) return;
-  assert.deepEqual(result.sample.unknownMetricKeys, []);
   assert.deepEqual(
-    result.sample.metrics.map(metric => metric.key),
-    ['current']
+    parseEnvelope(raw({ localDeviceId: 'a', ts: 1, metrics: [] })),
+    { reason: 'no-metrics' }
   );
-});
-
-void test('测点全不可用时判为 no-metrics', () => {
   assert.deepEqual(
-    detect(
-      raw({ ...full, metrics: [{ key: 'pressure', value: 1, unit: 'kPa' }] })
+    parseEnvelope(
+      raw({ localDeviceId: 'a', ts: 1, metrics: [{ value: 1 }, 'x', null] })
     ),
-    { ok: false, reason: 'no-metrics', unknownMetricKeys: ['pressure'] }
+    { reason: 'no-metrics' }
   );
-  assert.deepEqual(detect(raw({ ...full, metrics: [] })), {
-    ok: false,
-    reason: 'no-metrics',
-    unknownMetricKeys: []
-  });
-  assert.deepEqual(detect(raw({ ...full, metrics: 'x' })), {
-    ok: false,
-    reason: 'no-metrics',
-    unknownMetricKeys: []
-  });
 });
 
-void test('⭐ 全列皆未知 ⇒ 失败结果带上 unknownMetricKeys（告警必须带 key）', () => {
-  const result = detect(
+void test('⭐ 不按测点集合过滤：未知 key 与非法值都原样带出，交给声明层处置', () => {
+  const result = parseEnvelope(
     raw({
       ...full,
       metrics: [
-        { key: 'pressure', value: 1, unit: 'kPa' },
-        { key: 'flow', value: 2, unit: 'L/min' }
+        { key: 'pressure', value: 101.3, unit: 'kPa' },
+        { key: 'temperature', value: 'hot', unit: '°C' }
       ]
     })
   );
-  assert.equal(result.ok, false);
-  if (result.ok) return;
-  assert.equal(result.reason, 'no-metrics');
-  assert.deepEqual(result.unknownMetricKeys, ['pressure', 'flow']);
-});
-
-void test('⭐ 数值超量程的测点被丢掉（量程可配）', () => {
-  // 默认量程：temperature −50..200 ℃、current 0..100 A
-  const result = detect(
-    raw({
-      ...full,
-      metrics: [
-        { key: 'temperature', value: 62.4, unit: '°C' },
-        { key: 'current', value: 999_999, unit: 'A' }
-      ]
-    })
-  );
-  assert.equal(result.ok, true);
-  if (!result.ok) return;
+  assert.ok(!('reason' in result));
+  if ('reason' in result) return;
   assert.deepEqual(
-    result.sample.metrics.map(metric => metric.key),
-    ['temperature'],
-    '超量程的 current 被丢，合法的 temperature 照留'
+    result.metrics.map(metric => metric.key),
+    ['pressure', 'temperature']
   );
 });
 
-void test('⭐ 量程可配：自定义上下限覆盖默认', () => {
-  // 把 temperature 收窄到 0..50 ⇒ 62.4 落到量程外
-  const result = detect(
+void test('单位缺失按空串处理（声明比对会判不符）', () => {
+  const result = parseEnvelope(
     raw({
       ...full,
-      metrics: [{ key: 'temperature', value: 62.4, unit: '°C' }]
-    }),
-    { temperature: { min: 0, max: 50 } }
+      metrics: [{ key: 'temperature', value: 1 }]
+    })
   );
-  assert.deepEqual(result, {
-    ok: false,
-    reason: 'no-metrics',
-    unknownMetricKeys: []
-  });
+  assert.ok(!('reason' in result));
+  if ('reason' in result) return;
+  assert.equal(result.metrics[0]?.unit, '');
 });

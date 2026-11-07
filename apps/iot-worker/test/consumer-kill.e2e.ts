@@ -8,10 +8,16 @@ import {
   TELEMETRY_INGEST_QUEUE,
   TELEMETRY_QUEUE_PREFIX
 } from '@multi-admin/contracts';
-import { p1DeviceRegistry, rawStableName } from '@multi-admin/device-registry';
+import { rawStableName, subtableName } from '@multi-admin/device-registry';
 import { loadConfig } from '../src/config.js';
 import { connectTd, destroyTd, type TdSql } from '../src/tdengine/client.js';
 import { RAW_DATABASE } from '../src/schema.js';
+import {
+  P1_MODEL_CODE,
+  clearSnapshot,
+  p1DeviceId,
+  writeSnapshot
+} from './snapshot-fixture.js';
 
 /**
  * 判据③——**强杀重投不丢**：拉起**真正的 worker 进程**（不是进程内 `new`），在它把一批
@@ -38,10 +44,9 @@ process.on('unhandledRejection', reason => {
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const config = loadConfig({ ...process.env, LOG_LEVEL: 'silent' });
 
-/** `sim-001`（`allSubtables()[0]`）——P1 档案里，查档必成 */
-const SUBTABLE_REF = p1DeviceRegistry.allSubtables()[0];
-const SUBTABLE = SUBTABLE_REF.name;
-const RAW_TABLE = `${RAW_DATABASE}.${rawStableName(SUBTABLE_REF.modelCode)}`;
+/** `sim-001`——P1 快照里，查档必成 */
+const SUBTABLE = subtableName(P1_MODEL_CODE, p1DeviceId(1));
+const RAW_TABLE = `${RAW_DATABASE}.${rawStableName(P1_MODEL_CODE)}`;
 
 /** 一批红队报文：落在远离既有数据的整点窗口内，ts 各不相同 */
 const N = 40;
@@ -97,6 +102,7 @@ function spawnWorker(flushIntervalMs: number): {
       NODE_ENV: 'test',
       LOG_LEVEL: 'silent',
       QUEUE_REDIS_URL: config.queueRedisUrl,
+      REDIS_URL: config.redisUrl,
       TDENGINE_URL: config.tdengineUrl,
       // 攒批靠条数：把条数与间隔都设到本用例够不着的高位 ⇒ 杀之前**不会** flush
       INGEST_BATCH_SIZE: '1000',
@@ -130,6 +136,7 @@ void test('判据③ 强杀重投不丢：真实 worker 进程被杀在 flush �
   let worker: ReturnType<typeof spawnWorker> | null = null;
 
   await queue.obliterate({ force: true }).catch(() => undefined);
+  const redis = await writeSnapshot(config.redisUrl);
 
   try {
     // 1) 起 worker#1：攒批靠条数（1000）、flush 间隔 60s ⇒ 杀之前绝不会 flush
@@ -207,6 +214,7 @@ void test('判据③ 强杀重投不丢：真实 worker 进程被杀在 flush �
       .catch(() => undefined);
     await queue.close();
     await sql.close();
+    await clearSnapshot(redis);
     destroyTd();
   }
 });

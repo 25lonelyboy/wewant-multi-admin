@@ -1,9 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { type Job, type Worker } from 'bullmq';
+import type {
+  PropertyDecl,
+  RegistrySnapshot
+} from '@multi-admin/device-registry';
 import { loadConfig } from '../src/config.js';
 import { TelemetryConsumer, dedupeInBatch } from '../src/consumer.js';
 import { createLogger } from '../src/logger.js';
+import { buildIndex, type SnapshotSource } from '../src/snapshot/client.js';
 import type { PendingRow, TdengineWriter } from '../src/tdengine/writer.js';
 
 /**
@@ -13,7 +18,48 @@ import type { PendingRow, TdengineWriter } from '../src/tdengine/writer.js';
  * 这条路走到（正是要钉的那条），排除了 `INGEST_FLUSH_INTERVAL_MS` 的定时兜底把用例蒙混过去。
  */
 
-/** 一条合法报文——`sim-001` 在 P1 档案里，查档必成 */
+/** `sim-001` 在快照里，声明了一个 float 测点 */
+function fakeSnapshot(): SnapshotSource {
+  const temperature: PropertyDecl = {
+    key: 'temperature',
+    kind: 'float',
+    unit: '°C',
+    range: { min: -50, max: 200 },
+    aggregates: ['sum']
+  };
+  const snapshot: RegistrySnapshot = {
+    version: 1,
+    builtAt: '1970-01-01T00:00:00.000Z',
+    models: [
+      {
+        modelCode: 'p1',
+        rawColumns: [{ name: 'temperature', bindKind: 'float' }],
+        dsColumns: [],
+        versions: [
+          {
+            version: 1,
+            effectiveFrom: '1970-01-01T00:00:00.000Z',
+            effectiveTo: null,
+            properties: [temperature]
+          }
+        ]
+      }
+    ],
+    devices: [
+      {
+        localDeviceId: 'sim-001',
+        deviceId: 'ABCDEFGHIJKLMNOP',
+        modelCode: 'p1',
+        fromAt: '1970-01-01T00:00:00.000Z',
+        toAt: null
+      }
+    ]
+  };
+  const index = buildIndex(snapshot);
+  return { currentIndex: () => index };
+}
+
+/** 一条合法报文——`sim-001` 在快照里，查档必成 */
 function payload(ts: number): string {
   return JSON.stringify({
     localDeviceId: 'sim-001',
@@ -61,7 +107,7 @@ function makeConsumer(
     LOG_LEVEL: 'silent',
     INGEST_BATCH_SIZE: String(batchSize)
   });
-  return new TelemetryConsumer(config, createLogger(config), {
+  return new TelemetryConsumer(config, createLogger(config), fakeSnapshot(), {
     writer,
     worker: fakeWorker()
   });
@@ -102,7 +148,7 @@ function row(subtable: string, ts: number, value: number): PendingRow {
   return {
     subtable,
     ts,
-    metrics: { temperature: { value, unit: '°C' } }
+    metrics: [{ key: 'temperature', bindKind: 'float', value }]
   };
 }
 
@@ -117,11 +163,11 @@ void test('dedupeInBatch：同 (子表, ts) 只留最后一条，异子表 / 异
   assert.equal(out.length, 3, '只有键相同的那一对被并成一条');
   // 保留的是**最后**一条：TDengine 同 ts 覆盖语义下，先写的那条本就会被后写的顶掉
   assert.equal(
-    out.find(r => r.subtable === 's' && r.ts === 1)?.metrics.temperature?.value,
+    out.find(r => r.subtable === 's' && r.ts === 1)?.metrics[0]?.value,
     2
   );
   assert.equal(
-    out.find(r => r.subtable === 't' && r.ts === 1)?.metrics.temperature?.value,
+    out.find(r => r.subtable === 't' && r.ts === 1)?.metrics[0]?.value,
     4
   );
 });

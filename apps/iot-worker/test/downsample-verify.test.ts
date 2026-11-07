@@ -1,16 +1,19 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { dsSubtableName } from '@multi-admin/device-registry';
-import { RAW_METRICS } from '../src/schema.js';
+import {
+  dsSubtableName,
+  type Aggregate,
+  type SnapshotDsColumn
+} from '@multi-admin/device-registry';
 import { levelSpec } from '../src/downsample/level.js';
 import { buildAggregateSql } from '../src/downsample/query.js';
 import { lastClosedBoundary } from '../src/downsample/window.js';
 import {
-  DS_DEVICE_ID_INDEX,
   buildDsReadSql,
   checkTablesNonEmpty,
   checkedWindowRange,
   compareAggregates,
+  dsDeviceIdIndex,
   dsSelectColumns,
   emptySideFailures,
   expectedRows,
@@ -24,6 +27,24 @@ import { parseAggregateRows } from '../src/downsample/rows.js';
 
 /** 2026-10-13T00:06:51.067Z（= 2026-10-13 08:06:51 +08:00），与 window.test 同源 */
 const NOW = 1_791_850_011_067;
+
+const METRICS = ['temperature', 'vibration', 'current'] as const;
+const BIND: Record<Aggregate, SnapshotDsColumn['bindKind']> = {
+  sum: 'double',
+  count: 'bigint',
+  min: 'float',
+  max: 'float'
+};
+
+const COLUMNS: SnapshotDsColumn[] = METRICS.flatMap(property =>
+  (['sum', 'count', 'min', 'max'] as const).map(aggregate => ({
+    level: '1m' as const,
+    name: `${aggregate}_${property}`,
+    aggregate,
+    property,
+    bindKind: BIND[aggregate]
+  }))
+);
 
 /**
  * 原始聚合读的一行——列序同 `buildAggregateSql`：
@@ -128,11 +149,11 @@ void test('checkedWindowRange：S+N>K 时不保证覆盖', () => {
 });
 
 void test('buildDsReadSql：读模型对应的降采样超表，含 deviceId，边界用 epoch 毫秒', () => {
-  const sql = buildDsReadSql('p1', levelSpec('1m'), 1000, 2000);
+  const sql = buildDsReadSql('p1', levelSpec('1m'), 1000, 2000, COLUMNS);
   assert.match(sql, /FROM wewant_iot_ds\.p1_1m\b/);
   assert.match(sql, /WHERE ts >= 1000 AND ts < 2000/);
   assert.match(sql, /deviceId/);
-  for (const metric of RAW_METRICS) {
+  for (const metric of METRICS) {
     for (const agg of ['sum', 'count', 'min', 'max']) {
       assert.match(sql, new RegExp(`${agg}_${metric}`));
     }
@@ -144,22 +165,26 @@ void test('buildDsReadSql：读模型对应的降采样超表，含 deviceId，�
 void test('parseDsRows：解析 deviceId 标签并还原原始子表名', () => {
   const [row] = parseDsRows(
     [dsRow(DS_1M, WINDOW, {}, 'ABCDEFGHIJKLMNOP')],
-    '1m'
+    '1m',
+    COLUMNS
   );
   assert.ok(row);
   assert.equal(row.rawName, RAW_NAME);
   assert.equal(row.deviceId, 'ABCDEFGHIJKLMNOP');
   assert.equal(row.ts, WINDOW);
-  assert.deepEqual(row.metrics.temperature, {
-    sum: 373.1,
-    count: 6n,
-    min: 61.1,
-    max: 62.4
-  });
+  assert.deepEqual(
+    {
+      sum: row.metrics.sum_temperature,
+      count: row.metrics.count_temperature,
+      min: row.metrics.min_temperature,
+      max: row.metrics.max_temperature
+    },
+    { sum: 373.1, count: 6n, min: 61.1, max: 62.4 }
+  );
 });
 
 void test('expectedRows：键取它应当落进的降采样子表名', () => {
-  const rows = parseAggregateRows([rawRow(RAW_NAME, WINDOW)], '1m');
+  const rows = parseAggregateRows([rawRow(RAW_NAME, WINDOW)], '1m', COLUMNS);
   const [expected] = expectedRows(rows, '1m');
   assert.ok(expected);
   assert.equal(expected.rawName, RAW_NAME);
@@ -167,10 +192,15 @@ void test('expectedRows：键取它应当落进的降采样子表名', () => {
 });
 
 void test('compareAggregates：完全一致 ⇒ 无差异', () => {
-  const expected = parseAggregateRows([rawRow(RAW_NAME, WINDOW)], '1m');
+  const expected = parseAggregateRows(
+    [rawRow(RAW_NAME, WINDOW)],
+    '1m',
+    COLUMNS
+  );
   const actual = parseDsRows(
     [dsRow(DS_1M, WINDOW, {}, 'ABCDEFGHIJKLMNOP')],
-    '1m'
+    '1m',
+    COLUMNS
   );
   const mismatches = compareAggregates(
     '1m',
@@ -183,24 +213,26 @@ void test('compareAggregates：完全一致 ⇒ 无差异', () => {
 
 void test('compareAggregates：浮点表示级差异在容差内 ⇒ 无差异', () => {
   const expected = expectedRows(
-    parseAggregateRows([rawRow(RAW_NAME, WINDOW)], '1m'),
+    parseAggregateRows([rawRow(RAW_NAME, WINDOW)], '1m', COLUMNS),
     '1m'
   );
   const actual = parseDsRows(
     [dsRow(DS_1M, WINDOW, { sum_temperature: 373.1 + 1e-12 })],
-    '1m'
+    '1m',
+    COLUMNS
   );
   assert.deepEqual(compareAggregates('1m', expected, actual), []);
 });
 
 void test('compareAggregates：超过容差 ⇒ 报出字段/期望/实际', () => {
   const expected = expectedRows(
-    parseAggregateRows([rawRow(RAW_NAME, WINDOW)], '1m'),
+    parseAggregateRows([rawRow(RAW_NAME, WINDOW)], '1m', COLUMNS),
     '1m'
   );
   const actual = parseDsRows(
     [dsRow(DS_1M, WINDOW, { sum_temperature: 374.1 })],
-    '1m'
+    '1m',
+    COLUMNS
   );
   const mismatches = compareAggregates('1m', expected, actual);
   assert.equal(mismatches.length, 1);
@@ -214,12 +246,13 @@ void test('compareAggregates：超过容差 ⇒ 报出字段/期望/实际', () 
 
 void test('compareAggregates：一个 FLOAT 表示误差（~1e-7 相对）也报 —— 容差够紧', () => {
   const expected = expectedRows(
-    parseAggregateRows([rawRow(RAW_NAME, WINDOW)], '1m'),
+    parseAggregateRows([rawRow(RAW_NAME, WINDOW)], '1m', COLUMNS),
     '1m'
   );
   const actual = parseDsRows(
     [dsRow(DS_1M, WINDOW, { min_temperature: 61.1 * (1 + 1.2e-7) })],
-    '1m'
+    '1m',
+    COLUMNS
   );
   const mismatches = compareAggregates('1m', expected, actual);
   assert.equal(mismatches.length, 1);
@@ -228,12 +261,13 @@ void test('compareAggregates：一个 FLOAT 表示误差（~1e-7 相对）也报
 
 void test('compareAggregates：count 精确比较（不容差）', () => {
   const expected = expectedRows(
-    parseAggregateRows([rawRow(RAW_NAME, WINDOW)], '1m'),
+    parseAggregateRows([rawRow(RAW_NAME, WINDOW)], '1m', COLUMNS),
     '1m'
   );
   const actual = parseDsRows(
     [dsRow(DS_1M, WINDOW, { count_temperature: 7n })],
-    '1m'
+    '1m',
+    COLUMNS
   );
   const mismatches = compareAggregates('1m', expected, actual);
   assert.equal(mismatches.length, 1);
@@ -244,12 +278,13 @@ void test('compareAggregates：count 精确比较（不容差）', () => {
 
 void test('compareAggregates：deviceId 标签不等即报', () => {
   const expected = expectedRows(
-    parseAggregateRows([rawRow(RAW_NAME, WINDOW)], '1m'),
+    parseAggregateRows([rawRow(RAW_NAME, WINDOW)], '1m', COLUMNS),
     '1m'
   );
   const actual = parseDsRows(
     [dsRow(DS_1M, WINDOW, {}, 'WRONGDEVICEID___')],
-    '1m'
+    '1m',
+    COLUMNS
   );
   const mismatches = compareAggregates('1m', expected, actual, () => 'RIGHT');
   assert.equal(mismatches.length, 1);
@@ -260,7 +295,7 @@ void test('compareAggregates：deviceId 标签不等即报', () => {
 
 void test('compareAggregates：原始有窗口、降采样缺行 ⇒ missing-row', () => {
   const expected = expectedRows(
-    parseAggregateRows([rawRow(RAW_NAME, WINDOW)], '1m'),
+    parseAggregateRows([rawRow(RAW_NAME, WINDOW)], '1m', COLUMNS),
     '1m'
   );
   const mismatches = compareAggregates('1m', expected, [], () => 'X');
@@ -271,7 +306,7 @@ void test('compareAggregates：原始有窗口、降采样缺行 ⇒ missing-row
 });
 
 void test('compareAggregates：降采样多行、原始无该窗口 ⇒ extra-row', () => {
-  const actual = parseDsRows([dsRow(DS_1M, WINDOW)], '1m');
+  const actual = parseDsRows([dsRow(DS_1M, WINDOW)], '1m', COLUMNS);
   const mismatches = compareAggregates('1m', [], actual);
   assert.equal(mismatches.length, 1);
   assert.equal(mismatches[0]?.kind, 'extra-row');
@@ -283,15 +318,16 @@ void test('compareAggregates：同一子表多个窗口各比各的', () => {
   const window2 = WINDOW + 60_000;
   const expected = expectedRows(
     [
-      ...parseAggregateRows([rawRow(RAW_NAME, WINDOW)], '1m'),
-      ...parseAggregateRows([rawRow(RAW_NAME, window2)], '1m')
+      ...parseAggregateRows([rawRow(RAW_NAME, WINDOW)], '1m', COLUMNS),
+      ...parseAggregateRows([rawRow(RAW_NAME, window2)], '1m', COLUMNS)
     ],
     '1m'
   );
   // 第二个窗口的 sum 被改错
   const actual = parseDsRows(
     [dsRow(DS_1M, WINDOW), dsRow(DS_1M, window2, { sum_temperature: 999 })],
-    '1m'
+    '1m',
+    COLUMNS
   );
   const mismatches = compareAggregates('1m', expected, actual);
   assert.equal(mismatches.length, 1);
@@ -317,6 +353,7 @@ void test('verifyLevel：分流读原始与降采样，逐条比后无差异', a
     '1m',
     NOW,
     { lookback: 3 },
+    COLUMNS,
     () => 'ABCDEFGHIJKLMNOP'
   );
   assert.equal(result.modelCode, 'p1');
@@ -338,7 +375,8 @@ void test('verifyLevel：降采样值被改 ⇒ 报出该条', async () => {
     'p1',
     '1m',
     NOW,
-    { lookback: 3 }
+    { lookback: 3 },
+    COLUMNS
   );
   assert.equal(result.mismatches.length, 1);
   assert.equal(result.mismatches[0]?.field, 'sum_temperature');
@@ -435,7 +473,14 @@ void test('verifyLevel：首轮差异若重读后消失（跨了一次写入）�
       return Promise.resolve([rawRow(RAW_NAME, WINDOW)]);
     }
   };
-  const result = await verifyLevel(query, 'p1', '1m', NOW, { lookback: 3 });
+  const result = await verifyLevel(
+    query,
+    'p1',
+    '1m',
+    NOW,
+    { lookback: 3 },
+    COLUMNS
+  );
   assert.ok(dsCalls >= 2, '发现差异后应重读两侧');
   assert.deepEqual(result.mismatches, []);
 });
@@ -460,7 +505,14 @@ void test('verifyLevel：两侧都在两次读之间变化 ⇒ 只重读一侧�
       ]);
     }
   };
-  const result = await verifyLevel(query, 'p1', '1m', NOW, { lookback: 3 });
+  const result = await verifyLevel(
+    query,
+    'p1',
+    '1m',
+    NOW,
+    { lookback: 3 },
+    COLUMNS
+  );
   assert.ok(rawCalls >= 2, '原始侧必须重读');
   assert.ok(dsCalls >= 2, '降采样侧必须重读');
   assert.deepEqual(result.mismatches, []);
@@ -481,15 +533,19 @@ function selectColumns(sql: string): string[] {
 }
 
 void test('降采样读列序与原始聚合读列序对齐（与 query.ts 的耦合漂移即失败）', () => {
-  const rawCols = selectColumns(buildAggregateSql('p1', levelSpec('1m'), 0, 1));
-  const dsCols = selectColumns(buildDsReadSql('p1', levelSpec('1m'), 0, 1));
+  const rawCols = selectColumns(
+    buildAggregateSql('p1', levelSpec('1m'), 0, 1, COLUMNS)
+  );
+  const dsCols = selectColumns(
+    buildDsReadSql('p1', levelSpec('1m'), 0, 1, COLUMNS)
+  );
   // 原始侧 ['tbname','ts', 聚合…, 单位…]；降采样侧仅末尾多一列 deviceId
   assert.deepEqual(dsCols.slice(0, -1), rawCols);
   assert.equal(dsCols[dsCols.length - 1], 'deviceId');
   // 列下标常量与 SELECT 列数绑死（改一处不同步即失败）
-  assert.equal(DS_DEVICE_ID_INDEX, dsCols.length - 1);
+  assert.equal(dsDeviceIdIndex(COLUMNS), dsCols.length - 1);
   // 与 dsSelectColumns 同源
-  assert.deepEqual(dsSelectColumns(), dsCols);
+  assert.deepEqual(dsSelectColumns(COLUMNS), dsCols);
 });
 
 void test('两侧计数为 0 判失败——空对账不是证据', () => {

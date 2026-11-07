@@ -1,12 +1,59 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { UnrecoverableError, type Job, type Worker } from 'bullmq';
+import type {
+  PropertyDecl,
+  RegistrySnapshot
+} from '@multi-admin/device-registry';
 import { loadConfig } from '../src/config.js';
 import { TelemetryConsumer } from '../src/consumer.js';
 import { createLogger, type Logger } from '../src/logger.js';
+import { buildIndex, type SnapshotSource } from '../src/snapshot/client.js';
 import type { PendingRow, TdengineWriter } from '../src/tdengine/writer.js';
 
-/** 一条合法报文——`sim-001` 在 P1 档案里，查档必成 */
+const TEMPERATURE: PropertyDecl = {
+  key: 'temperature',
+  kind: 'float',
+  unit: '°C',
+  range: { min: -50, max: 200 },
+  aggregates: ['sum']
+};
+
+/** `sim-001` 在快照里，声明了一个 float 测点 */
+function fakeSnapshot(): SnapshotSource {
+  const snapshot: RegistrySnapshot = {
+    version: 1,
+    builtAt: '2020-01-01T00:00:00.000Z',
+    models: [
+      {
+        modelCode: 'p1',
+        rawColumns: [{ name: 'temperature', bindKind: 'float' }],
+        dsColumns: [],
+        versions: [
+          {
+            version: 1,
+            effectiveFrom: '2020-01-01T00:00:00.000Z',
+            effectiveTo: null,
+            properties: [TEMPERATURE]
+          }
+        ]
+      }
+    ],
+    devices: [
+      {
+        localDeviceId: 'sim-001',
+        deviceId: 'ABCDEFGHIJKLMNOP',
+        modelCode: 'p1',
+        fromAt: '2020-01-01T00:00:00.000Z',
+        toAt: null
+      }
+    ]
+  };
+  const index = buildIndex(snapshot);
+  return { currentIndex: () => index };
+}
+
+/** 一条合法报文——`sim-001` 在快照里，查档必成 */
 function payload(ts: number): string {
   return JSON.stringify({
     localDeviceId: 'sim-001',
@@ -102,10 +149,15 @@ function makeConsumer(
     LOG_LEVEL: 'silent',
     INGEST_BATCH_SIZE: String(batchSize)
   });
-  return new TelemetryConsumer(config, deps.logger ?? createLogger(config), {
-    writer,
-    worker: deps.worker ?? fakeWorker().worker
-  });
+  return new TelemetryConsumer(
+    config,
+    deps.logger ?? createLogger(config),
+    fakeSnapshot(),
+    {
+      writer,
+      worker: deps.worker ?? fakeWorker().worker
+    }
+  );
 }
 
 /** 取私有处理器入口——生产路径由 BullMQ worker 逐 job 调用 */
@@ -207,7 +259,8 @@ void test('⭐ 全列皆未知 ⇒ 告警带上报的 key，并计入 unknownMet
     });
     await processor(consumer)(job(data));
     assert.equal(consumer.stats.rejected, 1);
-    assert.equal(consumer.stats.unknownMetrics, 1);
+    assert.equal(consumer.stats.metricNotInModel, 1);
+    assert.equal(consumer.stats.emptyAfterFilter, 1);
     const line = calls.find(
       call =>
         call.level === 'warn' &&

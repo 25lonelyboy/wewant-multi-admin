@@ -3,8 +3,8 @@ import { test } from 'node:test';
 import type { Queue, Worker } from 'bullmq';
 import {
   dsSubtableName,
-  p1DeviceRegistry,
-  rawStableName
+  rawStableName,
+  subtableName
 } from '@multi-admin/device-registry';
 import { loadConfig } from '../src/config.js';
 import { createLogger } from '../src/logger.js';
@@ -17,6 +17,11 @@ import {
   closedWindowRange,
   lastClosedBoundary
 } from '../src/downsample/window.js';
+import {
+  P1_MODEL_CODE,
+  p1DeviceId,
+  p1SnapshotSource
+} from './snapshot-fixture.js';
 
 /**
  * ⚠️ 不消费的 worker / queue 替身：本 e2e **只驱动 `recompute`**，不能起真实的消费 worker——
@@ -53,7 +58,11 @@ const config = loadConfig({ ...process.env, LOG_LEVEL: 'silent' });
 const logger = createLogger(config);
 
 /** 挑一台已登记的设备——原始子表与降采样子表都已在库里 */
-const subtable = p1DeviceRegistry.allSubtables()[0];
+const subtable = {
+  name: subtableName(P1_MODEL_CODE, p1DeviceId(1)),
+  deviceId: p1DeviceId(1),
+  modelCode: P1_MODEL_CODE
+};
 
 /**
  * 选一段**远离既有数据**的窗口（本库数据集中在 2026-10 上旬）：这样重算窗口里只有本用例
@@ -72,11 +81,11 @@ function pendingFrom(sample: (typeof RAW_ROWS)[number]): PendingRow {
   return {
     subtable: subtable.name,
     ts: sample.ts,
-    metrics: {
-      temperature: { value: sample.temperature, unit: '°C' },
-      vibration: { value: sample.vibration, unit: 'mm/s' },
-      current: { value: sample.current, unit: 'A' }
-    }
+    metrics: [
+      { key: 'temperature', bindKind: 'float', value: sample.temperature },
+      { key: 'vibration', bindKind: 'float', value: sample.vibration },
+      { key: 'current', bindKind: 'float', value: sample.current }
+    ]
   };
 }
 
@@ -148,7 +157,7 @@ async function cleanup(sql: TdSql): Promise<void> {
 void test('降采样环：三级各自从原始表重算，落库值与手跑 §3.3 查询逐字段相等', async () => {
   const sql = await connectTd(config.tdengineUrl, RAW_DATABASE);
   const rawWriter = new TdengineWriter(config.tdengineUrl);
-  const ring = new DownsampleRing(config, logger, {
+  const ring = new DownsampleRing(config, logger, p1SnapshotSource(), {
     queue: inertQueue,
     worker: inertWorker
   });
@@ -255,12 +264,16 @@ void test('降采样环：三级各自从原始表重算，落库值与手跑 §
 void test('降采样环：窗口内缺测点 ⇒ 对应列落 NULL（真库往返）', async () => {
   const sql = await connectTd(config.tdengineUrl, RAW_DATABASE);
   const rawWriter = new TdengineWriter(config.tdengineUrl);
-  const ring = new DownsampleRing(config, logger, {
+  const ring = new DownsampleRing(config, logger, p1SnapshotSource(), {
     queue: inertQueue,
     worker: inertWorker
   });
 
-  const nullableSub = p1DeviceRegistry.allSubtables()[1];
+  const nullableSub = {
+    name: subtableName(P1_MODEL_CODE, p1DeviceId(2)),
+    deviceId: p1DeviceId(2),
+    modelCode: P1_MODEL_CODE
+  };
   const TN = Date.parse('2026-09-16T10:00:00.000Z');
   const spec = levelSpec('1m');
 
@@ -269,7 +282,7 @@ void test('降采样环：窗口内缺测点 ⇒ 对应列落 NULL（真库往�
       {
         subtable: nullableSub.name,
         ts: TN + 5_000,
-        metrics: { temperature: { value: 55.5, unit: '°C' } }
+        metrics: [{ key: 'temperature', bindKind: 'float', value: 55.5 }]
       }
     ]);
     assert.equal(affected, 1, '原始行应落库');

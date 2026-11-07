@@ -9,6 +9,7 @@ import {
   insertSql,
   MAX_BIND_ROWS,
   MAX_CONNECTIONS,
+  type PendingRow,
   type WriterConnect
 } from '../src/tdengine/writer.js';
 
@@ -30,7 +31,7 @@ void test('原始列描述：只写该行带了的测点，列类型随超级表
   const columns = RAW_CODEC.columns({
     subtable: 'p1_aweawq05e8pf53wh',
     ts: 1_791_818_580_000,
-    metrics: { temperature: { value: 62.4, unit: '°C' } }
+    metrics: [{ key: 'temperature', bindKind: 'float', value: 62.4 }]
   });
 
   assert.deepEqual(
@@ -43,31 +44,31 @@ void test('原始列描述：只写该行带了的测点，列类型随超级表
 });
 
 void test('原始列描述：多测点列随之增多，签名按测点集合区分', () => {
-  const row = {
+  const row: PendingRow = {
     subtable: 'p1_aweawq05e8pf53wh',
     ts: 1_791_818_580_000,
-    metrics: {
-      temperature: { value: 62.4, unit: '°C' },
-      current: { value: 4.31, unit: 'A' }
-    }
+    metrics: [
+      { key: 'temperature', bindKind: 'float', value: 62.4 },
+      { key: 'current', bindKind: 'float', value: 4.31 }
+    ]
   };
   assert.equal(RAW_CODEC.columns(row).length, 3); // ts + 2 个测点值
-  assert.equal(RAW_CODEC.signature(row), 'temperature+current');
+  assert.equal(RAW_CODEC.signature(row), 'current+temperature');
   // 只带一个测点的行与带两个测点的行分属不同签名 ⇒ 各自一条语句
   assert.equal(
     RAW_CODEC.signature({
       ...row,
-      metrics: { temperature: { value: 1, unit: '°C' } }
+      metrics: [{ key: 'temperature', bindKind: 'float', value: 1 }]
     }),
     'temperature'
   );
 });
 
 void test('原始列描述：库名与子表名取自行', () => {
-  const row = {
+  const row: PendingRow = {
     subtable: 'p1_aweawq05e8pf53wh',
     ts: 1,
-    metrics: { temperature: { value: 1, unit: '°C' } }
+    metrics: [{ key: 'temperature', bindKind: 'float', value: 1 }]
   };
   assert.equal(RAW_CODEC.database, RAW_DATABASE);
   assert.equal(RAW_CODEC.subtable(row), 'p1_aweawq05e8pf53wh');
@@ -76,23 +77,23 @@ void test('原始列描述：库名与子表名取自行', () => {
 // ---- 分组（(子表, 列签名) —— 同组才能共用一条 INSERT + 一次 exec）----
 
 void test('groupRows：同 (子表, 签名) 归一组，异签名 / 异子表各自成组', () => {
-  const oneMetric = {
+  const oneMetric: PendingRow = {
     subtable: 's1',
     ts: 1,
-    metrics: { temperature: { value: 1, unit: '°C' } }
+    metrics: [{ key: 'temperature', bindKind: 'float', value: 1 }]
   };
-  const twoMetrics = {
+  const twoMetrics: PendingRow = {
     subtable: 's1',
     ts: 2,
-    metrics: {
-      temperature: { value: 1, unit: '°C' },
-      current: { value: 1, unit: 'A' }
-    }
+    metrics: [
+      { key: 'temperature', bindKind: 'float', value: 1 },
+      { key: 'current', bindKind: 'float', value: 1 }
+    ]
   };
-  const otherTable = {
+  const otherTable: PendingRow = {
     subtable: 's2',
     ts: 3,
-    metrics: { temperature: { value: 1, unit: '°C' } }
+    metrics: [{ key: 'temperature', bindKind: 'float', value: 1 }]
   };
 
   // 同子表但测点集合不同 ⇒ 列结构不同 ⇒ 必须分组（否则会按错的列 bind 另一组行）
@@ -128,6 +129,8 @@ function fakeStmt(
     prepare: () => Promise.resolve(),
     newStmtParam: () => ({
       setTimestamp: () => undefined,
+      setBoolean: () => undefined,
+      setInt: () => undefined,
       setFloat: () => undefined,
       setDouble: () => undefined,
       setBigint: () => undefined,
@@ -145,18 +148,11 @@ function fakeStmt(
 }
 
 /** 一条待写行 */
-function row(
-  ts: number,
-  subtable = 'p1_aweawq05e8pf53wh'
-): {
-  subtable: string;
-  ts: number;
-  metrics: { temperature: { value: number; unit: string } };
-} {
+function row(ts: number, subtable = 'p1_aweawq05e8pf53wh'): PendingRow {
   return {
     subtable,
     ts,
-    metrics: { temperature: { value: 1, unit: '°C' } }
+    metrics: [{ key: 'temperature', bindKind: 'float', value: 1 }]
   };
 }
 

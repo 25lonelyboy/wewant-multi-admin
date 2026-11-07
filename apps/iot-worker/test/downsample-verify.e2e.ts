@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Queue, Worker } from 'bullmq';
-import { dsSubtableName, p1DeviceRegistry } from '@multi-admin/device-registry';
+import { dsSubtableName, subtableName } from '@multi-admin/device-registry';
 import { loadConfig } from '../src/config.js';
 import { createLogger } from '../src/logger.js';
 import { DS_DATABASE, RAW_DATABASE } from '../src/schema.js';
@@ -15,6 +15,12 @@ import {
   verifyLevel,
   type CheckRangeOptions
 } from '../src/downsample/verify.js';
+import {
+  P1_MODEL_CODE,
+  p1DeviceId,
+  p1Snapshot,
+  p1SnapshotSource
+} from './snapshot-fixture.js';
 
 /**
  * ⚠️ 不消费的 worker / queue 替身：本 e2e **只驱动 `recompute`** 造出一行降采样后再喂给
@@ -50,7 +56,11 @@ const config = loadConfig({ ...process.env, LOG_LEVEL: 'silent' });
 const logger = createLogger(config);
 
 /** 挑一台**远离其它 e2e** 的设备（其余用例用 [0..2]） */
-const subtable = p1DeviceRegistry.allSubtables()[50];
+const subtable = {
+  name: subtableName(P1_MODEL_CODE, p1DeviceId(51)),
+  deviceId: p1DeviceId(51),
+  modelCode: P1_MODEL_CODE
+};
 
 /** 选一段远离既有数据（本库数据集中在 2026-10 上旬）的整点窗口 */
 const T0 = Date.parse('2026-09-14T12:00:00.000Z');
@@ -66,11 +76,11 @@ function pendingFrom(sample: (typeof RAW_ROWS)[number]): PendingRow {
   return {
     subtable: subtable.name,
     ts: sample.ts,
-    metrics: {
-      temperature: { value: sample.temperature, unit: '°C' },
-      vibration: { value: sample.vibration, unit: 'mm/s' },
-      current: { value: sample.current, unit: 'A' }
-    }
+    metrics: [
+      { key: 'temperature', bindKind: 'float', value: sample.temperature },
+      { key: 'vibration', bindKind: 'float', value: sample.vibration },
+      { key: 'current', bindKind: 'float', value: sample.current }
+    ]
   };
 }
 
@@ -79,9 +89,15 @@ function nowFor(level: '1m' | '1h' | '1d'): number {
   return T0 + levelSpec(level).windowMs + 90_000;
 }
 
-/** 期望标签：建表端按注册表写死 ⇒ 对账的期望来源也用注册表 */
+/** 期望标签：建表端按快照写死 ⇒ 对账的期望来源也用快照 */
+const SNAPSHOT = p1Snapshot();
+const COLUMNS =
+  SNAPSHOT.models[0]?.dsColumns.filter(column => column.level === '1m') ?? [];
 const deviceIds = new Map(
-  p1DeviceRegistry.allSubtables().map(sub => [sub.name, sub.deviceId])
+  SNAPSHOT.devices.map(device => [
+    subtableName(device.modelCode, device.deviceId),
+    device.deviceId
+  ])
 );
 const deviceIdFor = (rawName: string): string | null =>
   deviceIds.get(rawName) ?? null;
@@ -104,7 +120,7 @@ async function cleanup(sql: TdSql): Promise<void> {
 void test('判据②对账：驱动 F6 脚本逐字段比对；注入一处缺失后脚本**必须报出**', async () => {
   const sql = await connectTd(config.tdengineUrl, RAW_DATABASE);
   const rawWriter = new TdengineWriter(config.tdengineUrl);
-  const ring = new DownsampleRing(config, logger, {
+  const ring = new DownsampleRing(config, logger, p1SnapshotSource(), {
     queue: inertQueue,
     worker: inertWorker
   });
@@ -136,6 +152,7 @@ void test('判据②对账：驱动 F6 脚本逐字段比对；注入一处缺�
       '1m',
       nowMs,
       options,
+      COLUMNS,
       deviceIdFor
     );
     assert.ok(clean.expectedCount >= 1, '范围内应有原始聚合');
@@ -157,6 +174,7 @@ void test('判据②对账：驱动 F6 脚本逐字段比对；注入一处缺�
       '1m',
       nowMs,
       options,
+      COLUMNS,
       deviceIdFor
     );
     const mine = broken.mismatches.find(
@@ -178,6 +196,7 @@ void test('判据②对账：驱动 F6 脚本逐字段比对；注入一处缺�
       '1m',
       nowMs,
       options,
+      COLUMNS,
       deviceIdFor
     );
     assert.equal(
