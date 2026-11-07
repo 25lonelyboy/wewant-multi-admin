@@ -25,7 +25,8 @@ const MODEL = 'e2e_snap_bool';
 const LOCAL_ID = 'sim-e2e-bool';
 const DEVICE_ID = 'E2EBOOLDVICE0001';
 const SUBTABLE = subtableName(MODEL, DEVICE_ID);
-const T_SWAP = Date.parse('2026-03-01T00:00:00.000Z');
+// 版本切换时刻取近期：消费环会拒收落后超过 INGEST_TS_MAX_PAST_MS（默认 90 天）的 ts
+const T_SWAP = Date.now() - 60_000;
 
 const temperature: PropertyDecl = {
   key: 'temperature',

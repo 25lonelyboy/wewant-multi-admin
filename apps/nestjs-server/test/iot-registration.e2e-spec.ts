@@ -193,7 +193,17 @@ describe('iot 注册路径 (e2e)', () => {
     return rows.map(row => String(row[0]).toLowerCase());
   }
 
-  function machineDeclaration(extra: unknown[] = []) {
+  /**
+   * 已有模型的新版本只能在未来生效（`models.service` 的 not-in-future）：给「演进 / 重放」
+   * 用例一个单调递增的未来时刻——同一声明重放也是一次新版本发布。
+   */
+  let effectiveCursor = Date.now() + 3_600_000;
+  const nextEffectiveFrom = (): string => {
+    effectiveCursor += 60_000;
+    return new Date(effectiveCursor).toISOString();
+  };
+
+  function machineDeclaration(extra: unknown[] = [], effectiveFrom?: string) {
     return {
       modelCode: MACHINE,
       properties: [
@@ -208,7 +218,8 @@ describe('iot 注册路径 (e2e)', () => {
         ...extra
       ],
       services: [],
-      events: []
+      events: [],
+      ...(effectiveFrom === undefined ? {} : { effectiveFrom })
     };
   }
 
@@ -498,7 +509,8 @@ describe('iot 注册路径 (e2e)', () => {
           }
         ],
         services: [],
-        events: []
+        events: [],
+        effectiveFrom: nextEffectiveFrom()
       });
       const error = expectError(res, 400);
       expect(JSON.stringify(error.data)).toContain('kind-changed');
@@ -513,9 +525,10 @@ describe('iot 注册路径 (e2e)', () => {
       const result = expectData<ModelResult>(
         await post(
           '/iot/models',
-          machineDeclaration([
-            { key: 'pressure', kind: 'double', aggregates: ['sum'] }
-          ])
+          machineDeclaration(
+            [{ key: 'pressure', kind: 'double', aggregates: ['sum'] }],
+            nextEffectiveFrom()
+          )
         )
       );
       expect(result.version).toBe(2);
@@ -548,9 +561,10 @@ describe('iot 注册路径 (e2e)', () => {
       const result = expectData<ModelResult>(
         await post(
           '/iot/models',
-          machineDeclaration([
-            { key: 'pressure', kind: 'double', aggregates: ['sum'] }
-          ])
+          machineDeclaration(
+            [{ key: 'pressure', kind: 'double', aggregates: ['sum'] }],
+            nextEffectiveFrom()
+          )
         )
       );
       // 1m / 1d 已有该列，不重复 ALTER；只补 1h
@@ -577,7 +591,8 @@ describe('iot 注册路径 (e2e)', () => {
             { key: 'door_open', kind: 'bool', aggregates: ['count'] }
           ],
           services: [],
-          events: []
+          events: [],
+          effectiveFrom: nextEffectiveFrom()
         })
       );
       expect(result.version).toBe(4);
@@ -633,7 +648,8 @@ describe('iot 注册路径 (e2e)', () => {
             { key: 'door_open', kind: 'bool', aggregates: [] }
           ],
           services: [],
-          events: []
+          events: [],
+          effectiveFrom: nextEffectiveFrom()
         })
       );
       expect(result.version).toBe(2);
@@ -666,7 +682,8 @@ describe('iot 注册路径 (e2e)', () => {
             { key: 'door_open', kind: 'bool', aggregates: [] }
           ],
           services: [],
-          events: []
+          events: [],
+          effectiveFrom: nextEffectiveFrom()
         })
       );
       expect(result.version).toBe(3);
