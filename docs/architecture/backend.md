@@ -150,3 +150,12 @@ Prisma 7 + PostgreSQL，system 五表（User / Role / Menu / UserRole / RoleMenu
 - **幂等是结果幂等**：同 `localDeviceId` 已 `ACTIVE` 且应有子表齐（有聚合时 1 + 3，无聚合时只有 1）即返回首次结果；文档在、表缺一张报 409「结构不一致」，**不自动补**。同一 `localDeviceId` 已注册在别的模型 ⇒ 409。
 - **失败整体回滚**：本次建的表按 `createdTables` 清单**逆序**删除（只删清单里的名字，不按前缀匹配），单张失败重试三次、仍失败记 error 并继续；PG 不落库、没有失败态，`localDeviceId` 不被占用、重试天然可行。`ALTER` 已加上的列不退（TDengine 删不掉列），残留表由审计兜底。
 - **连接是懒的**：`TDENGINE_URL`（默认 `ws://root:taosdata@127.0.0.1:6041`）首次用到才建连，时序库不可达不会让 server 起不来；容器内必须显式传服务名。`@tdengine/websocket` 加载时挂的 winston `uncaughtException` 处理器在 `td-client.ts` 模块加载期被摘除；摘除是全进程的，当前 server 没有自有处理器，若将来新增，必须让本摘除先执行。
+
+### 设备生命周期（注销 / 撤销 / 改期 / 复活）
+
+- **注销与撤销共用一个入口** `DELETE /api/v1/iot/devices/:localDeviceId`：事务内以 `SELECT … FOR UPDATE` 锁设备行，`status = RETIRED`、`statusChangedAt = now`，闭合 open usage：`toAt = max(now, usage.fromAt)`——已生效设备取 `now`，未生效设备取 `fromAt`（零长区间 `[fromAt, fromAt)`，一条数据都不覆盖）。不调用 TDengine、不删表、不删行；重复注销返回 200，`toAt` 与 `statusChangedAt` 不变（若仍存在 open usage，按同一公式补闭合以修复不一致态）。提交后 `INCR iot:registry:rev`。
+- **不变式**：`status = RETIRED` 的设备没有 open usage；注册、注销、复活三个写路径都维持它。行锁保证注销与复活 / 改期并发时，后到者看到的是已提交状态。
+- **改期** `PATCH /api/v1/iot/devices/:localDeviceId`，body `{ fromAt }`：只作用于 `status = ACTIVE` 且恰有一条 open usage 的设备（否则 409 `device-not-scheduled`）；当前 `fromAt > now`（已生效即 409 `device-effective`——该时段的数据已按旧区间解释，改期会制造不可追溯的口径），目标 `fromAt > now`（否则 409 `from-at-not-future`），并按新 `fromAt` 重算 `usage.version`。改期**不动表**；想立即生效走「撤销 + 重新注册」（注册允许 `fromAt` 早于 now）。同一 `fromAt` 幂等、不写库。
+- **复活**走 `POST /api/v1/iot/devices`：`RETIRED` + 同 `modelCode` 即复活——沿用原 `deviceId` 与子表名，`status = ACTIVE`、`statusChangedAt = now`、新开 usage；`fromAt`（缺省 now）允许早于 now，但不得早于最后一个**非空** usage 的 `toAt`（被撤销留下的零长 usage 不参与重叠判定），且应有子表须齐全（属性取**所有版本的并集**，物理列是历史并集），缺一张即 `schema-mismatch`、**不自动补**。不同型号仍 409 `registered-to-other-model`；换型本增量不做。
+- **消费侧不读状态**：退役设备的 usage 已闭合，`ts ≥ toAt` 由区间判定拒为 `out-of-range-ts`；`ts < toAt` 的晚到历史仍入库（封存历史）。复活前的空档 `[旧 toAt, 新 fromAt)` 同样按 `out-of-range-ts` 丢弃——设备确实退役过，这是正确语义。
+- **快照纳入退役设备**（`status IN ('ACTIVE','RETIRED')`）：否则审计期望集随之减少，退役设备的子表会永久进孤儿桶。数据与表按 KEEP 自然过期，**表永久保留**。

@@ -44,3 +44,12 @@ export class RegisterDeviceQueryDto {
   @IsBooleanString()
   dryRun?: string;
 }
+
+export class RescheduleDeviceDto {
+  @ApiProperty({
+    description:
+      '新的生效起点（ISO 8601，必须晚于当前时刻）。设备当前时段必须尚未生效；已生效设备不可改期'
+  })
+  @IsISO8601()
+  fromAt!: string;
+}

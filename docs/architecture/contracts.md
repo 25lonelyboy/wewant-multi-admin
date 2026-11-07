@@ -82,6 +82,30 @@ last_verified: 2026-11-07
 | 同 `localDeviceId` 已注册在别的模型 | 409 | `CONFLICT` | `{ reason: 'registered-to-other-model', modelCode }` |
 | 并发撞唯一约束 | 409 | `CONFLICT` | `{ reason: 'duplicate-device' }` |
 | 同名子表已存在 | 409 | `CONFLICT` | `{ reason: 'table-exists', tables: string[] }` |
+| `RETIRED` 设备同型号注册（复活）且 `fromAt` 早于最后一个非空 usage 的 `toAt` | 409 | `CONFLICT` | `{ reason: 'from-at-overlaps-usage', latestToAt }` |
+| `RETIRED` 设备仍有 open usage，或应有子表缺一张（复活不自动补） | 409 | `CONFLICT` | `{ reason: 'schema-mismatch', tables }` |
+| `localDeviceId` 不是标识符 | 400 | `VALIDATION_FAILED` | `{ issues: [{ path: 'localDeviceId', code: 'empty' \| 'too-long' \| 'invalid-char' }] }` |
+
+`DELETE /api/v1/iot/devices/:localDeviceId`（注销；未生效设备借此撤销）：
+
+| 情形 | HTTP | code | data |
+|---|---|---|---|
+| 设备不存在 | 404 | `NOT_FOUND` | `{ localDeviceId }` |
+| 路径编号不是标识符 | 400 | `VALIDATION_FAILED` | `{ issues: [{ path: 'localDeviceId', code }] }` |
+
+成功响应 `{ localDeviceId, deviceId, status: 'RETIRED', effectiveTo }`；已 `RETIRED` 重复调用返回 200，`toAt` 与 `statusChangedAt` 不变（存在 open usage 时按同一公式补闭合）。不删表、不删数据。
+
+`PATCH /api/v1/iot/devices/:localDeviceId`（改期），body `{ fromAt }`：
+
+| 情形 | HTTP | code | data |
+|---|---|---|---|
+| 设备不存在 | 404 | `NOT_FOUND` | `{ localDeviceId }` |
+| 设备非 `ACTIVE`，或 open usage 不是恰好一条 | 409 | `CONFLICT` | `{ reason: 'device-not-scheduled', status }` |
+| 当前 `usage.fromAt ≤ now`（已生效，不可改期） | 409 | `CONFLICT` | `{ reason: 'device-effective' }` |
+| 目标 `fromAt ≤ now` | 409 | `CONFLICT` | `{ reason: 'from-at-not-future' }` |
+| 目标早于模型最早版本 / 不落在任何版本区间 | 409 | `CONFLICT` | `{ reason: 'from-at-before-model' \| 'from-at-not-covered', earliestEffectiveFrom }` |
+
+成功响应 `{ localDeviceId, deviceId, modelCode, fromAt, version }`；同一 `fromAt` 重复提交幂等。
 
 ## 分页与时间约定
 
