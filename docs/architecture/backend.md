@@ -86,8 +86,8 @@ worker 的档案来源是**业务 Redis 的一份全量快照**（`RegistrySnaps
 | `iot:registry:rebuild-lock` | 重建器 `SET NX PX 2000` | 只降低重复劳动 |
 | `iot:registry:worker-version:{instanceId}` | worker，TTL 30 s | 实例当前应用的版本，供 A4 验收 |
 
-- **server 重建器**（`apps/nestjs-server/src/modules/iot/registry-snapshot/`）每 500 ms 一轮：键或快照缺失、`rev > built`、或距上次成功满 **60 秒**即重建（60 秒是正确性的一部分——PG 提交后 `INCR` 前崩溃时只有它能补）。**先读 `rev` 再读库**；条件写用 Lua 保证版本不倒退。任一列推导失败 ⇒ **整轮失败**，不发布半份快照。
-- **worker 客户端**（`apps/iot-worker/src/snapshot/client.ts`）每 `REGISTRY_POLL_MS` 读 `built`，大于本地版本才拉全量并整份替换；换入时同时建 `byLocalId` / `byModelCode` 索引（`resolvePoint` 不做线性扫）。拉取失败保留旧快照继续跑并累加陈旧秒数，超过 `REGISTRY_STALE_ALERT_MS` 升为 error。
+- **server 重建器**（`apps/nestjs-server/src/modules/iot/registry-snapshot/`）每 500 ms 一轮：键或快照缺失、`rev > built`、或距上次成功满 **60 秒**即重建（60 秒是正确性的一部分——PG 提交后 `INCR` 前崩溃时只有它能补）。**先读 `rev` 再读库**；条件写用 Lua 保证版本不倒退，版本相等时只有 payload 还在才跳过。兜底重建写 `max(rev, built) + 1` 并把 `rev` 抬到同一版本——等版本写入会被条件写拒掉，兜底否则发布不出去。任一列推导失败 ⇒ **整轮失败**，不发布半份快照。
+- **worker 客户端**（`apps/iot-worker/src/snapshot/client.ts`）每 `REGISTRY_POLL_MS` 读 `built`，**与本地版本不同**即拉全量并整份替换（Redis 全量重置后版本从 0 重新计数，用「大于」会停在旧快照）；换入时同时建 `byLocalId` / `byModelCode` 索引（`resolvePoint` 不做线性扫）。拉取失败保留旧快照继续跑并累加陈旧秒数，超过 `REGISTRY_STALE_ALERT_MS` 升为 error。
 - **口径按数据的时间戳**：一条数据属于哪个模型 / 版本由它自己的 `ts` 决定，与处理时刻无关；区间取半开 `[from, to)`。这同时消除晚到数据、BullMQ 重试与多实例不同步三类不可追溯错误。
 - ⚠️ 档案与模型**必须同时替换**——分开刷新必然出现「档案已新、模型还旧」的窗口。
 
