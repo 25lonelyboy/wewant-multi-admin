@@ -10,7 +10,7 @@
 
 | 任务 | 收口说明 |
 |---|---|
-| IoT 平台 P1 · 增量 3「物模型」 | 收口完成：五张决策卡（D1–D5）全部定稿，八个实施子任务（S0 / S0.5 / S1–S6）交付；判据 A / B / C 可验——注册新类型设备不重启 worker 即可接入，原始超表列、子表与降采样列全部由物模型生成，仓库无 diff。事实源 → [backend.md](../architecture/backend.md)、[contracts.md](../architecture/contracts.md)、[build-and-verify.md](../engineering/build-and-verify.md)，过程 → [2026-11-02-iot-p1-increment-3/](2026-11-02-iot-p1-increment-3/) |
+| IoT 平台 P1 · 增量 3「物模型」 | 收口完成：五张决策卡（D1–D5）全部定稿，八个实施子任务（S0 / S0.5 / S1–S6）交付；判据 A / B / C 可验——注册新类型设备不重启 worker 即可接入，原始超表列、子表与降采样列全部由物模型生成，仓库无 diff。事实源 → [backend.md](../architecture/backend.md)、[iot-worker.md](../architecture/iot-worker.md)、[contracts.md](../architecture/contracts.md)、[build-and-verify.md](../engineering/build-and-verify.md)，过程 → [2026-11-02-iot-p1-increment-3/](2026-11-02-iot-p1-increment-3/) |
 | MQTT 设备接入（增量 1） | 收口完成：EMQX 进 compose（digest pin + 仅绑回环）+ 新增 `apps/iot-simulator` + nestjs-server iot 域（通配订阅 + 每秒聚合日志）；判据双证据成立（Broker 侧 101 连接 / 92 msg·s⁻¹ / 1 订阅；订阅端「每秒 100 条 / 300 测点 / 100 台设备」）；验收通过。事实源 → [backend.md](../architecture/backend.md)、[build-and-verify.md](../engineering/build-and-verify.md)，选型与许可口径 → [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md)，过程 → [2026-10-05-iot-p1-increment-1/](2026-10-05-iot-p1-increment-1/) |
 | pure-web 前端测试评估规范与覆盖缺口补齐 | Phase F 收口完成：阈值翻转（91 键 → 全局聚合 + crown-jewel 90）+ living 规范落位 + 索引与任务状态同步；规范 → [frontend-testing-standard.md](../engineering/frontend-testing-standard.md)，决策 → [ADR-008](../decisions/ADR-008-tiered-e2e-testing.md)，过程 → [2026-09-06-frontend-testing-standard/](2026-09-06-frontend-testing-standard/) |
 

@@ -8,12 +8,14 @@
 |---|---|
 | [repo-structure.md](repo-structure.md) | monorepo 结构、各 workspace 边界与构建依赖关系、目录放置规则 |
 | [contracts.md](contracts.md) | contracts 契约包：定位约束、扩展流程、信封错误码、分页时间约定、VITE_MOCK 数据源开关 |
-| [backend.md](backend.md) | NestJS 后端：模块分层、请求处理链、API 约定、数据库事实 |
+| [backend.md](backend.md) | NestJS 后端：模块分层、请求处理链、API 约定、数据库事实、设备接入订阅端与注册 / 生命周期 |
+| [iot-worker.md](iot-worker.md) | 遥测消费者运行时：消费环、档案快照、降采样、失败分类、健康探针、交付判据 |
 | [desktop-app.md](desktop-app.md) | Electron 桌面端架构：进程结构、自定义协议、托盘常驻、IPC 安全不变量、打包链 |
 
 ## 不写在这里的内容
 
 - 工程命令与环境步骤 → `docs/engineering/`
+- 部署、环境与 ops 脚本 → `docs/operations/`
 - 决策过程与权衡 → `docs/decisions/`（ADR）
 - 后端演进路线图与阶段路线 → `docs/governance/backend-evolution.md`
 - 任务过程材料 → `docs/tasks/`

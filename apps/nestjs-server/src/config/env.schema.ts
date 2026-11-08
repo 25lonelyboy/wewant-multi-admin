@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const envSchema = z.object({
+const baseEnvSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'test', 'production'])
     .default('development'),
@@ -52,6 +52,16 @@ export const envSchema = z.object({
   PRISMA_SLOW_QUERY_MS: z.coerce.number().int().positive().default(500),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().default(20),
   PRISMA_QUERY_LOG: z.enum(['true', 'false']).default('false')
+});
+
+export const envSchema = baseEnvSchema.superRefine((value, ctx) => {
+  if (value.JWT_ACCESS_SECRET === value.JWT_REFRESH_SECRET) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['JWT_REFRESH_SECRET'],
+      message: 'JWT_ACCESS_SECRET 与 JWT_REFRESH_SECRET 必须不同'
+    });
+  }
 });
 
 export type Env = z.infer<typeof envSchema>;

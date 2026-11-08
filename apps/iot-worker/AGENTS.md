@@ -49,7 +49,7 @@ pnpm --filter @multi-admin/iot-worker run subtable:cleanup # 缺省 dry-run
 
 ## 文档导航
 
-- 架构事实：[backend.md](../../docs/architecture/backend.md)（消费链路、快照、降采样、失败分类）
+- 架构事实：[iot-worker.md](../../docs/architecture/iot-worker.md)（消费链路、快照、降采样、失败分类）
 - 设备契约：[contracts.md](../../docs/architecture/contracts.md)（主题、载荷、队列名）
 - 工程实践：[build-and-verify.md](../../docs/engineering/build-and-verify.md)（测试、覆盖率、清理脚本闸门）
 - 待处置项：[backlog.md](../../docs/governance/backlog.md)

@@ -27,11 +27,21 @@
       "cache": false,
       "env": ["DATABASE_URL", "REDIS_URL", "MQTT_URL", "QUEUE_REDIS_URL"]
     },
+    "tdengine:init": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "env": [
+        "REDIS_URL",
+        "QUEUE_REDIS_URL",
+        "TDENGINE_URL",
+        "TDENGINE_TIMEZONE"
+      ]
+    },
     "dev": {
       "persistent": true,
       "cache": false,
       "dependsOn": ["^build"],
-      "env": ["DATABASE_URL", "REDIS_URL", "MQTT_URL"]
+      "env": ["DATABASE_URL", "REDIS_URL", "MQTT_URL", "QUEUE_REDIS_URL"]
     },
     "dev:mp-weixin": {
       "persistent": true,
@@ -42,7 +52,7 @@
       "persistent": true,
       "cache": false,
       "dependsOn": ["^build"],
-      "env": ["DATABASE_URL", "REDIS_URL", "MQTT_URL"]
+      "env": ["DATABASE_URL", "REDIS_URL", "MQTT_URL", "QUEUE_REDIS_URL"]
     },
     "//apps/nestjs-server#build": {
       "outputs": ["dist/**", "src/generated/**"]

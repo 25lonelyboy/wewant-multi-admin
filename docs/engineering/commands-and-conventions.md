@@ -48,6 +48,8 @@ pnpm --filter @multi-admin/iot-worker run test -- test/detection.test.ts
 | scope | 适用范围 |
 |---|---|
 | server | apps/nestjs-server |
+| worker | apps/iot-worker |
+| sim | apps/iot-simulator |
 | web | apps/pure-web |
 | mobile | apps/uni-mobile |
 | desktop | apps/electron-desktop |
@@ -62,7 +64,7 @@ pnpm --filter @multi-admin/iot-worker run test -- test/detection.test.ts
 
 ## 任务图与环境透传
 
-turbo `envMode` 为 strict，只有 `turbo.json` 声明的变量会传给任务子进程。涉及 Prisma 的任务声明 `DATABASE_URL`；测试与开发任务追加 `REDIS_URL`、`MQTT_URL`、`QUEUE_REDIS_URL`。机制与门禁分层见 [build-and-verify.md](build-and-verify.md)。
+turbo `envMode` 为 strict，只有 `turbo.json` 声明的变量会传给任务子进程。涉及 Prisma 的任务声明 `DATABASE_URL`；测试与开发任务透传 `REDIS_URL`、`MQTT_URL`、`QUEUE_REDIS_URL`。机制与门禁分层见 [build-and-verify.md](build-and-verify.md)。
 
 ## 文档验收
 
@@ -72,8 +74,9 @@ turbo `envMode` 为 strict，只有 `turbo.json` 声明的变量会传给任务�
 
 | 应用 | 应用级文档 |
 |---|---|
-| nestjs-server | [apps/nestjs-server/AGENTS.md](../../apps/nestjs-server/AGENTS.md) |
-| pure-web | [apps/pure-web/AGENTS.md](../../apps/pure-web/AGENTS.md) |
-| iot-worker | [apps/iot-worker/AGENTS.md](../../apps/iot-worker/AGENTS.md) |
+| nestjs-server | [AGENTS.md](../../apps/nestjs-server/AGENTS.md)（AI 正本）；[README.md](../../apps/nestjs-server/README.md)（人类上手） |
+| pure-web | [AGENTS.md](../../apps/pure-web/AGENTS.md) |
+| iot-worker | [AGENTS.md](../../apps/iot-worker/AGENTS.md) |
+| iot-simulator | [README.md](../../apps/iot-simulator/README.md) |
 
-`apps/uni-mobile`、`apps/electron-desktop`、`apps/iot-simulator` 暂无应用级 AGENTS；入口见根 [README.md](../../README.md) 与 [repo-structure.md](../architecture/repo-structure.md)。
+`apps/uni-mobile` 与 `apps/electron-desktop` 暂无应用级 AGENTS；后者架构见 [desktop-app.md](../architecture/desktop-app.md)。应用级事实以 AGENTS 与 `docs/` 为准。

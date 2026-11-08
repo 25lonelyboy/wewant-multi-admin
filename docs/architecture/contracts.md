@@ -33,7 +33,7 @@ last_verified: 2026-11-08
 - **主题段是路由地址、不是身份**：段里放设备自报的 `localDeviceId`（`telemetryTopic` 生成、`localDeviceIdFromTopic` 逆运算）；平台不以其判定身份——**身份以载荷为准**，订阅端只做一致性拦截（主题段与载荷不一致即丢弃 + 计数 + 告警）。
 - **载荷字段**：`localDeviceId`（设备自报编号，与主题段同值）、`ts`（epoch 毫秒）、`metrics[]`（每项 `key` / `value` / `unit`）。
   `value` 是 `MetricValue` 联合——**number / boolean / string / 对象**（结构体序列化成 JSON 存一列），类型由物模型声明，载荷只保证"能表达"；深度校验（子字段、长度上限、数组拒绝）在模型层。
-  载荷字段与主题占位段统一用 `localDeviceId`（早期草案的 `deviceId` 已弃用），wire format 以本契约为准；`unit` 随载荷上报、供与模型声明比对，不落存储列。
+  载荷字段与主题占位段统一用 `localDeviceId`，wire format 以本契约为准；`unit` 随载荷上报、供与模型声明比对，不落存储列。
 - **设备侧编号约定**：`localDeviceIdForIndex` 生成 P1 编号（`sim-001`…），模拟器与设备档案共用同一函数，不靠事后断言对齐；`normalizeLocalId` 统一去首尾空白 + 小写（只处理同一台设备前后不一致，不跨设备去重）。
   `checkLocalDeviceId` 在其上做标识符校验：归一化后须匹配 `^[a-z0-9][a-z0-9._:-]*$`、长度 ≤ 64，失败原因是 `empty` / `too-long` / `invalid-char` 三者之一。
   它要进 MQTT 主题段与 HTTP 路径，非法编号无法稳定路由，故**注册入口**必须先过它；**注销 / 改期只做归一化**——存量档案里可能有规则收紧之前的编号，严格校验会让这些设备永远无法注销。
@@ -53,10 +53,63 @@ last_verified: 2026-11-08
 3. 前端 api 层与 mock fixture 同步升级后，页面接线。
 4. 禁止反向：不允许前后端任一端自造请求/响应类型再回填契约。
 
+## iot HTTP 接口字段
+
+请求 DTO 在 `apps/nestjs-server/src/modules/iot/models/dto/model.dto.ts` 与 `apps/nestjs-server/src/modules/iot/devices/dto/device.dto.ts`；本表只列线上字段与浅层约束，物模型深层规则在 `packages/device-registry` 的 `validateModel`。`DELETE` 两个端点没有请求体。
+
+`POST /api/v1/iot/models`（query `dryRun=true` 只校验并返回 DDL）：
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `modelCode` | string | 是 | 折小写后须通过标识符校验 |
+| `properties` | `PropertyDecl[]` | 是 | 属性声明；八档 `float` / `double` / `int` / `bigint` / `bool` / `enum` / `string` / `struct`，`kind` 不接受 array |
+| `services` | `{ key }[]` | 是 | 服务通道留位，本阶段只存声明 |
+| `events` | `{ key }[]` | 是 | 事件通道留位，本阶段只存声明 |
+| `effectiveFrom` | ISO 8601 string | 否 | 缺省 now；已有模型的版本须严格晚于最新版本且晚于 now；首个版本不受此限 |
+
+属性声明 `PropertyDecl`：
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `key` | string | 是 | 列名；字符集与长度按 `checkMetricKey` |
+| `kind` | enum | 是 | 八档之一 |
+| `aggregates` | `('sum' \| 'count' \| 'min' \| 'max')[]` | 是 | 空集表示不产生降采样列；算不出列的组合由列推导拒绝 |
+| `unit` | string | 否 | `bool` / `enum` 带单位即非法；不落存储列 |
+| `range` | `{ min, max }` | 否 | 闭区间；数值与枚举可用 |
+| `varcharLength` | number | 否 | string / struct 必填；UTF-8 字节上限 |
+| `enumValues` | number[] | 否 | enum 必填 |
+| `fields` | `{ key, kind }[]` | 否 | struct 必填；子字段只允许标量 |
+| `group` | string | 否 | 模型元数据，不进列名 |
+
+`POST /api/v1/iot/devices`（query `dryRun=true` 只跑前置检查并返回 DDL）：
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `localDeviceId` | string | 是 | 设备自报编号；注册入口先过 `checkLocalDeviceId` |
+| `modelCode` | string | 是 | 归一化后校验；须有 ACTIVE 版本 |
+| `protocolVersion` | string | 否 | 最长 32；只记录，不参与路由 |
+| `fromAt` | ISO 8601 string | 否 | 缺省 now；允许早于 now；不得早于模型最早版本，且须落在某个版本区间 |
+
+`PATCH /api/v1/iot/devices/:localDeviceId`：
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `fromAt` | ISO 8601 string | 是 | 必须在未来；设备须 ACTIVE 且恰有一条 open usage |
+
+成功响应：
+
+| 接口 | 响应 |
+|---|---|
+| `POST /iot/models` | `{ modelCode, version, status: 'ACTIVE', warnings, ddl }` |
+| `POST /iot/devices` | `{ localDeviceId, deviceId, modelCode, status: 'ACTIVE', ddl }` |
+| `DELETE /iot/devices/:localDeviceId` | `{ localDeviceId, deviceId, status: 'RETIRED', effectiveTo }` |
+| `PATCH /iot/devices/:localDeviceId` | `{ localDeviceId, deviceId, modelCode, fromAt, version }` |
+| `DELETE /iot/models/:modelCode/versions/:version` | `{ modelCode, version, clearedUsages }` |
+
 ## 响应信封与错误码
 
 - 所有端点成功响应为 `ApiResponse<T> = { code, message, data }`；错误响应同信封，HTTP 状态按码段规则 `httpStatus = Math.floor(code / 100)`。
-- 校验失败（`VALIDATION_FAILED` / 40001）时 `data.errors` 为字段级明细 `Array<{ field: string; message: string }>`（`field` 为点分路径，嵌套 DTO 如 `meta.title`）；业务错误可在 `data` 里携带结构化细节（目前只有 iot 注册路径，见下），无细节时 `data: null`。
+- 校验失败（`VALIDATION_FAILED` / 40001）时 `data.errors` 为字段级明细 `Array<{ field: string; message: string }>`（`field` 为点分路径，嵌套 DTO 如 `meta.title`）；业务错误可在 `data` 里携带结构化细节（目前只有 iot 路径，含注册与生命周期，见下），无细节时 `data: null`。
 - 错误码表（BizCode，contracts 为事实源）：
 
 | 常量 | 码值 | 语义 |

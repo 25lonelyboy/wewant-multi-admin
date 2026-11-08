@@ -8,7 +8,9 @@
 |---|---|
 | [commands-and-conventions.md](commands-and-conventions.md) | 仓库级命令速查、commit scope 白名单、任务图 env 透传与文档验收入口 |
 | [dependency-catalog.md](dependency-catalog.md) | pnpm catalog 依赖治理：入 catalog 判据、分类法、named catalog 隔离、pin 策略 |
-| [build-and-verify.md](build-and-verify.md) | 质量门禁（pnpm check + husky）、各端构建链、Docker 构建约束、测试分层 |
+| [build-and-verify.md](build-and-verify.md) | 质量门禁（pnpm check + husky）、CI job、各端构建链、测试分层与覆盖率 |
 | [frontend-testing-standard.md](frontend-testing-standard.md) | pure-web 前端测试评估规范：六层分类框架、阈值终态、exclude 治理、双层 E2E 细则 |
 | [pure-web-exclude-registry.md](pure-web-exclude-registry.md) | pure-web 覆盖率 exclude 豁免注册表：逐条映射页面壳 / 渲染受限 / 无逻辑与理由 |
 | [upstream-tracking.md](upstream-tracking.md) | pure-web 上游同步跟踪：基线快照 + 选择性吸收机制、当前基线记录与推进历史 |
+
+部署、compose、env 与 ops 脚本事实见 [docs/operations/](../operations/README.md)。

@@ -20,20 +20,20 @@
 | [engineering/](engineering/README.md) | 可复用工程实践、构建与验证命令、依赖与兼容性结论 | 有事实源 |
 | [decisions/](decisions/README.md) | 架构决策记录（ADR），跨域决策唯一存放地 | ADR 索引已建立，条目以本目录索引为准 |
 | [tasks/](tasks/README.md)（冷索引 [archive/](tasks/archive/README.md)） | 大任务/阶段/专项治理的过程材料（热索引 + archive） | 热区：无进行中任务，物模型阶段已收口；已完成条目按热 / 冷索引分层 |
-| product/ | 业务规则、角色、权限、术语表 | 未创建；有业务文档时再建 |
-| operations/ | 部署、环境、CI/CD、观测 | 未创建；部署事实暂由代码内注释承载 |
+| product/ | 业务规则、角色、权限、术语表 | 暂不建：当前业务规则（RBAC、登录锁定、软删除）由 architecture/backend.md 与 contracts.md 承载；出现跨端业务术语或独立产品文档时再建 |
+| [operations/](operations/README.md) | 部署、环境、运行维护 | 部署与 ops 脚本事实源已建立；CI job 与质量门禁仍在 engineering/build-and-verify.md |
 | [governance/](governance/README.md) | 文档体系维护规则、命名规则、路线图、协作边界 | 全局 backlog、P1 阶段地图与后端演进路线图已建立 |
 
 ## 应用文档
 
-应用级事实与命令见已有的应用 `AGENTS.md`；入口汇总（含暂无应用级文档的应用）见 [commands-and-conventions.md](engineering/commands-and-conventions.md) 的「应用入口」节。
+应用级事实与 AI 协作规则见应用 `AGENTS.md`；人类上手入口与暂无 AGENTS 的应用见 [commands-and-conventions.md](engineering/commands-and-conventions.md) 的「应用入口」节。
 
 ## 维护规则
 
 - **事实源唯一**：同一事实只在一个文件维护，其余位置放链接；新建文件前先检查现有主题能否承载。
 - **归位与登记**：新文档必须放进对应层目录，并登记进该目录 README 索引；不允许孤儿文件。
 - **事实只写已验证行为**：未落地的意图只能写入 `tasks/` 的计划文档或 ADR，不进事实源。
-- **过程材料隔离**：大任务在 `docs/tasks/日期-任务名/` 建目录，过程文件只追加不改写；收口时把结论提升到事实源、稳定决策写成 ADR；完成超 90 天移入 `archive/`。
+- **过程材料隔离**：大任务在 `docs/tasks/日期-任务名/` 建目录；过程文件与归档规则以 [tasks/README.md](tasks/README.md) 为准。
 - **活文档不随任务归档**：被持续性机制消费的记录（如周期性巡检的基线 / 清单）收口时提升到事实源层，不留 `archive/`；归档目录内层必须有带警告横幅的 README 入口。
 - **索引行只写定性结论**：热 / 冷索引行的收口说明不写精确计数（如测试用例数），避免数字随演进陈旧。
 - **命名**：活文档用稳定语义名（如 `repo-structure.md`）；不可变过程记录与任务目录用日期前缀（如 `2026-08-16-task-name/`）；存量旧命名不强制迁移。

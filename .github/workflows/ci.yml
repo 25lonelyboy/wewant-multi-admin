@@ -224,7 +224,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: 初始化 TDengine（建库 / 建超表 / 建子表 / 降采样子表，并清理遗留降采样流，幂等）
-        run: pnpm --filter @multi-admin/iot-worker run tdengine:init
+        run: pnpm ops:tdengine-init
       - run: pnpm exec turbo run test:coverage --filter=@multi-admin/nestjs-server
         # 报警式（ADR-006）：覆盖率不达标只报警不拦截
         continue-on-error: true

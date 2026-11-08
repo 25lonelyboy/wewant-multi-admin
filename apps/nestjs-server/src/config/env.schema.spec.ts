@@ -82,6 +82,13 @@ describe('envSchema', () => {
     expect(envSchema.safeParse(raw).success).toBe(false);
   });
 
+  it('两把 JWT 密钥相同时拒绝', () => {
+    const raw = validEnv();
+    raw.JWT_REFRESH_SECRET = raw.JWT_ACCESS_SECRET;
+    expect(envSchema.safeParse(raw).success).toBe(false);
+    expect(() => validateEnv(raw)).toThrow(/必须不同/);
+  });
+
   it('BODY_LIMIT 默认 1mb', () => {
     const raw = validEnv();
     delete raw.BODY_LIMIT;

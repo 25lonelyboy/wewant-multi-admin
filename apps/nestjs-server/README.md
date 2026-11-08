@@ -1,5 +1,7 @@
 # nestjs-server
 
+> 本文件用于人类快速上手；应用级事实与 AI 协作规则以 [AGENTS.md](./AGENTS.md) 和 `docs/` 为准。
+
 多端管理后台 monorepo 的后端应用：NestJS 11 + Prisma 7（PostgreSQL）+ Redis，提供 JWT 双令牌认证、五表三级 RBAC、system 域 CRUD（软删除，查询显式带 `deletedAt` 条件）与 iot 设备接入（MQTT 订阅投队列、档案/物模型注册），响应统一 `{ code, message, data }` 信封。
 
 ## 技术栈
@@ -78,7 +80,7 @@ pnpm --filter @multi-admin/nestjs-server run prisma:seed    # 显式 seed（Pris
 | `IOT_SPILL_DIR` / `IOT_SPILL_MAX_BYTES`                                 | 队列不可达时的本地缓冲目录与上限                                   |
 | `IOT_MAX_MESSAGE_BYTES`                                                 | 单条上行报文上限，默认 256 KiB                                     |
 | `ADMIN_INIT_PASSWORD`                                                   | seed 超管初始口令（仅首次生效）                                    |
-| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`                              | 双密钥，必须不同且 ≥32 字符                                        |
+| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`                              | 双密钥，必须不同且 ≥32 字符（`env.schema` 启动校验）               |
 | `JWT_ACCESS_TTL` / `JWT_REFRESH_TTL`                                    | 默认 `15m` / `7d`                                                  |
 | `BODY_LIMIT`                                                            | 全局请求体大小，默认 `1mb`                                         |
 | `UPLOAD_BODY_LIMIT`                                                     | 上传路由 `/api/v1/upload` 大小，默认 `10mb`                        |

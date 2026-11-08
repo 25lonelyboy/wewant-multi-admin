@@ -75,11 +75,14 @@ echo "  ✔ tdengine 就绪"
 echo "▶ 执行 prisma migrate deploy..."
 pnpm --filter @multi-admin/nestjs-server exec prisma migrate deploy
 
+echo "▶ 构建 workspace 依赖（contracts / device-registry）..."
+pnpm exec turbo run build --filter=@multi-admin/device-registry...
+
 echo "▶ 执行 prisma db seed..."
 pnpm --filter @multi-admin/nestjs-server exec prisma db seed
 
 echo "▶ 初始化 TDengine（建库 / 建超表 / 建子表 / 降采样子表，并清理遗留降采样流，幂等）..."
-pnpm --filter @multi-admin/iot-worker run tdengine:init
+pnpm ops:tdengine-init
 
 echo ""
 echo "✔ 开发环境就绪"

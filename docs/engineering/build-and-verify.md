@@ -5,10 +5,6 @@ covers:
   - scripts/
   - .husky/
   - .lintstagedrc.json
-  - apps/pure-web/Dockerfile
-  - apps/nestjs-server/Dockerfile
-  - apps/iot-worker/Dockerfile
-  - docker-compose.yml
   - packages/contracts/
   - turbo.json
 last_verified: 2026-11-08
@@ -37,11 +33,11 @@ last_verified: 2026-11-08
      - web：curl 200。
      - server：`/health` + entrypoint 三段断言；依赖 job services postgres 与带认证的步骤容器 redis。
    - `coverage`：job services 含 postgres / emqx / redis-queue / tdengine；redis 以带认证的步骤容器启动。
-     - 先跑 `tdengine:init` 建库建表，再跑 server 合并覆盖率、iot-worker 单测覆盖率、iot-worker e2e 三步。
-     - 覆盖率两步 ≥80% 报警式硬门槛。
-   - `coverage-web`：pure-web vitest 覆盖率报警式，全局聚合 ≥80% + crown-jewel 6 键 ≥90%。
+     - 先跑 `tdengine:init` 建库建表，再跑 server 合并覆盖率、iot-worker 单测覆盖率、iot-worker e2e 三步。CI 经 `pnpm ops:tdengine-init` 运行，turbo 任务会先构建 contracts / device-registry。
+     - server 合并覆盖率四指标 ≥80；iot-worker 单测覆盖率行 90 / 函数 85 / 分支 80。两项均为脚本内硬门槛，CI 步骤报警式。
+   - `coverage-web`：pure-web vitest 覆盖率报警式，全局聚合 ≥80%；6 个安全关键键中 http 分支 88、guards 分支 85 为已登记降级，其余四键 ≥90%。
    - `e2e-web`：Playwright Tier A mock 冒烟，grep `@mock-only`。
-   - `e2e-web-real`：Tier B 真实后端冒烟，grep `@real-backend`，报警式 + nightly；双层 E2E 见 [ADR-008](../decisions/ADR-008-tiered-e2e-testing.md)。
+   - `e2e-web-real`：Tier B 真实后端冒烟，grep `@real-backend`，报警式。nightly 触发的是整个 workflow（八个 job 都会跑），真实后端层是 nightly 的主要目的；双层 E2E 见 [ADR-008](../decisions/ADR-008-tiered-e2e-testing.md)。
    - `audit`：`pnpm audit --audit-level=high` 报警式。
    - `doc-lint`：文档一致性与新鲜度校验报警式。
    - 定位与取舍见 `docs/decisions/ADR-006-github-ci.md`。
@@ -53,7 +49,7 @@ last_verified: 2026-11-08
 
 构建变体（`build:dir` / `build:staging` / `build:mp-weixin`）必须在 `turbo.json` 显式声明——新增变体不同步入图即不会被编排。
 
-turbo env 透传约束：`envMode` 为 strict，只有声明过的环境变量才会传给 task 子进程——涉及 `prisma generate` 的任务必须在 `turbo.json` 声明 `env: ["DATABASE_URL"]`，测试任务追加 `REDIS_URL`；漏声明则该任务取不到连接串。
+turbo env 透传约束：`envMode` 为 strict，只有声明过的环境变量才会传给 task 子进程——涉及 `prisma generate` 的任务必须在 `turbo.json` 声明 `env: ["DATABASE_URL"]`；测试与开发任务透传 `REDIS_URL`、`MQTT_URL`、`QUEUE_REDIS_URL`。漏声明则该任务取不到连接串。
 
 ## 各端构建链
 
@@ -72,60 +68,13 @@ turbo env 透传约束：`envMode` 为 strict，只有声明过的环境变量�
 - **格式化由 Prettier 独占**（根 `.prettierrc.js` + `.prettierignore`）；不要在 ESLint/Stylelint 里开格式化规则。
 - 门禁 lint 纯校验（无 `--fix`）；提交期修复由 lint-staged（eslint/stylelint `--fix` + prettier `--write`）独占（应用侧；packages/ 无样式文件不受影响）。
 
-## pure-web 数据源开关（VITE_MOCK）
+## 运维边界
 
-- 缺省（false / 未定义）：不注册 fake-server 插件，dev server 将 `/api/v1` 代理至 NestJS（`http://localhost:3000`）；`VITE_MOCK=true`：注册 `vite-plugin-fake-server`（`enableProd` 亦注入 prod 构建）。
-- mock fixture 与真实后端契约同形（同信封、同路径、同类型标注）；mock-only 端点清单与降级约束见 `docs/architecture/contracts.md`。
+- pure-web 的数据源开关（VITE_MOCK）与 mock-only 端点清单见 [contracts.md](../architecture/contracts.md) 的「pure-web 数据源开关」节。
+- Docker 镜像、compose 服务、env 注入、暴露面与镜像 pin 见 [operations/deployment.md](../operations/deployment.md)。
+- ops 脚本与验证探针见 [operations/ops-scripts.md](../operations/ops-scripts.md)。
 
-## Docker
-
-- **构建 context 必须是仓库根**：`docker build -f apps/pure-web/Dockerfile .`（Dockerfile 内部已按 manifest 分层缓存 + `--filter @multi-admin/pure-web...` 依赖隔离安装）。构建命令用 `--filter X...`（含依赖子图拓扑），与本地任务图同源。
-- 基础镜像 `node:24-alpine`，pnpm 版本经 corepack 按 `packageManager` 字段锁定；镜像变量用 `PNPM_CONFIG_REGISTRY` / `COREPACK_NPM_REGISTRY`（`npm_config_*` 对 pnpm 无效）。
-- 本机编排：`cp .env.example .env` 填写 `POSTGRES_PASSWORD`、`REDIS_PASSWORD` 与 `ADMIN_INIT_PASSWORD` 后 `docker compose up`（postgres + redis + redis-queue + emqx + tdengine + server + worker + web **八服务**；
-  server 依赖 postgres/redis 双健康，启动链 entrypoint 串 `prisma migrate deploy → prisma db seed → exec node`（幂等可重复）；
-  worker 依赖 redis / redis-queue / tdengine 三健康，**无 migrate / seed、不碰 PG**）。
-  库名统一 `multi_admin`；存量旧卷（旧库名初始化）需 `docker compose down -v` 重建。tdengine 容器设 `TZ: Asia/Shanghai`——窗口对齐取服务器时区；`ops:tdengine-init` 启动时显式断言服务器时区，配错直接初始化失败（退出码 1），不再静默写进错窗口。
-  暴露面：`redis-queue` / `emqx` / `tdengine` 只绑宿主回环；`postgres` / `redis` 绑全部接口，故各自带认证（`POSTGRES_PASSWORD` / `REDIS_PASSWORD`）——规则与残余风险见本节。
-- env 注意：根 `.env` 的 `DATABASE_URL` 若手动设置，内嵌密码须与 `POSTGRES_PASSWORD` 一致（否则 server 连库失败而 postgres 容器正常，排障困难）；
-  根 `.env` 的 `REDIS_URL` 须带凭据（`redis://:<REDIS_PASSWORD>@redis:6379`，空用户名落到 `default` 用户）并经 compose 插值注入 **server 与 worker**（`${REDIS_URL:?…}`），与 redis 的 `--requirepass` 同源；
-  JWT 双密钥（`JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`）必须不同，compose `:?` 强校验必填。
-  server 与 worker 都读 `TDENGINE_URL`：容器内必须显式指向 `tdengine:6041`（compose 已传），指向 `127.0.0.1` 会连到容器自己；server 是**懒连接**，tdengine 未起不影响它启动，注册请求才失败。
-- 镜像源参数化（`ARG PNPM_REGISTRY`），CI 通过 `build-args` 覆盖为官方源。
-- 镜像 pin 与非 root：生产镜像统一 `tag@digest`（manifest-list 层级）pin，季度 `pnpm ops:check-digests` 巡检漂移；
-  nestjs-server prod 阶段以 `USER node`（UID 1000）运行，compose 的 server 服务带 `no-new-privileges`；
-  nginx 保留官方镜像 master-root 形态（绑 80 需要），迁至 restricted PSA / OpenShift 时换 nginx-unprivileged。
-
-## ops 自动化脚本（scripts/ops/）
-
-本地高频操作沉淀为可复用脚本，人和 Agent 均可调用。ESM 脚本复用 `@multi-admin/node-utils`，Shell 脚本统一 `#!/usr/bin/env bash` + `set -euo pipefail`。
-
-| 命令 | 脚本 | 职责 |
-|---|---|---|
-| `pnpm ops:pre-push` | `pre-push.mjs` | push 前 CI 同构校验：frozen-lockfile + check + doc-lint + audit |
-| `pnpm ops:ci` | `ci-status.sh` | CI 结果拉取：最近 5 次 run 状态 + 失败自动打印日志 |
-| `pnpm ops:ci-logs` | `ci-logs.sh` | CI 失败日志导出：`.ci-failure-<id>.log`（Agent 可读取分析） |
-| `pnpm ops:env-up` | `env-up.sh` | 开发环境启动：postgres + redis + redis-queue + emqx + tdengine + migrate + seed + tdengine:init |
-| `pnpm ops:env-down` | `env-down.sh` | 开发环境停止（`--clean` 清除数据卷） |
-| `pnpm ops:tdengine-init` | 转发 `@multi-admin/iot-worker` 的 `tdengine:init`（`apps/iot-worker/scripts/tdengine-init.ts`） | 建 TDengine 库 / 超表 / 子表 / 降采样子表，并清理遗留的降采样流（幂等，可反复执行；只建不删库）；`ops:env-up` 已串 |
-| `pnpm ops:smoke` | `docker-smoke.sh` | 本地 Docker 冒烟（`--server` 追加构建 + 运行态冒烟） |
-| `pnpm ops:server-smoke` | `server-smoke.sh` | server 镜像运行态冒烟（/health + entrypoint 三段断言；前置：镜像已构建 + ops:env-up） |
-| `pnpm ops:coverage` | `coverage.mjs` | 本地覆盖率一键跑（`--skip-env` 跳过环境启停） |
-| `pnpm ops:check-digests` | `check-digests.sh` | 镜像 digest pin 漂移巡检（季度，`docker buildx imagetools inspect` 比对） |
-| `pnpm ops:upstream-diff` | `upstream-diff.sh` | pure-web 上游漂移报告（基线 SHA + target ref → 改动清单/变更地图/冲突面三件套；无基线参数降级仅本地侧） |
-| `pnpm ops:worktree-init` | `worktree-init.sh` | 通用仓库就绪：`.git` 类型自动判定双场景（worktree 检出后初始化：依赖安装 + 主仓库 env 类文件白名单同步 + 钩子兜底；新克隆引导：技术栈探测 + `.env.example` 生成）；零依赖单文件，可复制到其他仓库；engines 校验读目标仓库 `package.json`；Windows 下经 WSL bash 执行，调用方须自仓库根以相对路径调用 |
-
-⚠️ **降采样库一次性迁移**：降采样由 worker 侧定时重算、不用流。带旧开发卷的环境，`wewant_iot_ds` 内的聚合产自流机制、**不可信**，须手动 `DROP DATABASE wewant_iot_ds` 后重跑 `ops:tdengine-init` 重建。
-
-该 DROP 是**一次性人工动作、不进脚本**——`ops:env-up` 每次启动都调脚本，DROP 进脚本会把归档一并清掉；`wewant_iot` 原始库不受影响。
-
-前置依赖：
-
-- gh CLI（ci-status / ci-logs，需首次 `gh auth login`）。
-- Docker Desktop（env-up / smoke / coverage / check-digests）。
-- Git Bash 或 WSL bash（shell 脚本执行；仓库 `.sh` 统一 LF 行尾，见根 `.gitattributes`）。
-- 可联网环境（upstream-diff，需 fetch github）。
-
-check-digests 远端比对依赖可联网环境：本机无 Registry 直连时按设计输出「远端 digest 获取失败」exit 1（本地同 tag 一致性检查仍有效）；CI 无该巡检 step（不在 CI 内新增验证逻辑），首次在线巡检需在可联网环境手动执行一次。
+## 集成测试前置
 
 设备接入 e2e（iot 域）连真实 Broker：本地需 `pnpm ops:env-up`（含 redis-queue 与 tdengine），CI 的 `coverage` job 已配 emqx / redis-queue / tdengine 三个 service 并先跑 `tdengine:init`。
 
@@ -133,45 +82,20 @@ check-digests 远端比对依赖可联网环境：本机无 Registry 直连时�
 
 `docker-build` 与 `e2e-web-real` 不需要 EMQX——接入链路连不上 Broker 只记 warn 并自动重连，不阻断应用启动（见 [backend.md](../architecture/backend.md) 设备接入链路）。
 
-`set -o pipefail` 下 `docker logs X | grep -qF` 断言必假：grep -q 命中即退出使 docker logs 收到 SIGPIPE（exit 141），管道整体非零、`if` 恒假。写法必须是先捕获变量（`LOGS="$(docker logs X 2>&1 || true)"`）再 `echo "${LOGS}" | grep -qF` 断言。
-
 共享全局状态（数据库 / Redis / 限流计数）的集成测试必须串行执行，或在用例边界重置共享键：jest 默认多 worker 并行时，A 套件的刻意限流用例会耗尽 B 套件登录所需配额，表现为登录必成断言随机 429、同代码可绿可红。
-
-## 验证探针（scripts/probe/）
-
-把官方文档说不清、又与决策相关的**服务端行为**跑成可复现的证据。约定：**零依赖**（只用 Node 内建 `fetch` 或仓库已有依赖）、走服务端自有接口、结论落进 `docs/tasks/` 并把查证状态登记到知识库的查证台账。
-
-| 脚本 | 职责 |
-|---|---|
-| `tdengine-semantics.mjs` | TDengine 语义：省略列 / `NONE` 与 `NULL`、`ALTER STABLE` 代价、虚拟表能力边界、跨超表查询约束（走 taosAdapter REST） |
-| `tdengine-lifecycle.mjs` | TDengine 生命周期：社区版审计能力、`ALTER DATABASE` 能力边界（`KEEP` 可改 / `DURATION` 不可改）、跨库查询、三级链式降采样、`avg of avg` 偏差、窗口 offset 与时区 |
-| `tdengine-container.sh` | 起临时容器 → 等 taosAdapter 就绪 → 跑探针；`--down` 停掉 |
-| `taosdump-roundtrip.sh` | `taosdump` 备份 / 恢复往返（内容全部在容器内执行）：`-M all` 往返、`-S`/`-E` 时间范围归档、`-M ext-meta` 备份流定义、`-W` 改名恢复、**`-M` 两侧不一致时的静默失效**。⚠️ 与 `tdengine-container.sh` 共用同一个容器 |
-
-⚠️ **另有四个探针在应用目录下**，不在此目录——它们需要某个**按 catalog 判据只属于该应用**的依赖，仓库根没有，Node 从脚本所在目录向上解析依赖：
-
-- `apps/iot-simulator/scripts/`：`mqtt-protocol-probe.mjs` / `mqtt-credential-probe.mjs`（需要 `mqtt`）。凭据探针还需一个**配了认证器的独立 Broker**（开发环境那台默认无认证，不适用）
-- `apps/nestjs-server/scripts/tdengine-stmt-probe.mjs`（需要 `@tdengine/websocket`）：TDengine STMT 写入形态——一次 exec 跨多子表、两种跨子表写法、`USING` 语法自动建表、单次 bind/exec 的行数上限。
-  ⚠️ 它建自己的库 `probe_stmt` 并反复重建超表，**不要指向有数据的实例**
-- `apps/nestjs-server/scripts/tdengine-stmt-tbname-probe.mjs`（需要 `@tdengine/websocket`）：TDengine「形态②」（`INSERT INTO <stb> (tbname, tag…, ts, …)` 且 `tbname` 作普通绑定参数）的两项行为。
-  - 缺子表时**报错还是静默建表**；一次 `exec` 能否跨多个子表。
-  - **STMT2（连接器默认）与 STMT1（写入器强制）两条路径都测**。
-  - ⚠️ 它建**自己的临时库** `probe_stmt_tb` 并跑完整库删掉，另快照 `wewant_iot` / `wewant_iot_ds` 的建表指纹验证真实库未被波及，**不要指向有数据的实例**。
 
 ## 已知环境事实
 
 - Windows 下 Electron 打包期可能出现 `dist-electron/` EPERM 文件锁：确保无残留 electron 进程后重跑。
 - pnpm 安装含构建脚本的依赖受 `pnpm-workspace.yaml` 的 `allowBuilds` 白名单控制，新增需构建的原生依赖时要登记。
 
-## pure-web 测试基建
+## pure-web 测试与类型检查
 
-- **单元测试**：vitest + @vue/test-utils + jsdom；配置 `apps/pure-web/vitest.config.ts`（独立于 `vite.config.ts`，不加载构建期插件）；覆盖范围 `src/**/*.{ts,tsx,vue}` + `build/*.ts` + `mock/*.ts`；
-  阈值全局聚合 ≥80% + crown-jewel 6 键 ≥90%，exclude 治理与双层 E2E 细则见 [frontend-testing-standard.md](frontend-testing-standard.md)。
-- **E2E 测试**：Playwright（`apps/pure-web/e2e/`）；登录全链路 + 关键页面冒烟（验证码 / 二维码 / 打印行为级由 E2E 覆盖；cropper 深度交互为永久豁免）。
-- **TypeScript strict 单一配置**：`apps/pure-web/tsconfig.json` extends `@multi-admin/tsconfig/web.json`。
+- 单测与 E2E 入口：`vitest` / `playwright`；分层框架、阈值、exclude 与覆盖范围见 [frontend-testing-standard.md](frontend-testing-standard.md)。
+- typecheck：`tsc --noEmit --skipLibCheck && vue-tsc --noEmit --skipLibCheck`。
+- TypeScript strict 单一配置：`apps/pure-web/tsconfig.json` extends `@multi-admin/tsconfig/web.json`。
   - 继承 `strict: true` + `noUnusedLocals` / `noUnusedParameters` / `noImplicitOverride` / `noFallthroughCasesInSwitch` / `moduleDetection: "force"` 等开关。
   - 无双 config、无清单断言、无豁免文件。
-  - typecheck 脚本：`tsc --noEmit --skipLibCheck && vue-tsc --noEmit --skipLibCheck`。
 
 ## nestjs-server e2e 测试
 

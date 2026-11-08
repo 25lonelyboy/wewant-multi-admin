@@ -55,7 +55,7 @@ pnpm --filter @multi-admin/nestjs-server run prisma:seed    # 显式 seed（Pris
 - **ESM 风格**：相对导入必须带 `.js` 后缀（如 `import { AppModule } from './app.module.js'`）。
 - **错误体系**：业务错误一律抛 `BizException(BizCode)`，禁止裸抛 HttpException 或直接返回非信封结构；错误码表与扩展流程见 [`docs/architecture/contracts.md`](../../docs/architecture/contracts.md)。
 - **contracts 先行**：接口契约变更（类型、错误码、常量）先改 `packages/contracts`，本应用与 pure-web 再各自接线。
-- **认证/权限**：默认所有端点需认证，公开端点必须显式 `@Public()`；权限点用 `@RequirePermissions()`；JWT 双 secret（`JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`）必须不同且 ≥32 字符。
+- **认证/权限**：默认所有端点需认证，公开端点必须显式 `@Public()`；权限点用 `@RequirePermissions()`；JWT 双 secret（`JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`）必须不同且 ≥32 字符（env.schema 启动校验）。
 - **e2e 串行与隔离**：`maxWorkers: 1` 串行执行，所有 spec 共享测试库 `multi_admin_test` 与同一 Redis——并行会让限流计数、flushdb 互踩。会触发登录的套件必须 `beforeEach flushdb` 重置限流计数；新增登录 e2e 用例不得突破限流配额（不放宽生产限额）。
 - **安全不变量**：argon2 密码哈希永不落日志；日志 redact `req.headers.authorization` / `*.password`；
   软删除无全局中间件，查询必须显式携带 `deletedAt: null` 条件（含嵌套关系过滤，如 `roles: { where: { role: { deletedAt: null } } }`），删除操作写 `deletedAt` 而非物理删行。

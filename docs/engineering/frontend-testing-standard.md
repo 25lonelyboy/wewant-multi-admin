@@ -37,9 +37,15 @@ last_verified: 2026-11-08
 
 - **全局聚合兜底**：lines / branches ≥80，作用于未单列的文件。
 - **crown-jewel ≥90**（6 键）：auth / user store / http / guards / tree / permission。
-- **纯逻辑 / 集成交互文件级 ≥80/80**（3 键）：`ReCol` / `ReFlicker` / `ReText`，按 §5 随组件测试落地时登记。
+- **纯逻辑 / 集成交互文件级 ≥80/80**（3 键）：`ReCol` / `ReFlicker` / `ReText`，已在 `vitest.config.ts` 登记。
 
 这三层是**执行策略，不是数学保证**：全局阈值只看聚合值，未单列的文件不做 per-file 校验。"非排除文件逐个达 80"是目标态，靠 §5 的登记流程维持，不靠配置自动强制。
+
+### 配置与覆盖范围
+
+- 单测配置 `apps/pure-web/vitest.config.ts` 独立于 `vite.config.ts`，不加载构建期插件。
+- 覆盖范围 `src/**/*.{ts,tsx,vue}` + `build/*.ts` + `mock/*.ts`。
+- E2E 配置 `apps/pure-web/playwright.config.ts`，用例在 `apps/pure-web/e2e/`。
 
 ### crown-jewel 降级阈值（2 处）
 

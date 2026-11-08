@@ -57,11 +57,9 @@ iot 域作为第二个业务域落地（见 [ADR-009](../decisions/ADR-009-iot-p
 | schema.prisma 多文件拆分 | 未命中 | 原触发条件为模型规模（> ~25 模型或 > ~600 行）；iot 域新增 4 个模型后共 9 个模型，仍在阈值内 |
 | common/ 与 infra/ 二分 | **延后（2026-10-12 判定）** | 原触发条件＝server 侧出现第二个外部中间件适配器。数据链路阶段落地后该条件失效：**消费者独立成 `apps/iot-worker`**，TDengine 客户端落在 worker 侧、不进 server，server 侧只剩一个薄的 BullMQ 生产者 ⇒ `common/` 里仍只有一个外部适配薄壳。**待 server 侧再落第二个外部适配器时重启评估**（同 [backlog](../governance/backlog.md) 该条） |
 
-### 阶段 A 已确认的范围决策（ADR-007）
+### 阶段 A 范围
 
-- **审计日志基础版**：登录事件（成功/失败/锁定）+ 管理员敏感操作（改权限、软删除、重置密码、改密）；全量业务审计待监控域扩。
-- **备份形态**：pg_dump 定时 + 副本异地/异盘 + 恢复演练脚本；不上 pgBackRest（K8s/数据规模化再评估）。
-- **供应链加固**：Renovate 公有 GitHub App（`.renovaterc.json`，工时 ≈ 0，需确认 pnpm manager 同时管 catalog 与 lockfile）；Trivy 入 CI 报警式（docker-build 加一步 + 漏洞库缓存，工时 ≈ 半天）；check-digests 在 Renovate 落地后退役。
+审计日志基础版、备份形态与供应链加固的范围已由 [ADR-007](../decisions/ADR-007-backend-evolution.md) 锁定；本路线图只负责阶段排序与触发条件，不复述范围细节。
 
 ### 微服务抽取触发信号（至少满足其一）
 
