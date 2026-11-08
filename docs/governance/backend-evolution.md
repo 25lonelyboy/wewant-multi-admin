@@ -3,7 +3,7 @@ status: living
 covers:
   - apps/nestjs-server/
   - docs/decisions/ADR-007-backend-evolution.md
-last_verified: 2026-11-07
+last_verified: 2026-11-08
 ---
 
 # NestJS 后端演进路线图
