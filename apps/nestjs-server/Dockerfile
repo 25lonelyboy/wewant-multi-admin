@@ -81,6 +81,13 @@ COPY --from=build-stage /repo/apps/nestjs-server/src/generated ./apps/nestjs-ser
 # contracts workspace 包产物：dist 以裸包名 import（exception-resolver 等），pnpm 链接指向 /repo/packages/contracts，缺则 ERR_MODULE_NOT_FOUND
 COPY --from=build-stage /repo/packages ./packages
 
+# @tdengine/websocket 在 import 时就会在 cwd 建 ./logs/（无环境变量可关）；应用目录属主是 root，
+# 以 node 运行会 EACCES 启动即崩 ⇒ 预建日志目录并交给 node。
+# /var/lib/wewant-spill 由 compose 以命名卷挂载，卷属主取自镜像内目录，同需预建并交给 node，
+# 否则队列不可达时的本地缓冲落盘会 EACCES。
+RUN mkdir -p /repo/apps/nestjs-server/logs /var/lib/wewant-spill \
+    && chown node:node /repo/apps/nestjs-server/logs /var/lib/wewant-spill
+
 # 启动链：migrate deploy → db seed → 主进程；任一环节失败即容器退出（compose restart 兜底）
 RUN printf '#!/bin/sh\nset -e\necho "[entrypoint] migrate deploy"\npnpm exec prisma migrate deploy\necho "[entrypoint] db seed"\npnpm exec prisma db seed\necho "[entrypoint] start server"\nexec node dist/main.js\n' > /entrypoint.sh && chmod +x /entrypoint.sh
 
