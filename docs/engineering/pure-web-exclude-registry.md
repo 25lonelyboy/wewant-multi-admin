@@ -2,16 +2,23 @@
 status: living
 covers:
   - apps/pure-web/vitest.config.ts
-last_verified: 2026-10-05
+last_verified: 2026-11-08
 ---
 
 # pure-web coverage exclude 豁免注册表
 
-被排除出覆盖率统计的文件的唯一登记处。六层判定框架见 [frontend-testing-standard.md](frontend-testing-standard.md)；`vitest.config.ts` 内的内联理由与本文同源，改动需两处同步。
+覆盖率 exclude 的逐条登记处：渲染受限与页面壳逐条登记，无逻辑类按分组登记。六层判定框架见 [frontend-testing-standard.md](frontend-testing-standard.md)；`vitest.config.ts` 内的内联理由与本文同源，改动需两处同步。
 
-治理铁律：每条 exclude 必须映射 T3/T4/T5 + 理由，禁止「测不到就排除」。
+治理铁律：每条 exclude 必须映射页面壳 / 渲染受限 / 无逻辑 + 理由，禁止「测不到就排除」。
 
-## T4 jsdom 受限（豁免双向登记：薄测试 + E2E 回补 + 本表登记，三者缺一视为技术债）
+## 全局排除
+
+| 文件 | 理由 |
+| --- | --- |
+| `**/*.d.ts` | 类型声明，无运行期逻辑 |
+| `**/*.spec.ts` | 测试文件自身，不计入被测算代码 |
+
+## 渲染受限（豁免双向登记：薄测试 + E2E 回补 + 本表登记，三者缺一视为技术债）
 
 | 文件 | 薄测试 | E2E 回补 | 理由 |
 | --- | --- | --- | --- |
@@ -22,11 +29,46 @@ last_verified: 2026-10-05
 | src/components/ReQrcode/** | index.spec.tsx | components.spec「二维码 canvas 非空」 | canvas 二维码 |
 | src/views/welcome/components/charts/*.vue | 无（纯渲染） | 登录后 welcome 页可达 | echarts 渲染 |
 
-## T5 无逻辑
+## 无逻辑（入口 / barrel / 配置 / 纯类型 / 静态页）
 
-（barrel/plugins/入口/静态页/纯类型——逐条理由见 vitest.config.ts 内联注释，双处同源）
+| 文件 | 分组 | 理由 |
+| --- | --- | --- |
+| src/main.ts | 入口 / 根壳 | bootstrap 入口 |
+| src/App.vue | 入口 / 根壳 | 根壳 |
+| src/directives/index.ts | barrel | 纯 re-export |
+| src/components/ReAnimateSelector/index.ts | barrel | 纯 re-export |
+| src/components/ReAuth/index.ts | barrel | 纯 re-export |
+| src/components/ReCountTo/index.ts | barrel | 纯 re-export |
+| src/components/ReCropper/index.ts | barrel | 纯 re-export |
+| src/components/ReCropper/src/svg/index.ts | barrel | 纯 re-export |
+| src/components/ReCropperPreview/index.ts | barrel | 纯 re-export |
+| src/components/ReIcon/index.ts | barrel | 纯 re-export |
+| src/components/ReImageVerify/index.ts | barrel | 纯 re-export |
+| src/components/RePerms/index.ts | barrel | 纯 re-export |
+| src/components/RePureTableBar/index.ts | barrel | 纯 re-export |
+| src/components/ReQrcode/index.ts | barrel | 纯 re-export |
+| src/components/ReSegmented/index.ts | barrel | 纯 re-export |
+| src/components/ReText/index.ts | barrel | 纯 re-export |
+| src/components/ReTypeit/index.ts | barrel | 纯 re-export |
+| src/views/welcome/components/charts/index.ts | barrel | 纯 re-export |
+| src/plugins/*.ts | plugin / 配置 | app.use 副作用注册 |
+| src/config/index.ts | plugin / 配置 | 纯配置对象 |
+| src/router/modules/*.ts | plugin / 配置 | 静态路由配置 |
+| src/views/empty/index.vue | 静态页 | 无业务逻辑 |
+| src/views/error/*.vue | 静态页 | 无业务逻辑 |
+| src/store/types.ts | 纯类型 | 无运行期逻辑 |
+| src/layout/types.ts | 纯类型 | 无运行期逻辑 |
+| src/layout/components/lay-search/types.ts | 纯类型 | 无运行期逻辑 |
+| src/views/system/dept/utils/types.ts | 纯类型 | 无运行期逻辑 |
+| src/views/system/menu/utils/types.ts | 纯类型 | 无运行期逻辑 |
+| src/views/system/role/utils/types.ts | 纯类型 | 无运行期逻辑 |
+| src/views/system/user/utils/types.ts | 纯类型 | 无运行期逻辑 |
+| src/components/ReDialog/type.ts | 纯类型 | 无运行期逻辑 |
+| src/components/ReDrawer/type.ts | 纯类型 | 无运行期逻辑 |
+| src/components/ReSegmented/src/type.ts | 纯类型 | 无运行期逻辑 |
+| src/components/ReIcon/src/types.ts | 纯类型 | 无运行期逻辑 |
 
-## T3 页面壳（smoke 已覆盖 + coverage exclude）
+## 页面壳（smoke 已覆盖 + coverage exclude）
 
 | 文件 | 薄测试 | 理由 |
 | --- | --- | --- |

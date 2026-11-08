@@ -67,78 +67,77 @@ export default defineConfig({
       exclude: [
         '**/*.d.ts',
         '**/*.spec.ts',
-        // ── T5 无逻辑：入口 / 根壳 ──
-        'src/main.ts', // T5: bootstrap 入口
-        'src/App.vue', // T5: 根壳
-        // ── T5 无逻辑：barrel ──
-        'src/directives/index.ts', // T5: barrel
-        'src/components/ReAnimateSelector/index.ts', // T5: barrel
-        'src/components/ReAuth/index.ts', // T5: barrel
-        'src/components/ReCountTo/index.ts', // T5: barrel
-        'src/components/ReCropper/index.ts', // T5: barrel
-        'src/components/ReCropper/src/svg/index.ts', // T5: barrel
-        'src/components/ReCropperPreview/index.ts', // T5: barrel
-        'src/components/ReIcon/index.ts', // T5: barrel
-        'src/components/ReImageVerify/index.ts', // T5: barrel
-        'src/components/RePerms/index.ts', // T5: barrel
-        'src/components/RePureTableBar/index.ts', // T5: barrel
-        'src/components/ReQrcode/index.ts', // T5: barrel
-        'src/components/ReSegmented/index.ts', // T5: barrel
-        'src/components/ReText/index.ts', // T5: barrel
-        'src/components/ReTypeit/index.ts', // T5: barrel
-        'src/views/welcome/components/charts/index.ts', // T5: barrel
-        // ── T5 无逻辑：plugin / 配置 / 类型 / 静态页 ──
-        'src/plugins/*.ts', // T5: app.use 副作用注册
-        'src/config/index.ts', // T5: 纯配置对象
-        'src/router/modules/*.ts', // T5: 静态路由配置
-        'src/store/types.ts', // T5: 纯类型
-        'src/layout/types.ts', // T5: 纯类型
-        'src/layout/components/lay-search/types.ts', // T5: 纯类型
-        'src/views/empty/index.vue', // T5: 静态页
-        'src/views/error/*.vue', // T5: 静态页
-        // ── T4 jsdom 受限 ──
-        'src/utils/print.ts', // T4: DOM 打印不可达
-        'src/components/ReImageVerify/**', // T4: canvas 验证码
-        'src/components/ReCropper/**', // T4: cropper 深交互
-        'src/components/ReCropperPreview/**', // T4: canvas 预览
-        'src/components/ReQrcode/**', // T4: canvas 二维码
-        'src/views/welcome/components/charts/*.vue', // T4: echarts 渲染
-        // ── T5 纯类型：views/system ──
-        'src/views/system/dept/utils/types.ts', // T5: 纯类型
-        'src/views/system/menu/utils/types.ts', // T5: 纯类型
-        'src/views/system/role/utils/types.ts', // T5: 纯类型
-        'src/views/system/user/utils/types.ts', // T5: 纯类型
-        // ── T5 纯类型：components type.ts ──
-        'src/components/ReDialog/type.ts', // T5: 纯类型
-        'src/components/ReDrawer/type.ts', // T5: 纯类型
-        'src/components/ReSegmented/src/type.ts', // T5: 纯类型
-        'src/components/ReIcon/src/types.ts', // T5: 纯类型
-        // ── T3 页面壳：Task 10-12 逐域追加 ──
-        // ── T3 页面壳（smoke 已覆盖）──
-        'src/layout/index.vue', // T3: 布局壳
-        'src/layout/frame.vue', // T3: iframe 载体
-        'src/layout/components/lay-content/index.vue', // T3: 内容区壳
-        'src/layout/components/lay-frame/index.vue', // T3: frame 壳
-        'src/layout/components/lay-navbar/index.vue', // T3: 导航壳
-        'src/layout/components/lay-notice/components/NoticeItem.vue', // T3: 通知项壳
-        'src/layout/components/lay-search/index.vue', // T3: 搜索入口壳
-        'src/layout/components/lay-search/components/SearchFooter.vue', // T3: 搜索底栏壳
-        'src/layout/components/lay-sidebar/components/SidebarFullScreen.vue', // T3: 全屏按钮壳
-        'src/layout/components/lay-sidebar/components/SidebarCenterCollapse.vue', // T3: 折叠按钮壳
-        'src/layout/components/lay-sidebar/components/SidebarLeftCollapse.vue', // T3: 左折叠壳
-        'src/layout/components/lay-sidebar/components/SidebarTopCollapse.vue', // T3: 顶折叠壳
-        'src/views/login/index.vue', // T3: 登录壳
-        'src/views/login/components/LoginQrCode.vue', // T3: 二维码壳
-        'src/views/welcome/index.vue', // T3: 欢迎页壳
-        'src/views/welcome/components/table/index.vue', // T3: 表格壳
-        'src/views/account-settings/index.vue', // T3: 账户设置壳
-        'src/views/account-settings/components/AccountManagement.vue', // T3: 账户管理壳
-        'src/views/account-settings/components/Preferences.vue', // T3: 偏好设置壳
-        'src/views/monitor/logs/login/index.vue', // T3: 登录日志壳
-        'src/views/monitor/logs/operation/index.vue', // T3: 操作日志壳
-        'src/views/monitor/logs/system/index.vue', // T3: 系统日志壳
-        'src/views/monitor/logs/system/detail.vue', // T3: 日志详情壳
-        'src/views/monitor/online/index.vue' // T3: 在线用户壳
+        // ── 无逻辑：入口 / 根壳 ──
+        'src/main.ts', // 无逻辑：bootstrap 入口
+        'src/App.vue', // 无逻辑：根壳
+        // ── 无逻辑：barrel ──
+        'src/directives/index.ts', // 无逻辑：barrel
+        'src/components/ReAnimateSelector/index.ts', // 无逻辑：barrel
+        'src/components/ReAuth/index.ts', // 无逻辑：barrel
+        'src/components/ReCountTo/index.ts', // 无逻辑：barrel
+        'src/components/ReCropper/index.ts', // 无逻辑：barrel
+        'src/components/ReCropper/src/svg/index.ts', // 无逻辑：barrel
+        'src/components/ReCropperPreview/index.ts', // 无逻辑：barrel
+        'src/components/ReIcon/index.ts', // 无逻辑：barrel
+        'src/components/ReImageVerify/index.ts', // 无逻辑：barrel
+        'src/components/RePerms/index.ts', // 无逻辑：barrel
+        'src/components/RePureTableBar/index.ts', // 无逻辑：barrel
+        'src/components/ReQrcode/index.ts', // 无逻辑：barrel
+        'src/components/ReSegmented/index.ts', // 无逻辑：barrel
+        'src/components/ReText/index.ts', // 无逻辑：barrel
+        'src/components/ReTypeit/index.ts', // 无逻辑：barrel
+        'src/views/welcome/components/charts/index.ts', // 无逻辑：barrel
+        // ── 无逻辑：plugin / 配置 / 类型 / 静态页 ──
+        'src/plugins/*.ts', // 无逻辑：app.use 副作用注册
+        'src/config/index.ts', // 无逻辑：纯配置对象
+        'src/router/modules/*.ts', // 无逻辑：静态路由配置
+        'src/store/types.ts', // 无逻辑：纯类型
+        'src/layout/types.ts', // 无逻辑：纯类型
+        'src/layout/components/lay-search/types.ts', // 无逻辑：纯类型
+        'src/views/empty/index.vue', // 无逻辑：静态页
+        'src/views/error/*.vue', // 无逻辑：静态页
+        // ── 渲染受限（jsdom 不可达）──
+        'src/utils/print.ts', // 渲染受限：DOM 打印不可达
+        'src/components/ReImageVerify/**', // 渲染受限：canvas 验证码
+        'src/components/ReCropper/**', // 渲染受限：cropper 深交互
+        'src/components/ReCropperPreview/**', // 渲染受限：canvas 预览
+        'src/components/ReQrcode/**', // 渲染受限：canvas 二维码
+        'src/views/welcome/components/charts/*.vue', // 渲染受限：echarts 渲染
+        // ── 无逻辑：纯类型 views/system ──
+        'src/views/system/dept/utils/types.ts', // 无逻辑：纯类型
+        'src/views/system/menu/utils/types.ts', // 无逻辑：纯类型
+        'src/views/system/role/utils/types.ts', // 无逻辑：纯类型
+        'src/views/system/user/utils/types.ts', // 无逻辑：纯类型
+        // ── 无逻辑：纯类型 components type.ts ──
+        'src/components/ReDialog/type.ts', // 无逻辑：纯类型
+        'src/components/ReDrawer/type.ts', // 无逻辑：纯类型
+        'src/components/ReSegmented/src/type.ts', // 无逻辑：纯类型
+        'src/components/ReIcon/src/types.ts', // 无逻辑：纯类型
+        // ── 页面壳（smoke 已覆盖）──
+        'src/layout/index.vue', // 页面壳：布局壳
+        'src/layout/frame.vue', // 页面壳：iframe 载体
+        'src/layout/components/lay-content/index.vue', // 页面壳：内容区壳
+        'src/layout/components/lay-frame/index.vue', // 页面壳：frame 壳
+        'src/layout/components/lay-navbar/index.vue', // 页面壳：导航壳
+        'src/layout/components/lay-notice/components/NoticeItem.vue', // 页面壳：通知项壳
+        'src/layout/components/lay-search/index.vue', // 页面壳：搜索入口壳
+        'src/layout/components/lay-search/components/SearchFooter.vue', // 页面壳：搜索底栏壳
+        'src/layout/components/lay-sidebar/components/SidebarFullScreen.vue', // 页面壳：全屏按钮壳
+        'src/layout/components/lay-sidebar/components/SidebarCenterCollapse.vue', // 页面壳：折叠按钮壳
+        'src/layout/components/lay-sidebar/components/SidebarLeftCollapse.vue', // 页面壳：左折叠壳
+        'src/layout/components/lay-sidebar/components/SidebarTopCollapse.vue', // 页面壳：顶折叠壳
+        'src/views/login/index.vue', // 页面壳：登录壳
+        'src/views/login/components/LoginQrCode.vue', // 页面壳：二维码壳
+        'src/views/welcome/index.vue', // 页面壳：欢迎页壳
+        'src/views/welcome/components/table/index.vue', // 页面壳：表格壳
+        'src/views/account-settings/index.vue', // 页面壳：账户设置壳
+        'src/views/account-settings/components/AccountManagement.vue', // 页面壳：账户管理壳
+        'src/views/account-settings/components/Preferences.vue', // 页面壳：偏好设置壳
+        'src/views/monitor/logs/login/index.vue', // 页面壳：登录日志壳
+        'src/views/monitor/logs/operation/index.vue', // 页面壳：操作日志壳
+        'src/views/monitor/logs/system/index.vue', // 页面壳：系统日志壳
+        'src/views/monitor/logs/system/detail.vue', // 页面壳：日志详情壳
+        'src/views/monitor/online/index.vue' // 页面壳：在线用户壳
       ],
       thresholds: {
         // 全局聚合兜底：非排除文件 per-file ≥80 ⇒ 聚合必 ≥80

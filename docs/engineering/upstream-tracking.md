@@ -2,7 +2,7 @@
 status: living
 covers:
   - scripts/ops/upstream-diff.sh
-last_verified: 2026-09-02
+last_verified: 2026-11-08
 ---
 
 # pure-web 上游同步跟踪
@@ -12,7 +12,8 @@ vue-pure-admin 为 template 衍生模式（无 fork 跟踪、无 merge 历史）
 ## 机制
 
 1. 周期触发：上游大版本发布或季度巡检。
-2. 运行差异报告：`pnpm ops:upstream-diff <基线SHA> [target-ref]`（脚本实现见 [upstream-diff.sh](../../scripts/ops/upstream-diff.sh)），产出上游改动清单、文件变更地图、冲突面清单三件套。
+2. 运行差异报告：`pnpm ops:upstream-diff <基线SHA> [target-ref]`（脚本实现见 [upstream-diff.sh](../../scripts/ops/upstream-diff.sh)），产出上游改动清单、文件变更地图、冲突面清单三件套；
+   默认输出到归档任务目录 `docs/tasks/archive/2026-08-29-pure-web-testing-foundation/upstream-diff/`，可用 `OUT_DIR` 覆盖。
 3. 逐项决策「吸收 / 跳过」；吸收项走正常子任务流程（strict 保持零错误 + 测试验收）。
 4. 吸收合入后，将下方基线推进到所吸收的 target ref，并在历史记录追加一行（只追加不改写）。
 

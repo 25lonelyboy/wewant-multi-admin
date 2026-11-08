@@ -3,7 +3,7 @@ status: living
 covers:
   - pnpm-workspace.yaml
   - .npmrc
-last_verified: 2026-10-12
+last_verified: 2026-11-08
 ---
 
 # 依赖治理：pnpm catalog 策略
@@ -35,11 +35,15 @@ uni-app 编译链与主仓 Vite 大版本不兼容：主仓走 `catalog:`（Vite
 
 - **Electron 生态**（electron / electron-builder / esbuild 编译链相关）在 `apps/electron-desktop/package.json` 精确 pin、不加 `^`：升级需整链评估（主进程 API、打包二进制、协议行为联动）。
 - **express `^5.0.0`** 入主 catalog：NestJS 11 依赖 express 5，框架级核心按判据 2 入 catalog（当前仅 nestjs-server 消费），避免未来多消费者分歧。
-- **jest 30.4.1** 被 catalog + 根 `package.json` 的 `overrides`（jest / jest-runtime / jest-circus / jest-mock / expect / jest-snapshot 全家）双重强制，避免 NestJS 生态拉入不兼容版本。
+- **jest 30.4.1** 被 catalog + `pnpm-workspace.yaml` 的 `overrides`（jest / jest-runtime / jest-circus / jest-mock / expect / jest-snapshot 全家）双重强制，避免 NestJS 生态拉入不兼容版本。
+- **pure-web 本地仍声明 `mqtt` 4.3.7**（当前源码无 import），与 catalog 的 `mqtt` 5.x 并存；属待清理项，登记于 [backlog](../governance/backlog.md)。
 - **istanbul 三库**（istanbul-lib-coverage 3.2.2 / istanbul-lib-report 3.0.1 / istanbul-reports 3.2.0）为 `apps/nestjs-server` 本地 devDependencies 精确 pin（D 类：单消费者不入 catalog）；版本与 jest 传递依赖一致，零新下载。
-- **`@tdengine/websocket` 3.5.0** 入主 catalog（两处消费：`apps/iot-worker` 的 TDengine 连接器 + `apps/nestjs-server` 的 STMT 探针脚本）。它是 TDengine 的官方 WebSocket 连接器，[ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md) D3 已定该客户端。**精确 pin 而非 `^`**：连接器的实际 API 面与官方文档不一致（见增量 2 第 2 项 §10 的实测），钉住被实测过的那个版本。
+- **`@tdengine/websocket` 3.5.0** 入主 catalog（两处消费：`apps/iot-worker` 的 TDengine 连接器 + `apps/nestjs-server` 的 STMT 探针脚本）。
+  它是 TDengine 的官方 WebSocket 连接器，[ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md) 已定该客户端。**精确 pin 而非 `^`**：连接器的实际 API 面与官方文档不一致（见数据链路阶段第 2 项 §10 的实测），钉住被实测过的那个版本。
 - **`bullmq` `^6.3.12`** 入主 catalog（两处消费：`apps/nestjs-server` 的生产者 + `apps/iot-worker` 的消费者）；MIT，缓冲层选型见 [ADR-010](../decisions/ADR-010-ingest-buffer-bullmq.md)。**不 pin**：官方语义稳定，按常规 `^` 跟随小版本。
-- **`allowBuilds` 显式关闭 `bufferutil` / `utf-8-validate`**：两者是 `ws` 的可选原生加速模块，关闭后 `ws` 自动退到 JS 实现——避免在 CI / Docker 里引入 node-gyp。⚠️ pnpm 安装时会把未决项写成占位串（`set this to true or false`），**必须替换成明确布尔值**，否则 `pnpm-workspace.yaml` 是坏值。
+- **`allowBuilds` 显式关闭 `bufferutil` / `utf-8-validate` / `msgpackr-extract`**：`bufferutil` / `utf-8-validate` 是 `ws` 的可选原生加速模块，`msgpackr-extract` 是可选原生加速包；关闭后自动退到 JS 实现——避免在 CI / Docker 里引入 node-gyp。
+  ⚠️ pnpm 安装时会把未决项写成占位串（`set this to true or false`），**必须替换成明确布尔值**，否则 `pnpm-workspace.yaml` 是坏值。
+- **`minimumReleaseAgeExclude` 目前只列 `@nestjs/swagger@11.4.7`**，主开关 `minimumReleaseAge` 未启用；它是单条例外而不是通用策略。
 - catalog 中已 pin 的包保持 pinned，不擅自补 `^`。
 
 ## 反模式（禁止）
@@ -50,4 +54,6 @@ uni-app 编译链与主仓 Vite 大版本不兼容：主仓走 `catalog:`（Vite
 
 ## 镜像与网络
 
-根 `.npmrc` 已集中配置：npmmirror registry、Electron 二进制镜像（`electron_mirror`）、electron-builder 打包二进制镜像（`electron_builder_binaries_mirror`）、fetch 超时与重试。应用脚本内如需覆盖，用 `ELECTRON_BUILDER_BINARIES_MIRROR` 环境变量（见桌面端打包脚本）。
+根 `.npmrc` 已集中配置：npmmirror registry、Electron 二进制镜像（`electron_mirror`）、electron-builder 打包二进制镜像（`electron_builder_binaries_mirror`）、fetch 超时与重试。
+
+应用脚本内如需覆盖，用 `ELECTRON_BUILDER_BINARIES_MIRROR` 环境变量（见桌面端打包脚本）。

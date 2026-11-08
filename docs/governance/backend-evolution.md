@@ -39,7 +39,7 @@ last_verified: 2026-11-07
 
 | 阶段 | 触发条件 | 内容要点 |
 | --- | --- | --- |
-| **A 生产前必备包** | 启动 VM docker 部署试点（近期，D4） | JWT secret 轮换预案、优雅停机统一超时、数据库备份与恢复演练、供应链加固（Renovate 公有 App + Trivy 入 CI 报警式）、审计日志基础版（登录事件 + 管理员敏感操作）、管理员手动解锁端点、compose 部署版形态（logging 轮转、restart 策略、数据卷备份点） |
+| **A 生产前必备包** | 启动 VM docker 部署试点（近期，部署试点） | JWT secret 轮换预案、优雅停机统一超时、数据库备份与恢复演练、供应链加固（Renovate 公有 App + Trivy 入 CI 报警式）、审计日志基础版（登录事件 + 管理员敏感操作）、管理员手动解锁端点、compose 部署版形态（logging 轮转、restart 策略、数据卷备份点） |
 | **B 观测闭环** | 首次真实生产流量 / 监控域立项 | 自建栈三件套一次落地：prom-client + Prometheus/Grafana、Loki 日志采集、OTel 追踪（抽取前必备）；监控域后端（SecurityLog + mine-logs）与审计日志深度；权限 Redis 缓存（若有性能信号） |
 | **C 规模化** | 压测热点 / 并发增长 / 多实例部署 | 权限 Redis 缓存（若 B 未触发）、写端点幂等键、优雅停机强化、e2e 数据清理加固、子资源并发窗口加固（行锁/版本号） |
 | **D 第二域扩展** | 第二限界上下文立项（dept / 监控域，或 iot 域——**已于 2026-10-05 由 iot 域命中**） | system 域只读查询门面（未来内部 API 雏形）、e2e 分层、schema.prisma 多文件拆分、module 域聚合落地、（若已有第二个外部适配器）common/infra 二分 |
@@ -55,7 +55,7 @@ iot 域作为第二个业务域落地（见 [ADR-009](../decisions/ADR-009-iot-p
 | e2e 分层（域 spec 下沉） | 已命中 | backlog 条目「新增第一个非 auth/system 域 e2e」，本次 iot e2e 已落地 |
 | system 域只读查询门面 | 未命中 | 原触发条件为「第二个需用户/角色信息的域」，iot 域不做 RBAC 查询 |
 | schema.prisma 多文件拆分 | 未命中 | 原触发条件为模型规模（> ~25 模型或 > ~600 行）；iot 域新增 4 个模型后共 9 个模型，仍在阈值内 |
-| common/ 与 infra/ 二分 | **延后（2026-10-12 判定）** | 原触发条件＝server 侧出现第二个外部中间件适配器。增量 2 落地后该条件失效：**消费者独立成 `apps/iot-worker`**，TDengine 客户端落在 worker 侧、不进 server，server 侧只剩一个薄的 BullMQ 生产者 ⇒ `common/` 里仍只有一个外部适配薄壳。**待 server 侧再落第二个外部适配器时重启评估**（同 [backlog](../governance/backlog.md) 该条） |
+| common/ 与 infra/ 二分 | **延后（2026-10-12 判定）** | 原触发条件＝server 侧出现第二个外部中间件适配器。数据链路阶段落地后该条件失效：**消费者独立成 `apps/iot-worker`**，TDengine 客户端落在 worker 侧、不进 server，server 侧只剩一个薄的 BullMQ 生产者 ⇒ `common/` 里仍只有一个外部适配薄壳。**待 server 侧再落第二个外部适配器时重启评估**（同 [backlog](../governance/backlog.md) 该条） |
 
 ### 阶段 A 已确认的范围决策（ADR-007）
 

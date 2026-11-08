@@ -2,7 +2,7 @@
 status: living
 covers:
   - apps/electron-desktop/
-last_verified: 2026-10-05
+last_verified: 2026-11-08
 ---
 
 # Electron 桌面端架构
@@ -29,8 +29,9 @@ apps/electron-desktop/
 桌面端**不复用** `file://` 或内嵌 HTTP 服务，而是用自定义协议（scheme 见 `electron/main/protocol.ts` 的 `SCHEME`）托管 pure-web 构建产物：
 
 - 协议在 `registerSchemesAsPrivileged` 中声明为 `secure`，避免混合内容限制。
-- 路径解析经 `safeJoin` 约束在产物根目录内（以产物根 + 路径分隔符做前缀校验），越界请求直接拒绝——渲染层不可读产物目录之外的文件。
-- 生产环境从打包资源目录解析 pure-web 的 `dist/`；preload 必须为 CJS（sandboxed renderer 限制）。
+- 路径解析经 `safeJoin` 约束在产物根目录内（以产物根 + 路径分隔符做前缀校验），越界请求回退到 `index.html`；带扩展名但文件不存在的资源返回 404，无扩展名的路径走 SPA 回退——渲染层不可读产物目录之外的文件。
+- 生产环境由 `esbuild.config.mjs` 把 pure-web 的 `dist/` 复制到应用内 `dist-electron/web`，打包进 asar 后由协议读取；dev 模式若设置 `VITE_DEV_SERVER_URL` 则直接加载该地址（默认 `http://localhost:8848`），自定义协议只在生产生效。
+  preload 必须为 CJS（sandboxed renderer 限制）。
 
 ## 托盘常驻行为
 
@@ -52,9 +53,10 @@ pnpm build:desktop
 ```
 
 - electron / electron-builder 版本**精确 pin**（当前 43.4.0 / 26.15.7，见 `apps/electron-desktop/package.json`），升级需整链评估。
-- 打包期二进制（NSIS、winCodeSign 等）通过镜像下载：`.npmrc` 的 `electron_builder_binaries_mirror` + 脚本内 `ELECTRON_BUILDER_BINARIES_MIRROR` 环境变量（npmmirror）。
+- 打包期二进制（NSIS、winCodeSign 等）通过镜像下载：`.npmrc` 的 `electron_builder_binaries_mirror` + 脚本内 `ELECTRON_BUILDER_BINARIES_MIRROR` 环境变量（npmmirror）；
+  Electron 自身 zip 由 `electron-builder.yml` 的 `electronDownload.mirror` 提供（@electron/get 不读 `.npmrc`）。
 - Windows 环境打包时若 `dist-electron/` 被进程占用会出现 EPERM 文件锁，重跑前确保无残留 electron 进程。
 
 ## 版本信息注入
 
-跨包版本信息（如 pure-web 的 `version.json`）在**构建期**经 define/生成文件注入，运行时不做跨包读取——修改版本展示逻辑时先查各端 build 脚本。
+跨包版本信息在**构建期**注入：Electron 侧 `esbuild.config.mjs` 读取 pure-web `package.json` 的 `version`，经 define 注入 `process.env.WEB_VERSION`，由 `system:getVersion` 返回；运行时不做跨包读取——修改版本展示逻辑时先查各端 build 脚本。

@@ -6,7 +6,7 @@ covers:
   - apps/pure-web/e2e/
   - .github/workflows/ci.yml
   - apps/pure-web/AGENTS.md
-last_verified: 2026-10-13
+last_verified: 2026-11-08
 ---
 
 # pure-web 前端测试评估规范
@@ -17,19 +17,19 @@ last_verified: 2026-10-13
 
 | 层级 | 定义 | 处置 |
 |------|------|------|
-| T1 纯逻辑 | 无 DOM 依赖，输入→输出可断言 | 单测 ≥80/80 |
-| T2 集成交互 | 含组件交互/状态流 | 集成测试 ≥80/80 |
-| T3 页面壳 | 仅 template 组合子组件，无独立分支 | smoke + exclude |
-| T4 jsdom 受限 | canvas/echarts/DOM 打印等 | 薄测试 + E2E 回补 + exclude |
-| T5 无逻辑 | barrel/纯类型/入口/静态页 | exclude + 理由 |
-| A 类已测 | 有 spec 但未登记 threshold | 补键 ≥80/80 |
+| 纯逻辑 | 无 DOM 依赖，输入→输出可断言 | 单测 ≥80/80 |
+| 集成交互 | 含组件交互/状态流 | 集成测试 ≥80/80 |
+| 页面壳 | 仅 template 组合子组件，无独立分支 | smoke + exclude |
+| 渲染受限 | canvas/echarts/DOM 打印等 | 薄测试 + E2E 回补 + exclude |
+| 无逻辑 | barrel/纯类型/入口/静态页 | exclude + 理由 |
+| 已测未登记阈值 | 有 spec 但未登记 threshold | 补键 ≥80/80 |
 
 ### 判定决策树
 
-新文件 → 有 DOM/canvas/echarts？→ T4
-→ 有 if/computed/事件分支？→ T1 或 T2
-→ 仅 template 组合？→ T3
-→ 纯 re-export/类型/配置？→ T5
+新文件 → 有 DOM/canvas/echarts？→ 渲染受限
+→ 有 if/computed/事件分支？→ 纯逻辑或集成交互
+→ 仅 template 组合？→ 页面壳
+→ 纯 re-export/类型/配置？→ 无逻辑
 
 ## 2. 阈值终态
 
@@ -37,7 +37,7 @@ last_verified: 2026-10-13
 
 - **全局聚合兜底**：lines / branches ≥80，作用于未单列的文件。
 - **crown-jewel ≥90**（6 键）：auth / user store / http / guards / tree / permission。
-- **T1/T2 文件级 ≥80/80**（3 键）：`ReCol` / `ReFlicker` / `ReText`，按 §5 随组件测试落地时登记。
+- **纯逻辑 / 集成交互文件级 ≥80/80**（3 键）：`ReCol` / `ReFlicker` / `ReText`，按 §5 随组件测试落地时登记。
 
 这三层是**执行策略，不是数学保证**：全局阈值只看聚合值，未单列的文件不做 per-file 校验。"非排除文件逐个达 80"是目标态，靠 §5 的登记流程维持，不靠配置自动强制。
 
@@ -52,9 +52,9 @@ last_verified: 2026-10-13
 
 ## 3. exclude 治理
 
-- 每条 exclude 映射 T3/T4/T5 + 理由
+- 每条 exclude 映射页面壳 / 渲染受限 / 无逻辑 + 理由
 - 配置内联理由 + 本文主表双处同源
-- T4 豁免双向登记：薄测试 + E2E 回补 + 主表登记，三者缺一视为技术债
+- 渲染受限豁免双向登记：薄测试 + E2E 回补 + 主表登记，三者缺一视为技术债
 
 ### exclude 主表
 
@@ -62,7 +62,8 @@ last_verified: 2026-10-13
 
 ## 4. 双层 E2E 操作细则
 
-> 本文档只治理 pure-web 的两个 E2E job（`e2e-web` / `e2e-web-real`）：其名称、触发方式与报警语义。同一 workflow 里其余 job（gate / coverage / coverage-web / docker-build / audit / doc-lint）的口径见 [build-and-verify.md](build-and-verify.md)。
+> 本文档只治理 pure-web 的两个 E2E job（`e2e-web` / `e2e-web-real`）：其名称、触发方式与报警语义。
+> 同一 workflow 里其余 job（gate / coverage / coverage-web / docker-build / audit / doc-lint）的口径见 [build-and-verify.md](build-and-verify.md)。
 >
 > `ci.yml` 是共享文件，其余 job 的任何改动都会触发本文档的 covers 复核——复核范围即：上述两个 job 是否受影响。
 
@@ -81,8 +82,8 @@ last_verified: 2026-10-13
 
 新文件加入时：
 1. 按决策树判定层级
-2. T1/T2：写测试 + 加 threshold 键 ≥80/80
-3. T3：写 smoke + 加 exclude
-4. T4：写薄测试 + 登记 exclude-registry + E2E 旅程覆盖
-5. T5：加 exclude + 内联理由
+2. 纯逻辑 / 集成交互：写测试 + 加 threshold 键 ≥80/80
+3. 页面壳：写 smoke + 加 exclude
+4. 渲染受限：写薄测试 + 登记 exclude-registry + E2E 旅程覆盖
+5. 无逻辑：加 exclude + 内联理由
 6. 若属 crown-jewel 域：门槛提升到 ≥90

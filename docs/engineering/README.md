@@ -1,13 +1,14 @@
 # 工程实践
 
-本目录承载可复用工程实践：构建与验证流程、依赖治理策略、环境与兼容性结论。命令速查在根 `AGENTS.md`，此处只写机制与判据。
+本目录承载可复用工程实践：构建与验证流程、依赖治理策略、环境与兼容性结论。命令速查与协作约定见 [commands-and-conventions.md](commands-and-conventions.md)。
 
 ## 主题索引
 
 | 文档 | 内容 |
 |---|---|
-| [dependency-catalog.md](dependency-catalog.md) | pnpm catalog 依赖治理：入 catalog 判据、A/B/C/D 分类法、named catalog 隔离、pin 策略 |
+| [commands-and-conventions.md](commands-and-conventions.md) | 仓库级命令速查、commit scope 白名单、任务图 env 透传与文档验收入口 |
+| [dependency-catalog.md](dependency-catalog.md) | pnpm catalog 依赖治理：入 catalog 判据、分类法、named catalog 隔离、pin 策略 |
 | [build-and-verify.md](build-and-verify.md) | 质量门禁（pnpm check + husky）、各端构建链、Docker 构建约束、测试分层 |
 | [frontend-testing-standard.md](frontend-testing-standard.md) | pure-web 前端测试评估规范：六层分类框架、阈值终态、exclude 治理、双层 E2E 细则 |
-| [pure-web-exclude-registry.md](pure-web-exclude-registry.md) | pure-web 覆盖率 exclude 豁免注册表：逐条映射 T3/T4/T5 与理由 |
+| [pure-web-exclude-registry.md](pure-web-exclude-registry.md) | pure-web 覆盖率 exclude 豁免注册表：逐条映射页面壳 / 渲染受限 / 无逻辑与理由 |
 | [upstream-tracking.md](upstream-tracking.md) | pure-web 上游同步跟踪：基线快照 + 选择性吸收机制、当前基线记录与推进历史 |

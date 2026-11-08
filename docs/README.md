@@ -19,10 +19,14 @@
 | [architecture/](architecture/README.md) | 当前架构事实、模块边界、不变量、安全约束 | 有事实源 |
 | [engineering/](engineering/README.md) | 可复用工程实践、构建与验证命令、依赖与兼容性结论 | 有事实源 |
 | [decisions/](decisions/README.md) | 架构决策记录（ADR），跨域决策唯一存放地 | ADR 索引已建立，条目以本目录索引为准 |
-| [tasks/](tasks/README.md)（冷索引 [archive/](tasks/archive/README.md)） | 大任务/阶段/专项治理的过程材料（热索引 + archive） | 热区：无进行中任务，增量 3（物模型）已收口；已完成条目按热 / 冷索引分层 |
-| product/ | 业务规则、角色、权限、术语表 | 暂无内容，待有业务文档时再建 |
-| operations/ | 部署、环境、CI/CD、观测 | 暂无内容（部署事实暂由代码内注释承载） |
-| [governance/](governance/README.md) | 文档体系维护规则、命名规则、路线图、协作边界 | 全局 backlog 登记册与 P1 阶段地图已建立 |
+| [tasks/](tasks/README.md)（冷索引 [archive/](tasks/archive/README.md)） | 大任务/阶段/专项治理的过程材料（热索引 + archive） | 热区：无进行中任务，物模型阶段已收口；已完成条目按热 / 冷索引分层 |
+| product/ | 业务规则、角色、权限、术语表 | 未创建；有业务文档时再建 |
+| operations/ | 部署、环境、CI/CD、观测 | 未创建；部署事实暂由代码内注释承载 |
+| [governance/](governance/README.md) | 文档体系维护规则、命名规则、路线图、协作边界 | 全局 backlog、P1 阶段地图与后端演进路线图已建立 |
+
+## 应用文档
+
+应用级事实与命令见已有的应用 `AGENTS.md`；入口汇总（含暂无应用级文档的应用）见 [commands-and-conventions.md](engineering/commands-and-conventions.md) 的「应用入口」节。
 
 ## 维护规则
 

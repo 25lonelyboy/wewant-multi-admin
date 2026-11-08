@@ -6,7 +6,7 @@ covers:
   - apps/pure-web/src/api/
   - apps/pure-web/mock/
   - apps/iot-worker/src/
-last_verified: 2026-11-07
+last_verified: 2026-11-08
 ---
 
 # contracts 契约包
@@ -20,16 +20,31 @@ last_verified: 2026-11-07
 
 ## 设备接入契约（iot 段）
 
-契约包除前后端 HTTP 接口外，还承载**设备侧契约**：主题模板 `wewant/devices/{localDeviceId}/telemetry`、订阅端通配过滤器、上行载荷类型，以及遥测入库队列的队列名与键前缀（选型与边界见 [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md) D3、[ADR-010](../decisions/ADR-010-ingest-buffer-bullmq.md)）。
+契约包除前后端 HTTP 接口外，还承载**设备侧契约**：
+
+- 主题模板 `wewant/devices/{localDeviceId}/telemetry` 与订阅端通配过滤器。
+- 上行载荷类型。
+- 遥测入库队列的队列名与键前缀。
+
+选型与边界见 [ADR-009](../decisions/ADR-009-iot-platform-p1-stack.md)、[ADR-010](../decisions/ADR-010-ingest-buffer-bullmq.md)。
 
 - **与 HTTP 契约的区别**：不走向应信封与 BizCode 体系——设备不认 HTTP，也不消费错误码；设备与订阅端只共享主题形状与 JSON 载荷。
 - **放这里的理由与 HTTP 契约一致**：发布方（设备 / 模拟器）与订阅方（订阅端 / 消费者）消费同一份定义，避免各自写常量后漂移。
 - **主题段是路由地址、不是身份**：段里放设备自报的 `localDeviceId`（`telemetryTopic` 生成、`localDeviceIdFromTopic` 逆运算）；平台不以其判定身份——**身份以载荷为准**，订阅端只做一致性拦截（主题段与载荷不一致即丢弃 + 计数 + 告警）。
-- **载荷字段**：`localDeviceId`（设备自报编号，与主题段同值）、`ts`（epoch 毫秒）、`metrics[]`（每项 `key` / `value` / `unit`）。`value` 是 `MetricValue` 联合——**number / boolean / string / 对象**（结构体序列化成 JSON 存一列），类型由物模型声明，载荷只保证"能表达"；深度校验（子字段、长度上限、数组拒绝）在模型层。载荷字段与主题占位段统一用 `localDeviceId`（早期草案的 `deviceId` 已弃用），wire format 以本契约为准；`unit` 随载荷上报、供与模型声明比对，不落存储列。
-- **设备侧编号约定**：`localDeviceIdForIndex` 生成 P1 编号（`sim-001`…），模拟器与设备档案共用同一函数，不靠事后断言对齐；`normalizeLocalId` 统一去首尾空白 + 小写（只处理同一台设备前后不一致，不跨设备去重）。`checkLocalDeviceId` 在其上做标识符校验：归一化后须匹配 `^[a-z0-9][a-z0-9._:-]*$`、长度 ≤ 64，失败原因是 `empty` / `too-long` / `invalid-char` 三者之一。它要进 MQTT 主题段与 HTTP 路径，非法编号无法稳定路由，故**注册入口**必须先过它；**注销 / 改期只做归一化**——存量档案里可能有规则收紧之前的编号，严格校验会让这些设备永远无法注销。
-- **队列常量**：`TELEMETRY_INGEST_QUEUE`（`iot-telemetry-ingest`）与 `TELEMETRY_QUEUE_PREFIX`（`wewant`）。生产者（订阅端）与消费者（`apps/iot-worker`）分属两个应用，队列名必须一处定义，否则两端会各自连到不同的队列而不报错。⚠️ 队列名**不能含 `:`**——BullMQ 用它作 Redis 键分隔符，含冒号构造即抛；故分隔符用 `-`，命名空间交给 `prefix`。⚠️ 反之，**同一应用内**的队列不属契约、就地定义即可——如降采样环的 `iot-telemetry-downsample`，其调度注册与消费都在 `apps/iot-worker` 进程内，没有第二个应用引用它（判据是"是否跨应用"，不是"是不是队列"）。
+- **载荷字段**：`localDeviceId`（设备自报编号，与主题段同值）、`ts`（epoch 毫秒）、`metrics[]`（每项 `key` / `value` / `unit`）。
+  `value` 是 `MetricValue` 联合——**number / boolean / string / 对象**（结构体序列化成 JSON 存一列），类型由物模型声明，载荷只保证"能表达"；深度校验（子字段、长度上限、数组拒绝）在模型层。
+  载荷字段与主题占位段统一用 `localDeviceId`（早期草案的 `deviceId` 已弃用），wire format 以本契约为准；`unit` 随载荷上报、供与模型声明比对，不落存储列。
+- **设备侧编号约定**：`localDeviceIdForIndex` 生成 P1 编号（`sim-001`…），模拟器与设备档案共用同一函数，不靠事后断言对齐；`normalizeLocalId` 统一去首尾空白 + 小写（只处理同一台设备前后不一致，不跨设备去重）。
+  `checkLocalDeviceId` 在其上做标识符校验：归一化后须匹配 `^[a-z0-9][a-z0-9._:-]*$`、长度 ≤ 64，失败原因是 `empty` / `too-long` / `invalid-char` 三者之一。
+  它要进 MQTT 主题段与 HTTP 路径，非法编号无法稳定路由，故**注册入口**必须先过它；**注销 / 改期只做归一化**——存量档案里可能有规则收紧之前的编号，严格校验会让这些设备永远无法注销。
+- **队列常量**：`TELEMETRY_INGEST_QUEUE`（`iot-telemetry-ingest`）与 `TELEMETRY_QUEUE_PREFIX`（`wewant`）。生产者（订阅端）与消费者（`apps/iot-worker`）分属两个应用，队列名必须一处定义，否则两端会各自连到不同的队列而不报错。
+  ⚠️ 队列名**不能含 `:`**——BullMQ 用它作 Redis 键分隔符，含冒号构造即抛；故分隔符用 `-`，命名空间交给 `prefix`。
+  ⚠️ 反之，**同一应用内**的队列不属契约、就地定义即可——如降采样环的 `iot-telemetry-downsample`，其调度注册与消费都在 `apps/iot-worker` 进程内，没有第二个应用引用它（判据是"是否跨应用"，不是"是不是队列"）。
 - **通道**：`IotChannel` 定义 `telemetry` / `service` / `event` 三个通道位，本增量只实现 `telemetry` 通路。订阅端只订遥测，`localDeviceIdFromTopic` 也只认 `telemetry`——放宽解析等于悄悄扩大订阅面。
-- **契约边界**：主题、上行载荷与队列名属契约；写哪张表、DDL 形态**不属**契约——DDL 语句归 `apps/nestjs-server` 的注册路径，`apps/iot-worker` 只保留开发期补齐脚本。同理，**存储列类型档位**（`FLOAT` / `DOUBLE` / `INT` / `BIGINT` / `BOOL` / `VARCHAR` 与 `VARCHAR(N)` 上限）、**进 DDL 的标识符与表名校验**（属性 key、模型编码、超表 / 子表命名）、**物模型的声明与校验**（属性档位、聚合集、结构体子字段）以及**平台设备标识的签发与校验**也不属契约，归 `packages/device-registry`——它们描述列与表名的形状，不是线上载荷。
+- **契约边界**：主题、上行载荷与队列名属契约；写哪张表、DDL 形态**不属**契约——DDL 语句归 `apps/nestjs-server` 的注册路径，`apps/iot-worker` 只保留开发期补齐脚本。
+  同理，
+  **存储列类型档位**（`FLOAT` / `DOUBLE` / `INT` / `BIGINT` / `BOOL` / `VARCHAR` 与 `VARCHAR(N)` 上限）、**进 DDL 的标识符与表名校验**（属性 key、模型编码、超表 / 子表命名）、**物模型的声明与校验**（属性档位、聚合集、结构体子字段）以及**平台设备标识的签发与校验**也不属契约，
+  归 `packages/device-registry`——它们描述列与表名的形状，不是线上载荷。
 
 ## 契约扩展流程（contracts 先行）
 
@@ -69,6 +84,8 @@ last_verified: 2026-11-07
 | 声明结构非法 | 400 | `VALIDATION_FAILED` | `{ issues: ModelIssue[] }`（`path` + `code`） |
 | 某档位用不了所选聚合（如 `bool` + `sum`） | 400 | `VALIDATION_FAILED` | `{ issues: [{ path, code: 'no-column-type' }] }` |
 | 某个 key 的存储类型变了 | 400 | `VALIDATION_FAILED` | `{ issues: [{ path, code: 'kind-changed' }] }` |
+| 新版本 `effectiveFrom` 不晚于当前最新版本 | 400 | `VALIDATION_FAILED` | `{ issues: [{ path: 'effectiveFrom', code: 'not-after-latest' }], latestEffectiveFrom }` |
+| 新版本 `effectiveFrom` 不在未来 | 400 | `VALIDATION_FAILED` | `{ issues: [{ path: 'effectiveFrom', code: 'not-in-future' }] }` |
 | 并发发布撞唯一约束 | 409 | `CONFLICT` | `{ reason: 'version-conflict' }` |
 | 表 / 列已存在，或结构与声明不符 | 409 | `CONFLICT` | `{ reason: 'table-exists' \| 'schema-mismatch', tables: string[] }` |
 
@@ -83,15 +100,19 @@ last_verified: 2026-11-07
 | 并发撞唯一约束 | 409 | `CONFLICT` | `{ reason: 'duplicate-device' }` |
 | 同名子表已存在 | 409 | `CONFLICT` | `{ reason: 'table-exists', tables: string[] }` |
 | `RETIRED` 设备同型号注册（复活）且 `fromAt` 早于最后一个非空 usage 的 `toAt` | 409 | `CONFLICT` | `{ reason: 'from-at-overlaps-usage', latestToAt }` |
-| `RETIRED` 设备仍有 open usage，或应有子表缺一张（复活不自动补） | 409 | `CONFLICT` | `{ reason: 'schema-mismatch', tables }` |
+| `RETIRED` 设备仍有 open usage | 409 | `CONFLICT` | `{ reason: 'schema-mismatch' }` |
+| `RETIRED` 设备应有子表缺一张（复活不自动补） | 409 | `CONFLICT` | `{ reason: 'schema-mismatch', tables }` |
+| `fromAt` 早于模型最早版本 | 409 | `CONFLICT` | `{ reason: 'from-at-before-model', modelCode, earliestEffectiveFrom? }` |
+| `fromAt` 不落在任何版本区间 | 409 | `CONFLICT` | `{ reason: 'from-at-not-covered', modelCode, earliestEffectiveFrom }` |
 | `localDeviceId` 不是标识符 | 400 | `VALIDATION_FAILED` | `{ issues: [{ path: 'localDeviceId', code: 'empty' \| 'too-long' \| 'invalid-char' }] }` |
+| `modelCode` 不是合法标识符 | 400 | `VALIDATION_FAILED` | `{ issues: [{ path: 'modelCode', code: 'invalid' }] }` |
 
 `DELETE /api/v1/iot/devices/:localDeviceId`（注销；未生效设备借此撤销）：
 
 | 情形 | HTTP | code | data |
 |---|---|---|---|
 | 设备不存在 | 404 | `NOT_FOUND` | `{ localDeviceId }` |
-| 路径编号归一化后为空 | 400 | `VALIDATION_FAILED` | `{ issues: [{ path: 'localDeviceId', code: 'empty' }] }` |
+| 路径编号归一化后为空 | 400 | `VALIDATION_FAILED` | `{ issues: [{ path: 'localDeviceId', code: 'invalid' }] }` |
 
 成功响应 `{ localDeviceId, deviceId, status: 'RETIRED', effectiveTo }`；已 `RETIRED` 重复调用返回 200，`toAt` 与 `statusChangedAt` 不变（存在 open usage 时按同一公式补闭合）。不删表、不删数据。
 
@@ -100,13 +121,25 @@ last_verified: 2026-11-07
 | 情形 | HTTP | code | data |
 |---|---|---|---|
 | 设备不存在 | 404 | `NOT_FOUND` | `{ localDeviceId }` |
-| 路径编号归一化后为空 | 400 | `VALIDATION_FAILED` | `{ issues: [{ path: 'localDeviceId', code: 'empty' }] }` |
+| 路径编号归一化后为空 | 400 | `VALIDATION_FAILED` | `{ issues: [{ path: 'localDeviceId', code: 'invalid' }] }` |
 | 设备非 `ACTIVE`，或 open usage 不是恰好一条 | 409 | `CONFLICT` | `{ reason: 'device-not-scheduled', status }` |
 | 当前 `usage.fromAt ≤ now`（已生效，不可改期） | 409 | `CONFLICT` | `{ reason: 'device-effective' }` |
 | 目标 `fromAt ≤ now` | 409 | `CONFLICT` | `{ reason: 'from-at-not-future' }` |
 | 目标早于模型最早版本 / 不落在任何版本区间 | 409 | `CONFLICT` | `{ reason: 'from-at-before-model' \| 'from-at-not-covered', earliestEffectiveFrom }` |
 
 成功响应 `{ localDeviceId, deviceId, modelCode, fromAt, version }`；同一 `fromAt` 重复提交幂等。
+
+`DELETE /api/v1/iot/models/:modelCode/versions/:version`（撤销未生效版本）：
+
+| 情形 | HTTP | code | data |
+|---|---|---|---|
+| 模型不存在 | 404 | `NOT_FOUND` | `{ modelCode }` |
+| 版本不存在 | 404 | `NOT_FOUND` | `{ modelCode, version }` |
+| 版本已生效 | 409 | `CONFLICT` | `{ reason: 'version-effective' }` |
+| 不是最新版本 | 409 | `CONFLICT` | `{ reason: 'version-not-latest' }` |
+| 撤销后有设备不再被任何版本覆盖 | 409 | `CONFLICT` | `{ reason: 'versions-uncover-devices', devices: string[] }` |
+
+成功响应 `{ modelCode, version, clearedUsages }`。
 
 ## 分页与时间约定
 

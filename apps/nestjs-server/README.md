@@ -1,18 +1,20 @@
 # nestjs-server
 
-多端管理后台 monorepo 的后端应用：NestJS 11 + Prisma 7（PostgreSQL）+ Redis，提供 JWT 双令牌认证、五表三级 RBAC 与 system 域 CRUD（全局软删除），响应统一 `{ code, message, data }` 信封。
+多端管理后台 monorepo 的后端应用：NestJS 11 + Prisma 7（PostgreSQL）+ Redis，提供 JWT 双令牌认证、五表三级 RBAC、system 域 CRUD（软删除，查询显式带 `deletedAt` 条件）与 iot 设备接入（MQTT 订阅投队列、档案/物模型注册），响应统一 `{ code, message, data }` 信封。
 
 ## 技术栈
 
-| 层     | 选型                                                             |
-| ------ | ---------------------------------------------------------------- |
-| 框架   | NestJS 11（Express 平台），ESM 模块                              |
-| 数据库 | Prisma 7 + PostgreSQL（driver adapter `PrismaPg` 自管连接池）    |
-| 缓存   | Redis（ioredis）：限流计数、refresh token 注册表、登录失败锁定   |
-| 认证   | passport-local + passport-jwt，JWT 双令牌轮换（argon2 密码哈希） |
-| 校验   | zod（env 启动校验）+ class-validator（DTO）                      |
-| 日志   | nestjs-pino 结构化日志（dev 可读 / 生产纯 JSON）                 |
-| 契约   | `@multi-admin/contracts`（workspace 包，前后端同源类型与错误码） |
+| 层       | 选型                                                             |
+| -------- | ---------------------------------------------------------------- |
+| 框架     | NestJS 11（Express 平台），ESM 模块                              |
+| 数据库   | Prisma 7 + PostgreSQL（driver adapter `PrismaPg` 自管连接池）    |
+| 缓存     | Redis（ioredis）：限流计数、refresh token 注册表、登录失败锁定   |
+| 认证     | passport-local + passport-jwt，JWT 双令牌轮换（argon2 密码哈希） |
+| 校验     | zod（env 启动校验）+ class-validator（DTO）                      |
+| 日志     | nestjs-pino 结构化日志（dev 可读 / 生产纯 JSON）                 |
+| 契约     | `@multi-admin/contracts`（workspace 包，前后端同源类型与错误码） |
+| 消息队列 | BullMQ：遥测生产者（消费者在 `apps/iot-worker`）                 |
+| 时序库   | TDengine：注册路径建表与列变更（懒连接，未配置不影响启动）       |
 
 ## 快速开始
 
@@ -40,7 +42,7 @@
    pnpm --filter @multi-admin/nestjs-server run dev
    ```
 
-   服务默认监听 3000 端口；非生产环境 Swagger 挂载于 `api/docs`，健康探针 `/health`（不受 `api/v1` 前缀约束）。
+   服务默认监听 3000 端口；非生产环境 Swagger 挂载于 `api/docs`，健康探针 `/health`（不受 `api/v1` 前缀约束）。iot 链路另需 EMQX 与 TDengine，`pnpm ops:env-up` 会一并启动并初始化 TDengine。
 
 ## 命令速查
 
@@ -61,22 +63,36 @@ pnpm --filter @multi-admin/nestjs-server run prisma:seed    # 显式 seed（Pris
 
 所有变量在 `src/config/env.schema.ts` 以 zod 声明，校验失败启动即崩；`apps/nestjs-server/.env.example` 含完整注释版。
 
-| 变量                                       | 说明                                                  |
-| ------------------------------------------ | ----------------------------------------------------- |
-| `PORT`                                     | 服务端口，默认 3000                                   |
-| `NODE_ENV`                                 | development / test / production                       |
-| `LOG_LEVEL`                                | fatal / error / warn / info / debug / trace           |
-| `CORS_ORIGIN`                              | 逗号分隔多来源，默认 `http://localhost:8848`          |
-| `DATABASE_URL`                             | PostgreSQL 连接串（本机开发指向 compose 映射的 5432） |
-| `REDIS_URL`                                | Redis 连接串                                          |
-| `ADMIN_INIT_PASSWORD`                      | seed 超管初始口令（仅首次生效）                       |
-| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | 双密钥，必须不同且 ≥32 字符                           |
-| `JWT_ACCESS_TTL` / `JWT_REFRESH_TTL`       | 默认 `15m` / `7d`                                     |
-| `BODY_LIMIT`                               | 全局请求体大小，默认 `1mb`                            |
-| `UPLOAD_BODY_LIMIT`                        | 上传路由 `/api/v1/upload` 大小，默认 `10mb`           |
-| `PRISMA_SLOW_QUERY_MS`                     | 慢查询阈值，默认 500ms                                |
-| `DATABASE_POOL_MAX`                        | 连接池最大连接数，默认 20                             |
-| `PRISMA_QUERY_LOG`                         | 全量查询日志开关（排障临时用，默认 false）            |
+| 变量                                                                    | 说明                                                               |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `PORT`                                                                  | 服务端口，默认 3000                                                |
+| `NODE_ENV`                                                              | development / test / production                                    |
+| `LOG_LEVEL`                                                             | fatal / error / warn / info / debug / trace                        |
+| `CORS_ORIGIN`                                                           | 逗号分隔多来源，默认 `http://localhost:8848`                       |
+| `DATABASE_URL`                                                          | PostgreSQL 连接串（本机开发指向 compose 映射的 5432）              |
+| `REDIS_URL`                                                             | 业务缓存 Redis 连接串                                              |
+| `QUEUE_REDIS_URL`                                                       | 遥测队列 Redis（与业务缓存分实例）                                 |
+| `MQTT_URL`                                                              | 订阅端 Broker 地址，默认 `mqtt://127.0.0.1:1883`                   |
+| `MQTT_CLIENT_ID` / `MQTT_CLEAN_SESSION` / `MQTT_SESSION_EXPIRY_SECONDS` | 持久会话参数；缺省保留会话，`CLEAN_SESSION=true` 用于 e2e 干净起始 |
+| `TDENGINE_URL`                                                          | TDengine taosAdapter WebSocket 入口（注册路径建表用）              |
+| `IOT_SPILL_DIR` / `IOT_SPILL_MAX_BYTES`                                 | 队列不可达时的本地缓冲目录与上限                                   |
+| `IOT_MAX_MESSAGE_BYTES`                                                 | 单条上行报文上限，默认 256 KiB                                     |
+| `ADMIN_INIT_PASSWORD`                                                   | seed 超管初始口令（仅首次生效）                                    |
+| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`                              | 双密钥，必须不同且 ≥32 字符                                        |
+| `JWT_ACCESS_TTL` / `JWT_REFRESH_TTL`                                    | 默认 `15m` / `7d`                                                  |
+| `BODY_LIMIT`                                                            | 全局请求体大小，默认 `1mb`                                         |
+| `UPLOAD_BODY_LIMIT`                                                     | 上传路由 `/api/v1/upload` 大小，默认 `10mb`                        |
+| `PRISMA_SLOW_QUERY_MS`                                                  | 慢查询阈值，默认 500ms                                             |
+| `DATABASE_POOL_MAX`                                                     | 连接池最大连接数，默认 20                                          |
+| `PRISMA_QUERY_LOG`                                                      | 全量查询日志开关（排障临时用，默认 false）                         |
+
+## 设备接入（iot 域）
+
+HTTP 之外的第二条入口：MQTT → 订阅端（本应用，轻量解析 + 投 BullMQ）→ `apps/iot-worker` → TDengine。
+
+注册路径 `POST /api/v1/iot/models`、`POST /api/v1/iot/devices` 写 PG 档案并在 TDengine 执行 DDL；MQTT 连接失败只告警并自动重连，不阻断启动。
+
+细节见 [`backend.md`](../../docs/architecture/backend.md) 与 [`contracts.md`](../../docs/architecture/contracts.md)。
 
 ## 测试
 
@@ -90,6 +106,6 @@ pnpm --filter @multi-admin/nestjs-server run prisma:seed    # 显式 seed（Pris
 
 - 模块分层 / 请求链 / API 约定 / 数据库事实：[`docs/architecture/backend.md`](../../docs/architecture/backend.md)
 - 契约与错误码表：[`docs/architecture/contracts.md`](../../docs/architecture/contracts.md)
-- 演进路线图：[`docs/architecture/backend-evolution.md`](../../docs/architecture/backend-evolution.md)
+- 演进路线图：[`docs/governance/backend-evolution.md`](../../docs/governance/backend-evolution.md)
 - 待处置项：[`docs/governance/backlog.md`](../../docs/governance/backlog.md)
 - AI 协作指南（硬规则）：本目录 [`AGENTS.md`](./AGENTS.md)

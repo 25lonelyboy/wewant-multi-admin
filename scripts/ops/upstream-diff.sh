@@ -5,12 +5,12 @@ set -euo pipefail
 # 用法：bash scripts/ops/upstream-diff.sh [baseline-sha] [target-ref]
 #   baseline-sha 省略 → 无基线模式：仅产出本地侧变更清单
 #   target-ref 默认 upstream/main
-# 输出：docs/tasks/2026-08-29-pure-web-testing-foundation/upstream-diff/ 三件套
+# 输出：docs/tasks/archive/2026-08-29-pure-web-testing-foundation/upstream-diff/ 三件套
 
 LOCAL_BASE="${LOCAL_BASE:-94a2cf9}" # pure-web template 接入提交（可用 git log 复核）
 BASE="${1:-}"
 TARGET="${2:-upstream/main}"
-OUT_DIR="${OUT_DIR:-docs/tasks/2026-08-29-pure-web-testing-foundation/upstream-diff}"
+OUT_DIR="${OUT_DIR:-docs/tasks/archive/2026-08-29-pure-web-testing-foundation/upstream-diff}"
 WEB_DIR="apps/pure-web"
 
 echo "▶ 确保 upstream remote 并 fetch..."
